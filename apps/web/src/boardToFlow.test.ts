@@ -16,7 +16,7 @@ describe("boardToFlow", () => {
     expect(nodes).toHaveLength(3);
     expect(nodes[0]).toMatchObject({ id: "root", type: "think", position: { x: 0, y: 0 } });
     const dep = edges.find((e) => e.source === fe && e.target === api)!;
-    expect(dep.data.type).toBe("dependency");
+    expect(dep.data?.type).toBe("dependency");
     expect(dep.animated).toBe(true);
   });
 });

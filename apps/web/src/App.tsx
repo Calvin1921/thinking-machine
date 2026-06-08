@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ReactFlow, Background, Controls, applyNodeChanges, type Node as FlowNode, type NodeChange } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
-import type { Board } from "@tm/core";
+import type { Board } from "@tm/core/schema";
 import { boardToFlow } from "./boardToFlow.js";
 import { ThinkNode } from "./ThinkNode.js";
 import { FacetDrawer } from "./FacetDrawer.js";

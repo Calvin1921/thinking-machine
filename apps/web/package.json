@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node --import tsx server/sidecar.ts & vite",
     "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "vite build"
   },
   "dependencies": {
@@ -19,6 +20,9 @@
     "vite": "^5.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "tsx": "^4.16.0",
-    "@types/express": "^4.17.0"
+    "vitest": "^2.0.0",
+    "@types/express": "^4.17.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0"
   }
 }

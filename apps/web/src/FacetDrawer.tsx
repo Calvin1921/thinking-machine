@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import type { Node as BNode } from "@tm/core";
-import { SEED_FACETS } from "@tm/core";
+import type { Node as BNode } from "@tm/core/schema";
+import { SEED_FACETS } from "@tm/core/schema";
 import { setFacet } from "./api.js";
 
 export function FacetDrawer({ node, onClose, onSaved }: { node: BNode | null; onClose: () => void; onSaved: () => void }) {

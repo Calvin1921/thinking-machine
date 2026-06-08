@@ -1,6 +1,6 @@
 // apps/web/src/boardToFlow.ts
-import type { Board, Node as BNode } from "@tm/core";
-import { SEED_FACETS } from "@tm/core";
+import type { Board, Node as BNode } from "@tm/core/schema";
+import { SEED_FACETS } from "@tm/core/schema";
 import type { Node as FlowNode, Edge as FlowEdge } from "@xyflow/react";
 
 export interface ThinkNodeData {
@@ -9,6 +9,7 @@ export interface ThinkNodeData {
   rootType?: string;
   sub: string;
   filledFacets: boolean[]; // one per seed facet, for the preview dots
+  [key: string]: unknown;
 }
 
 export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; edges: FlowEdge[] } {

@@ -1,4 +1,4 @@
-import type { Board } from "@tm/core";
+import type { Board } from "@tm/core/schema";
 
 export const getBoard = (): Promise<Board> => fetch("/api/board").then((r) => r.json());
 

@@ -4,6 +4,10 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./schema": { "types": "./dist/schema.d.ts", "default": "./dist/schema.js" }
+  },
   "scripts": {
     "test": "vitest run",
     "build": "tsc -p tsconfig.json"

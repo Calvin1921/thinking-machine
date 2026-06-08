@@ -14,7 +14,11 @@ const DEFAULT_H = 120;     // assumed height when a node hasn't been measured ye
  * `heights[id]` is the measured pixel height of each node; missing → DEFAULT_H.
  * Returns the new top-left {x,y} per node id.
  */
-export function tidyLayout(board: Board, heights: Record<string, number> = {}): Record<string, { x: number; y: number }> {
+export function tidyLayout(
+  board: Board,
+  heights: Record<string, number> = {},
+  collapsed: Set<string> = new Set(),
+): Record<string, { x: number; y: number }> {
   const kids: Record<string, string[]> = {};
   for (const n of board.nodes) kids[n.id] = [];
   for (const e of board.edges) if (e.type === "decomposition") kids[e.from]?.push(e.to);
@@ -28,7 +32,7 @@ export function tidyLayout(board: Board, heights: Record<string, number> = {}): 
   const place = (id: string, depth: number): number => {
     if (seen.has(id)) return pos[id] ? pos[id].y + h(id) / 2 : 0; // guard shared nodes / cycles
     seen.add(id);
-    const cs = kids[id] ?? [];
+    const cs = collapsed.has(id) ? [] : (kids[id] ?? []); // a collapsed node lays out as a leaf
     let center: number;
     if (cs.length === 0) {
       center = cursor + h(id) / 2;        // claim a slot the size of this card
@@ -42,9 +46,12 @@ export function tidyLayout(board: Board, heights: Record<string, number> = {}): 
   };
 
   place(board.rootId, 0);
-  // orphans not reachable from the root: stack them below in their own slots
+  // Genuine orphans (no parent, e.g. loose dump nodes) get stacked below. Children
+  // hidden under a collapsed ancestor are NOT placed here — they keep their positions.
+  const hasParent = new Set<string>();
+  for (const list of Object.values(kids)) for (const c of list) hasParent.add(c);
   for (const n of board.nodes) {
-    if (!pos[n.id]) { pos[n.id] = { x: 0, y: cursor }; cursor += h(n.id) + GAP; }
+    if (!pos[n.id] && !hasParent.has(n.id)) { pos[n.id] = { x: 0, y: cursor }; cursor += h(n.id) + GAP; }
   }
   return pos;
 }

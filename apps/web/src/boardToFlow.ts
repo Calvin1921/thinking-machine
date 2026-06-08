@@ -10,6 +10,9 @@ export interface ThinkNodeData {
   image?: string;         // optional image URL rendered atop the card
   preview: string;        // the node's own content (full, untruncated) — shown on the card
   filledFacets: string[]; // names of the lenses that have content
+  childCount: number;     // number of decomposition children (for the collapse toggle)
+  collapsed?: boolean;    // injected at render time
+  onToggle?: (id: string) => void; // injected at render time
   [key: string]: unknown;
 }
 
@@ -24,6 +27,10 @@ function firstContent(facets: BNode["facets"]): string {
 }
 
 export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; edges: FlowEdge[] } {
+  const childCount: Record<string, number> = {};
+  for (const n of board.nodes) childCount[n.id] = 0;
+  for (const e of board.edges) if (e.type === "decomposition") childCount[e.from] = (childCount[e.from] ?? 0) + 1;
+
   const nodes = board.nodes.map((n) => ({
     id: n.id,
     type: "think",
@@ -35,6 +42,7 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
       image: n.image,
       preview: firstContent(n.facets),
       filledFacets: SEED_FACETS.filter((f) => (n.facets[f]?.length ?? 0) > 0),
+      childCount: childCount[n.id] ?? 0,
     },
   }));
 

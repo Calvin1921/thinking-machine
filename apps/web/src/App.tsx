@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ReactFlow, Background, Controls, applyNodeChanges, type Node as FlowNode, type NodeChange } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
@@ -12,6 +12,24 @@ import { CollectionView } from "./CollectionView.js";
 import { getBoard, moveNode, onBoardChange } from "./api.js";
 
 const nodeTypes = { think: ThinkNode };
+
+/** Ids of nodes hidden because an ancestor is collapsed (the collapsed node itself stays visible). */
+function computeHidden(board: Board, collapsed: Set<string>): Set<string> {
+  const kids: Record<string, string[]> = {};
+  for (const n of board.nodes) kids[n.id] = [];
+  for (const e of board.edges) if (e.type === "decomposition") kids[e.from]?.push(e.to);
+  const hidden = new Set<string>();
+  const seen = new Set<string>();
+  const walk = (id: string, under: boolean) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    if (under) hidden.add(id);
+    const childUnder = under || collapsed.has(id);
+    for (const c of kids[id] ?? []) walk(c, childUnder);
+  };
+  walk(board.rootId, false);
+  return hidden;
+}
 
 /** Active board id from the URL hash, or null for the collection. `#/board/:id`. */
 function boardIdFromHash(): string | null {
@@ -39,6 +57,11 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const [board, setBoard] = useState<Board | null>(null);
   const [flowNodes, setFlowNodes] = useState<FlowNode[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const toggleCollapse = useCallback((id: string) => {
+    setCollapsed((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }, []);
 
   const refresh = useCallback(async () => {
     const b = await getBoard(boardId);
@@ -63,13 +86,30 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     // React Flow v12 exposes each rendered node's measured size as node.measured?.height.
     const heights: Record<string, number> = {};
     for (const n of flowNodes) { const hh = n.measured?.height; if (hh) heights[n.id] = hh; }
-    const pos = tidyLayout(board, heights);
+    const pos = tidyLayout(board, heights, collapsed);
     setFlowNodes((ns) => ns.map((n) => (pos[n.id] ? { ...n, position: pos[n.id] } : n)));
     Object.entries(pos).forEach(([id, p]) => moveNode(boardId, id, p.x, p.y));
-  }, [board, boardId, flowNodes]);
+  }, [board, boardId, flowNodes, collapsed]);
+
+  // Collapse all nodes that have children, except the root → overview = root + its direct children.
+  const collapseAll = useCallback(() => {
+    if (!board) return;
+    const counts: Record<string, number> = {};
+    for (const e of board.edges) if (e.type === "decomposition") counts[e.from] = (counts[e.from] ?? 0) + 1;
+    setCollapsed(new Set(board.nodes.filter((n) => counts[n.id] && n.id !== board.rootId).map((n) => n.id)));
+  }, [board]);
+  const expandAll = useCallback(() => setCollapsed(new Set()), []);
+
+  const hidden = useMemo(() => (board ? computeHidden(board, collapsed) : new Set<string>()), [board, collapsed]);
+  const displayNodes = useMemo(
+    () => flowNodes
+      .filter((n) => !hidden.has(n.id))
+      .map((n) => ({ ...n, data: { ...n.data, collapsed: collapsed.has(n.id), onToggle: toggleCollapse } })),
+    [flowNodes, hidden, collapsed, toggleCollapse],
+  );
 
   if (!board) return <div className="loading">Loading board…</div>;
-  const edges = boardToFlow(board).edges;
+  const edges = boardToFlow(board).edges.filter((e) => !hidden.has(e.source) && !hidden.has(e.target));
   const selectedNode = board.nodes.find((n) => n.id === selected) ?? null;
 
   return (
@@ -78,9 +118,11 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         <button className="back" onClick={onBack}>← Canvases</button>
         <span className="topbar-title">{board.title}</span>
         <button className="back" onClick={tidy} title="Auto-arrange the tree">⤢ Tidy</button>
+        <button className="back" onClick={collapsed.size ? expandAll : collapseAll}
+          title="Toggle overview">{collapsed.size ? "⊞ Expand all" : "⊟ Collapse all"}</button>
       </div>
       <ReactFlow
-        nodes={flowNodes}
+        nodes={displayNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}

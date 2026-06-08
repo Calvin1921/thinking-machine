@@ -3,7 +3,7 @@ import type { ThinkNodeData } from "./boardToFlow.js";
 
 const KIND_BORDER: Record<string, string> = { root: "#c78bff", branch: "#323a47", atom: "#323a47" };
 
-export function ThinkNode({ data, selected }: NodeProps & { data: ThinkNodeData }) {
+export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeData }) {
   return (
     <div className={`think ${data.kind} ${selected ? "sel" : ""}`} style={{ borderColor: KIND_BORDER[data.kind] }}>
       <Handle type="target" position={Position.Left} />
@@ -24,6 +24,15 @@ export function ThinkNode({ data, selected }: NodeProps & { data: ThinkNodeData 
         <div className="t-facets">
           {data.filledFacets.map((f) => <span key={f}>{f}</span>)}
         </div>
+      )}
+      {data.childCount > 0 && (
+        <button
+          className="t-toggle"
+          title={data.collapsed ? `Expand ${data.childCount}` : "Collapse"}
+          onClick={(e) => { e.stopPropagation(); data.onToggle?.(id); }}
+        >
+          {data.collapsed ? `+${data.childCount}` : "–"}
+        </button>
       )}
       <Handle type="source" position={Position.Right} />
     </div>

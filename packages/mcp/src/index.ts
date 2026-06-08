@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { z } from "zod";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
-  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage,
+  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, growSubtree,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -82,6 +82,24 @@ export function buildServer(dir: string): McpServer {
     },
     async ({ board, nodeId, decomposition, edges, facets }) =>
       ok(mutate(resolveBoard(board), (b) => decompose(b, nodeId, { decomposition, edges, facets }))));
+
+  // Recursive GrowNode shape (a node may carry nested children of the same shape).
+  const growNode: z.ZodType<any> = z.lazy(() => z.object({
+    label: z.string(),
+    kind: z.enum(["branch", "atom"]),
+    facets: z.record(z.string(), z.array(z.string())).optional(),
+    children: z.array(growNode).optional(),
+  }));
+
+  server.tool("tm_grow", "Create a whole nested multi-level subtree under a parent in one shot on a board",
+    {
+      board: z.string().describe(BOARD_DESC),
+      parentId: z.string().describe("id of the node the new subtree hangs under (e.g. \"root\")"),
+      nodes: z.array(growNode).describe("forest of GrowNodes {label,kind,facets?,children?}; children recurse to any depth"),
+      edges: z.array(z.object({ fromLabel: z.string(), toLabel: z.string(), type: z.enum(["decomposition", "dependency"]) })).optional(),
+    },
+    async ({ board, parentId, nodes, edges }) =>
+      ok(mutate(resolveBoard(board), (b) => growSubtree(b, parentId, { nodes, edges }))));
 
   return server;
 }

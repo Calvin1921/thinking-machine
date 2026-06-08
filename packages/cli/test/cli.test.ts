@@ -56,6 +56,24 @@ describe("tm cli", () => {
     expect(b.edges.some((e: any) => e.type === "dependency")).toBe(true);
   });
 
+  it("grow commits a nested subtree from JSON", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    const input = JSON.stringify({
+      nodes: [
+        { label: "A", kind: "branch", children: [{ label: "B", kind: "atom" }] },
+        { label: "C", kind: "branch" },
+      ],
+      edges: [{ fromLabel: "C", toLabel: "A", type: "dependency" }],
+    });
+    run(["grow", "root", "--json", input]);
+    const out = JSON.parse(run(["show", "--json"]));
+    expect(out.nodes.map((n: any) => n.label).sort()).toEqual(["A", "App", "B", "C"]);
+    const id = (label: string) => out.nodes.find((n: any) => n.label === label).id;
+    expect(out.edges).toContainEqual({ from: "root", to: id("A"), type: "decomposition" });
+    expect(out.edges).toContainEqual({ from: id("A"), to: id("B"), type: "decomposition" });
+    expect(out.edges).toContainEqual({ from: id("C"), to: id("A"), type: "dependency" });
+  });
+
   it("new creates a board in --dir and ls --json reflects it", () => {
     const id = runDir(["new", "Research Plan", "--root-type", "decision"]).trim();
     expect(id).toBe("research-plan");

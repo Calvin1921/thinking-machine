@@ -70,6 +70,29 @@ describe("mcp tools", () => {
     expect(boards.map((b: any) => b.id)).toContain(id);
   });
 
+  it("tm_grow commits a nested subtree on the named board", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({
+      name: "tm_create_board", arguments: { title: "App", rootType: "objective" },
+    }));
+    await c.callTool({ name: "tm_grow", arguments: {
+      board: id,
+      parentId: "root",
+      nodes: [
+        { label: "A", kind: "branch", children: [{ label: "B", kind: "atom", facets: { definition: ["b def"] } }] },
+        { label: "C", kind: "branch" },
+      ],
+      edges: [{ fromLabel: "C", toLabel: "A", type: "dependency" }],
+    }});
+    const b = payload(await c.callTool({ name: "tm_show", arguments: { board: id } }));
+    expect(b.nodes.map((n: any) => n.label).sort()).toEqual(["A", "App", "B", "C"]);
+    const nid = (label: string) => b.nodes.find((n: any) => n.label === label).id;
+    expect(b.edges).toContainEqual({ from: "root", to: nid("A"), type: "decomposition" });
+    expect(b.edges).toContainEqual({ from: nid("A"), to: nid("B"), type: "decomposition" });
+    expect(b.edges).toContainEqual({ from: nid("C"), to: nid("A"), type: "dependency" });
+    expect(b.nodes.find((n: any) => n.label === "B").facets.definition).toEqual(["b def"]);
+  });
+
   it("tm_show with a bad board id returns an isError result", async () => {
     const c = await connect();
     const res: any = await c.callTool({ name: "tm_show", arguments: { board: "../etc" } });

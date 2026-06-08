@@ -3,7 +3,7 @@ import { Command } from "commander";
 import { existsSync } from "node:fs";
 import {
   newBoard, loadBoard, saveBoard, mutate,
-  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage,
+  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, growSubtree,
   listBoards, createBoard,
 } from "@tm/core";
 
@@ -76,6 +76,11 @@ program.command("promote <id> <facet> <index>")
 program.command("decompose <id>")
   .requiredOption("--json <proposal>", "JSON {decomposition, edges?, facets?}")
   .action((id, opts) => { mutate(file(), (b) => decompose(b, id, JSON.parse(opts.json))); });
+
+program.command("grow <id>")
+  .description("grow a whole nested subtree under <id> in one shot")
+  .requiredOption("--json <input>", "JSON GrowInput {nodes:[{label,kind,facets?,children?}], edges?}")
+  .action((id, opts) => { mutate(file(), (b) => growSubtree(b, id, JSON.parse(opts.json))); });
 
 try { program.parse(); }
 catch (err) { process.stderr.write(`Error: ${(err as Error).message}\n`); process.exit(1); }

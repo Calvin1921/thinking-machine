@@ -12,6 +12,7 @@ export const NodeSchema = z.object({
   label: z.string().min(1),
   kind: NodeKind,
   rootType: RootType.optional(),
+  image: z.string().optional(),
   x: z.number(),
   y: z.number(),
   // facet key -> list of thought items (strings in v1). Domain-specific keys allowed.

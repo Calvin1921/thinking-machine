@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage } from "../src/ops.js";
 
 describe("ops", () => {
   it("addNode appends a node and a decomposition edge to its parent", () => {
@@ -53,6 +53,19 @@ describe("ops", () => {
     expect(b.edges.filter((e) => e.type === "decomposition")).toHaveLength(2);
     expect(b.edges.filter((e) => e.type === "dependency")).toHaveLength(1);
     expect(b.nodes[0].facets.considerations).toContain("scope creep");
+  });
+
+  it("setNodeImage attaches an image url, and an empty string clears it", () => {
+    let b = newBoard("App", "objective");
+    b = setNodeImage(b, "root", "https://example.com/pic.png");
+    expect(b.nodes[0].image).toBe("https://example.com/pic.png");
+    b = setNodeImage(b, "root", "");
+    expect(b.nodes[0].image).toBeUndefined();
+  });
+
+  it("setNodeImage throws on an unknown node", () => {
+    const b = newBoard("App", "objective");
+    expect(() => setNodeImage(b, "nope", "x")).toThrow();
   });
 
   it("addNode throws on an unknown parent", () => {

@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, existsSync, writeFileSync, readdirSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { boardPath, listBoards, createBoard } from "../src/boards.js";
-import { loadBoard } from "../src/board.js";
+import { loadBoard, newBoard, saveBoard } from "../src/board.js";
 
 let dir: string;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "tm-boards-")); });
@@ -52,6 +52,16 @@ describe("boards directory", () => {
     expect(b).toBe("same-title-2");
     expect(c).toBe("same-title-3");
     expect(new Set([a, b, c]).size).toBe(3);
+  });
+
+  it("listBoards uses the FILENAME as id even when the board's internal id differs", () => {
+    // CLI `tm init` writes boards with internal id "board"; the filename is the real id.
+    saveBoard(boardPath(dir, "my-canvas"), newBoard("Hand-named", "objective"));
+    const list = listBoards(dir);
+    expect(list).toHaveLength(1);
+    expect(list[0].id).toBe("my-canvas"); // not the internal "board"
+    // and that id round-trips through boardPath/loadBoard
+    expect(existsSync(boardPath(dir, list[0].id))).toBe(true);
   });
 
   it("listBoards on a non-existent directory returns []", () => {

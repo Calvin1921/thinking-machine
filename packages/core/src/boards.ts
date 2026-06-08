@@ -46,7 +46,9 @@ export function listBoards(dir: string): BoardSummary[] {
     try {
       const board = loadBoard(full);
       summaries.push({
-        id: board.id,
+        // The FILENAME is the canonical id — it's what boardPath()/routing resolve.
+        // board.id is unreliable (e.g. "board" for CLI-init'd boards) so must NOT be used here.
+        id: file.replace(/\.json$/, ""),
         title: board.title,
         rootType: rootTypeOf(board),
         nodeCount: board.nodes.length,

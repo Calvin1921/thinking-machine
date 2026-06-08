@@ -7,6 +7,14 @@ export function ThinkNode({ data, selected }: NodeProps & { data: ThinkNodeData 
   return (
     <div className={`think ${data.kind} ${selected ? "sel" : ""}`} style={{ borderColor: KIND_BORDER[data.kind] }}>
       <Handle type="target" position={Position.Left} />
+      {data.image && (
+        <img
+          className="t-img"
+          src={data.image}
+          alt=""
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+        />
+      )}
       <div className="t-label">{data.label}</div>
       {data.kind === "root" && data.rootType && <div className="t-sub">{data.rootType}</div>}
       {data.preview

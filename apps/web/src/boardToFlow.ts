@@ -7,7 +7,8 @@ export interface ThinkNodeData {
   label: string;
   kind: BNode["kind"];
   rootType?: string;
-  preview: string;        // first line of the node's own content — shown on the card
+  image?: string;         // optional image URL rendered atop the card
+  preview: string;        // the node's own content (full, untruncated) — shown on the card
   filledFacets: string[]; // names of the lenses that have content
   [key: string]: unknown;
 }
@@ -31,6 +32,7 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
       label: n.label,
       kind: n.kind,
       rootType: n.rootType,
+      image: n.image,
       preview: firstContent(n.facets),
       filledFacets: SEED_FACETS.filter((f) => (n.facets[f]?.length ?? 0) > 0),
     },

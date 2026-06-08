@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Thinking Machine — Discovery Draft</title>
+<style>
+  :root{
+    --bg:#0d0f12; --bg2:#13161b; --panel:#171b22; --panel2:#1d222b;
+    --line:#262c36; --line2:#323a47;
+    --ink:#e6e9ef; --ink-dim:#9aa3b2; --ink-faint:#5c6573;
+    --accent:#7c9cff; --accent2:#5ce0c6; --warn:#f0a868; --root:#c78bff;
+    --r:12px; --r-sm:8px;
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--font); background:var(--bg); color:var(--ink);
+    overflow:hidden; -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    height:52px; display:flex; align-items:center; gap:14px;
+    padding:0 16px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,var(--bg2),var(--bg));
+    position:relative; z-index:30;
+  }
+  .brand{font-weight:650; letter-spacing:-.01em; font-size:14px; display:flex; align-items:center; gap:8px}
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);box-shadow:0 0 10px var(--accent2)}
+  .crumbs{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-dim)}
+  .crumbs button{
+    background:none;border:none;color:var(--ink-dim);font:inherit;cursor:pointer;
+    padding:4px 8px;border-radius:6px;
+  }
+  .crumbs button:hover{background:var(--panel2);color:var(--ink)}
+  .crumbs .sep{color:var(--ink-faint)}
+  .crumbs .here{color:var(--ink);font-weight:600}
+  .spacer{flex:1}
+  .toolbtn{
+    background:var(--panel); border:1px solid var(--line); color:var(--ink-dim);
+    font:inherit; font-size:12.5px; padding:7px 12px; border-radius:8px; cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+  }
+  .toolbtn:hover{border-color:var(--line2); color:var(--ink)}
+  .toolbtn.on{color:var(--accent2); border-color:#2c4a45; background:#12211e}
+
+  /* ---------- stage ---------- */
+  .stage{position:absolute; inset:52px 0 0 0; overflow:hidden}
+  .view{position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .25s ease}
+  .view.active{opacity:1; pointer-events:auto}
+
+  /* ======== GALAXY VIEW ======== */
+  #galaxy{overflow:auto; padding:32px 40px 80px}
+  .galaxy-head{max-width:1100px;margin:0 auto 26px}
+  .galaxy-head h1{font-size:22px; font-weight:680; letter-spacing:-.02em}
+  .galaxy-head p{color:var(--ink-dim); font-size:13.5px; margin-top:6px; max-width:560px; line-height:1.55}
+  .clusters{max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:28px}
+  .cluster{
+    border:1px solid var(--line); border-radius:var(--r); background:var(--bg2);
+    padding:18px 18px 20px;
+  }
+  .cluster-head{display:flex; align-items:center; gap:10px; margin-bottom:14px}
+  .cluster-tag{width:10px;height:10px;border-radius:3px}
+  .cluster-head h2{font-size:14px; font-weight:640}
+  .cluster-head .count{font-size:11.5px; color:var(--ink-faint); background:var(--panel); padding:2px 8px; border-radius:20px; border:1px solid var(--line)}
+  .canvas-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px}
+  .canvas-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:14px; cursor:pointer; transition:transform .12s ease,border-color .12s ease;
+    position:relative; min-height:108px; display:flex; flex-direction:column;
+  }
+  .canvas-card:hover{transform:translateY(-2px); border-color:var(--line2)}
+  .canvas-card .mini{
+    height:42px; margin:-2px -4px 10px; border-radius:6px; opacity:.7;
+    background:
+      radial-gradient(circle at 20% 60%, var(--c) 0 4px, transparent 5px),
+      radial-gradient(circle at 50% 30%, var(--c) 0 5px, transparent 6px),
+      radial-gradient(circle at 78% 65%, var(--c) 0 4px, transparent 5px),
+      linear-gradient(90deg, transparent 40%, var(--c) 40% 41%, transparent 41% 59%, var(--c) 59% 60%, transparent 60%);
+  }
+  .canvas-card h3{font-size:13.5px; font-weight:620; letter-spacing:-.01em}
+  .canvas-card .meta{margin-top:auto; padding-top:10px; font-size:11px; color:var(--ink-faint); display:flex; gap:10px}
+  .canvas-card .kind{display:inline-flex; align-items:center; gap:5px}
+  .kind .pill{width:6px;height:6px;border-radius:50%}
+
+  /* ======== CANVAS VIEW ======== */
+  #canvas{cursor:grab}
+  #canvas.grabbing{cursor:grabbing}
+  #cworld{position:absolute; inset:0; transform-origin:0 0}
+  #edges{position:absolute; left:0; top:0; overflow:visible; pointer-events:none}
+  .node{
+    position:absolute; transform:translate(-50%,-50%);
+    background:var(--panel); border:1px solid var(--line2); border-radius:var(--r-sm);
+    padding:10px 13px; min-width:120px; max-width:190px; cursor:pointer;
+    transition:border-color .12s, box-shadow .12s, background .12s;
+    user-select:none;
+  }
+  .node:hover{border-color:var(--accent); box-shadow:0 4px 18px rgba(0,0,0,.4)}
+  .node .nlabel{font-size:13px; font-weight:600; letter-spacing:-.01em; line-height:1.25}
+  .node .nsub{font-size:10.5px; color:var(--ink-faint); margin-top:3px}
+  .node .ntoggle{
+    position:absolute; right:-10px; top:50%; transform:translateY(-50%);
+    width:20px;height:20px;border-radius:50%; background:var(--panel2); border:1px solid var(--line2);
+    color:var(--ink-dim); font-size:13px; line-height:18px; text-align:center;
+  }
+  .node[data-kind="root"]{border-color:var(--root); background:#1c1526}
+  .node[data-kind="root"] .nlabel{color:#e9d6ff}
+  .node[data-kind="atom"]{border-style:dashed; opacity:.92}
+  .node.sel{border-color:var(--accent2); box-shadow:0 0 0 3px rgba(92,224,198,.15)}
+  .node .dot-facets{display:flex; gap:3px; margin-top:7px}
+  .node .dot-facets i{width:5px;height:5px;border-radius:50%;background:var(--line2)}
+  .node .dot-facets i.filled{background:var(--accent)}
+
+  .legend{
+    position:absolute; left:16px; bottom:16px; z-index:10;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:11px 13px; font-size:11.5px; color:var(--ink-dim); display:flex; flex-direction:column; gap:7px;
+  }
+  .legend .row{display:flex; align-items:center; gap:8px}
+  .legend .sw{width:22px; height:0; border-top:2px solid}
+  .legend .chip{width:11px;height:11px;border-radius:3px;border:1px solid}
+  .zoomhint{position:absolute; right:16px; bottom:16px; z-index:10; font-size:11px; color:var(--ink-faint)}
+
+  /* ======== NODE / FACET DRAWER ======== */
+  .drawer{
+    position:absolute; top:0; right:0; height:100%; width:380px; z-index:40;
+    background:var(--bg2); border-left:1px solid var(--line);
+    transform:translateX(100%); transition:transform .26s cubic-bezier(.4,0,.2,1);
+    display:flex; flex-direction:column;
+  }
+  .drawer.open{transform:translateX(0); box-shadow:-20px 0 40px rgba(0,0,0,.35)}
+  .drawer-head{padding:18px 20px 14px; border-bottom:1px solid var(--line)}
+  .drawer-head .dk{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); display:flex; align-items:center; gap:7px}
+  .drawer-head .dk .pill{width:7px;height:7px;border-radius:50%}
+  .drawer-head h2{font-size:19px; font-weight:680; letter-spacing:-.02em; margin-top:8px}
+  .drawer-head .dpath{font-size:11.5px; color:var(--ink-faint); margin-top:6px}
+  .drawer-close{position:absolute; top:14px; right:14px; background:none; border:none; color:var(--ink-faint); font-size:20px; cursor:pointer; line-height:1}
+  .drawer-close:hover{color:var(--ink)}
+  .facets{flex:1; overflow:auto; padding:8px 8px 30px}
+  .facet{border:1px solid var(--line); border-radius:10px; margin:10px 12px; overflow:hidden; background:var(--panel)}
+  .facet-head{display:flex; align-items:center; gap:9px; padding:11px 13px; cursor:pointer}
+  .facet-head:hover{background:var(--panel2)}
+  .facet-head .ic{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px}
+  .facet-head .ft{font-size:13px; font-weight:600; flex:1}
+  .facet-head .fc{font-size:11px; color:var(--ink-faint)}
+  .facet-body{padding:0 13px 13px; display:none}
+  .facet.open .facet-body{display:block}
+  .facet-body ul{list-style:none; display:flex; flex-direction:column; gap:7px}
+  .facet-body li{font-size:12.5px; color:var(--ink-dim); line-height:1.5; padding-left:16px; position:relative}
+  .facet-body li::before{content:''; position:absolute; left:2px; top:7px; width:5px;height:5px;border-radius:50%; background:var(--accent)}
+  .facet-body li.promote{color:var(--ink)}
+  .facet-body li .promo-btn{
+    margin-left:8px; font-size:10px; color:var(--accent2); border:1px solid #2c4a45; background:#12211e;
+    border-radius:5px; padding:1px 6px; cursor:pointer; vertical-align:middle;
+  }
+  .drawer-foot{padding:12px 16px; border-top:1px solid var(--line); display:flex; gap:8px}
+  .drawer-foot button{flex:1; font:inherit; font-size:12px; padding:9px; border-radius:8px; cursor:pointer; border:1px solid var(--line2); background:var(--panel); color:var(--ink-dim)}
+  .drawer-foot button:hover{color:var(--ink); border-color:var(--accent)}
+
+  .scrim{position:absolute; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .26s; z-index:35}
+  .scrim.show{opacity:1; pointer-events:auto}
+
+  /* tiny scrollbars */
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:var(--line2); border-radius:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  .draft-flag{
+    position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:60;
+    font-size:11px; color:var(--ink-faint); background:var(--panel); border:1px solid var(--line);
+    padding:5px 12px; border-radius:20px; letter-spacing:.02em;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span> Thinking Machine</div>
+  <div class="crumbs" id="crumbs">
+    <button onclick="go('galaxy')">Galaxy</button>
+  </div>
+  <div class="spacer"></div>
+  <button class="toolbtn" id="essBtn" onclick="toggleEssentials()">◐ Essentials only</button>
+  <button class="toolbtn" onclick="go('galaxy')">⊞ Overview</button>
+</div>
+
+<div class="stage">
+
+  <!-- ===================== GALAXY ===================== -->
+  <div class="view active" id="galaxy">
+    <div class="galaxy-head">
+      <h1>Your thinking, mapped</h1>
+      <p>Every idea is its own canvas — a single root that expands until it can't. Related canvases cluster by category. Zoom in to think, zoom out to see the shape of everything.</p>
+    </div>
+    <div class="clusters" id="clusters"></div>
+  </div>
+
+  <!-- ===================== CANVAS ===================== -->
+  <div class="view" id="canvas">
+    <div id="cworld">
+      <svg id="edges"></svg>
+    </div>
+    <div class="legend">
+      <div class="row"><span class="sw" style="border-color:var(--accent2)"></span> decomposition (parent→part)</div>
+      <div class="row"><span class="sw" style="border-color:var(--warn); border-top-style:dashed"></span> dependency (cross-link)</div>
+      <div class="row"><span class="chip" style="background:#1c1526;border-color:var(--root)"></span> root &nbsp; <span class="chip" style="background:var(--panel);border-color:var(--line2);border-style:dashed;margin-left:8px"></span> atom (leaf)</div>
+    </div>
+    <div class="zoomhint">drag to pan · scroll to zoom · click ⊕ to expand · click a node to open facets</div>
+  </div>
+
+</div>
+
+<!-- ===================== DRAWER ===================== -->
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <button class="drawer-close" onclick="closeDrawer()">×</button>
+    <div class="dk" id="dKind"><span class="pill"></span><span></span></div>
+    <h2 id="dTitle">Node</h2>
+    <div class="dpath" id="dPath"></div>
+  </div>
+  <div class="facets" id="dFacets"></div>
+  <div class="drawer-foot">
+    <button onclick="alert('Draft: would add a child node (decomposition)')">＋ Decompose</button>
+    <button onclick="alert('Draft: would mark this node as an atom (stop expanding)')">● Mark atom</button>
+  </div>
+</div>
+
+<div class="draft-flag">DISCOVERY DRAFT — a thinking tool to react to, not the final build</div>
+
+<script>
+/* ============================================================
+   DATA MODEL  (the heart of the concept)
+   - facets: the fixed analytical lens-grid applied to ANY node
+   - nodes: decomposition tree/DAG; some children hidden until expanded
+   - deps: cross-links (makes it a DAG, not a pure tree)
+   ============================================================ */
+
+const FACETS = [
+  {key:'definition',   label:'Definition',     icon:'≡', color:'#7c9cff'},
+  {key:'essentials',   label:'Essentials',     icon:'★', color:'#5ce0c6'},
+  {key:'dependencies', label:'Dependencies',   icon:'⇄', color:'#f0a868'},
+  {key:'priorities',   label:'Priorities',     icon:'↑', color:'#c78bff'},
+  {key:'considerations',label:'Considerations',icon:'?', color:'#e08aa8'},
+  {key:'perspectives', label:'Perspectives',   icon:'◑', color:'#8ad0e0'},
+];
+
+// One example canvas fully fleshed out: "Ship an MVP Web App"
+const CANVAS = {
+  id:'webapp', title:'Ship an MVP Web App', rootKind:'objective',
+  nodes:{
+    app:{ id:'app', label:'MVP Web App', sub:'objective', kind:'root', x:300, y:360,
+      children:['fe','be','db'], expanded:true,
+      facets:{
+        definition:['A deployable product that lets a user sign up, do the one core job, and come back.'],
+        essentials:['One core loop that works end-to-end','Auth','Persistent data','A URL someone can visit'],
+        dependencies:[{t:'Deployment / hosting',promote:true},'A domain','Payment only if charging day 1'],
+        priorities:['Core loop > polish','Working > scalable','Manual ops are fine at MVP'],
+        considerations:['Scope creep is the #1 killer','Who is the ONE persona?','What is the paid demand signal?'],
+        perspectives:['User: can I do the job in <2 min?','Builder: what can I cut?','Investor: what proves traction?'],
+      }},
+    fe:{ id:'fe', label:'Frontend', sub:'part', kind:'branch', x:640, y:180,
+      children:['ui','state'], expanded:false,
+      facets:{
+        definition:['Everything the user sees and touches in the browser.'],
+        essentials:['Render the core screens','Talk to the API','Handle loading/empty/error states'],
+        dependencies:[{t:'API contract',dep:'be'},'Design system','Auth tokens from backend'],
+        priorities:['Core screens first','Mobile-readable','Accessibility basics'],
+        considerations:['Empty/loading/error states for EVERY view','Avoid AI-slop generic UI'],
+        perspectives:['First-time user vs power user','Slow network'],
+      }},
+    be:{ id:'be', label:'Backend', sub:'part', kind:'branch', x:640, y:360,
+      children:['api','auth'], expanded:false,
+      facets:{
+        definition:['The server logic that enforces rules and serves data.'],
+        essentials:['Define the API contract','Validate input','Enforce auth'],
+        dependencies:[{t:'Database',dep:'db'},'Hosting / runtime','Secrets management'],
+        priorities:['Correctness > performance','Stable contract early'],
+        considerations:['Money as integers, never floats','Don\'t over-abstract before patterns emerge'],
+        perspectives:['What breaks under bad input?','What if the DB is down?'],
+      }},
+    db:{ id:'db', label:'Database', sub:'part', kind:'branch', x:640, y:540,
+      children:['schema'], expanded:false,
+      facets:{
+        definition:['The source of truth for persistent state.'],
+        essentials:['A schema for the core entities','Backups','Migrations'],
+        dependencies:['Hosting','Connection pooling'],
+        priorities:['Model the core entity right','Index the hot path'],
+        considerations:['Migrations are one-way in prod','PII handling'],
+        perspectives:['Read-heavy vs write-heavy?'],
+      }},
+    ui:{ id:'ui', label:'UI / Screens', sub:'part', kind:'atom', x:960, y:120, children:[],
+      facets:{ definition:['The concrete pages and components.'], essentials:['Core loop screen','Auth screens'], dependencies:[], priorities:['Ship the core screen'], considerations:['Reuse a component library'], perspectives:[] }},
+    state:{ id:'state', label:'Client State', sub:'part', kind:'atom', x:960, y:240, children:[],
+      facets:{ definition:['How the frontend tracks what the user is doing.'], essentials:['Server cache','Form state'], dependencies:[], priorities:['Keep it boring'], considerations:['Don\'t reinvent a store'], perspectives:[] }},
+    api:{ id:'api', label:'API Contract', sub:'shared', kind:'atom', x:960, y:400, children:[],
+      facets:{ definition:['The agreed shape of requests/responses — the seam FE and BE share.'], essentials:['Typed endpoints','Versioning plan'], dependencies:[], priorities:['Freeze it early'], considerations:['Breaking changes ripple both ways'], perspectives:['Both FE and BE depend on this — it is the real interface'] }},
+    auth:{ id:'auth', label:'Auth', sub:'part', kind:'atom', x:960, y:520, children:[],
+      facets:{ definition:['Who the user is and what they may do.'], essentials:['Sessions/tokens','Password or OAuth'], dependencies:[], priorities:['Use a provider, don\'t roll your own'], considerations:['Security is not a feature you add later'], perspectives:[] }},
+    schema:{ id:'schema', label:'Schema', sub:'part', kind:'atom', x:960, y:620, children:[],
+      facets:{ definition:['The tables/collections and their relations.'], essentials:['Core entity','Relations'], dependencies:[], priorities:['Get the core entity right'], considerations:['Normalize later'], perspectives:[] }},
+  },
+  // cross-links (dependencies that break the pure tree → DAG)
+  deps:[ {from:'fe',to:'api'}, {from:'be',to:'api'} ],
+};
+
+const CLUSTERS = [
+  {name:'Building Products', color:'#7c9cff', canvases:[
+    {id:'webapp', title:'Ship an MVP Web App', kind:'objective', nodes:9, depth:3, live:true},
+    {id:'pricing', title:'How should I price this?', kind:'decision', nodes:6, depth:2},
+    {id:'wedge', title:'Distribution wedge', kind:'objective', nodes:7, depth:3},
+  ]},
+  {name:'Research Threads', color:'#5ce0c6', canvases:[
+    {id:'agents', title:'Why do agent swarms beat one model?', kind:'cause', nodes:11, depth:4},
+    {id:'memory', title:'Persistent memory architecture', kind:'concept', nodes:8, depth:3},
+  ]},
+  {name:'Open Questions', color:'#f0a868', canvases:[
+    {id:'focus', title:'What kills my deep-work focus?', kind:'cause', nodes:5, depth:2},
+    {id:'learn', title:'How do I learn faster?', kind:'objective', nodes:9, depth:3},
+  ]},
+];
+
+const KIND_COLOR = {objective:'#7c9cff', decision:'#c78bff', cause:'#f0a868', concept:'#5ce0c6'};
+
+/* ============================================================ */
+/* GALAXY RENDER */
+function renderGalaxy(){
+  const wrap = document.getElementById('clusters');
+  wrap.innerHTML = CLUSTERS.map(cl=>`
+    <div class="cluster">
+      <div class="cluster-head">
+        <span class="cluster-tag" style="background:${cl.color}"></span>
+        <h2>${cl.name}</h2>
+        <span class="count">${cl.canvases.length} canvases</span>
+      </div>
+      <div class="canvas-grid">
+        ${cl.canvases.map(cv=>`
+          <div class="canvas-card" style="--c:${KIND_COLOR[cv.kind]||cl.color}" onclick="${cv.live?`openCanvas('${cv.id}')`:`alert('Draft: this canvas is a stub in the mockup')`}">
+            <div class="mini"></div>
+            <h3>${cv.title}</h3>
+            <div class="meta">
+              <span class="kind"><span class="pill" style="background:${KIND_COLOR[cv.kind]}"></span>${cv.kind}</span>
+              <span>${cv.nodes} nodes</span>
+              <span>depth ${cv.depth}</span>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+/* ============================================================ */
+/* CANVAS RENDER + PAN/ZOOM */
+let pan={x:120,y:-60,s:.9};
+let essentialsOnly=false;
+const world = document.getElementById('cworld');
+const edgesSvg = document.getElementById('edges');
+
+function applyTransform(){ world.style.transform=`translate(${pan.x}px,${pan.y}px) scale(${pan.s})`; }
+
+function visibleNodes(){
+  // a node is visible if it's the root, or its parent is expanded (and parent visible)
+  const N=CANVAS.nodes; const vis=new Set();
+  function walk(id){ vis.add(id); const n=N[id]; if(n.expanded){ (n.children||[]).forEach(walk);} }
+  walk('app');
+  return vis;
+}
+
+function parentOf(id){
+  return Object.values(CANVAS.nodes).find(n=>(n.children||[]).includes(id));
+}
+
+function renderCanvas(){
+  const N=CANVAS.nodes; const vis=visibleNodes();
+  // nodes
+  world.querySelectorAll('.node').forEach(e=>e.remove());
+  Object.values(N).forEach(n=>{
+    if(!vis.has(n.id)) return;
+    if(essentialsOnly && n.kind!=='root' && !isEssential(n)) return;
+    const el=document.createElement('div');
+    el.className='node'+(n.id===selId?' sel':'');
+    el.dataset.kind = n.kind;
+    el.style.left=n.x+'px'; el.style.top=n.y+'px';
+    const fcount = FACETS.filter(f=>(n.facets[f.key]||[]).length).length;
+    const dots = FACETS.map(f=>`<i class="${(n.facets[f.key]||[]).length?'filled':''}"></i>`).join('');
+    const hasChildren=(n.children||[]).length>0;
+    el.innerHTML=`
+      <div class="nlabel">${n.label}</div>
+      <div class="nsub">${n.sub}</div>
+      <div class="dot-facets">${dots}</div>
+      ${hasChildren?`<div class="ntoggle">${n.expanded?'–':'+'}</div>`:''}`;
+    el.onclick=(e)=>{ e.stopPropagation(); openNode(n.id); };
+    if(hasChildren){
+      el.querySelector('.ntoggle').onclick=(e)=>{ e.stopPropagation(); n.expanded=!n.expanded; renderCanvas(); };
+    }
+    world.appendChild(el);
+  });
+  renderEdges(vis);
+}
+
+function isEssential(n){
+  // demo heuristic: nodes flagged shared/part that are direct children of root, or marked
+  return ['fe','be','db','api'].includes(n.id);
+}
+
+function renderEdges(vis){
+  const N=CANVAS.nodes;
+  let paths='';
+  // decomposition edges
+  Object.values(N).forEach(n=>{
+    if(!vis.has(n.id)||!n.expanded) return;
+    (n.children||[]).forEach(cid=>{
+      const c=N[cid]; if(!vis.has(cid)) return;
+      if(essentialsOnly && c.kind!=='root' && !isEssential(c)) return;
+      paths+=edgePath(n,c,'var(--accent2)',false);
+    });
+  });
+  // dependency cross-links
+  (CANVAS.deps||[]).forEach(d=>{
+    const a=N[d.from], b=N[d.to];
+    if(!vis.has(d.from)||!vis.has(d.to)) return;
+    paths+=edgePath(a,b,'var(--warn)',true);
+  });
+  edgesSvg.innerHTML=paths;
+}
+
+function edgePath(a,b,color,dashed){
+  const x1=a.x, y1=a.y, x2=b.x, y2=b.y;
+  const mx=(x1+x2)/2;
+  const d=`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+  return `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.6" ${dashed?'stroke-dasharray="5 5"':''} opacity="${dashed?.7:.55}"/>`;
+}
+
+/* pan + zoom */
+(function(){
+  const cv=document.getElementById('canvas');
+  let dragging=false, sx,sy,ox,oy;
+  cv.addEventListener('mousedown',e=>{
+    if(e.target.closest('.node')||e.target.closest('.legend')) return;
+    dragging=true; cv.classList.add('grabbing'); sx=e.clientX; sy=e.clientY; ox=pan.x; oy=pan.y;
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!dragging) return;
+    pan.x=ox+(e.clientX-sx); pan.y=oy+(e.clientY-sy); applyTransform();
+  });
+  window.addEventListener('mouseup',()=>{ dragging=false; cv.classList.remove('grabbing'); });
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const factor=e.deltaY<0?1.08:0.926;
+    const ns=Math.max(.4,Math.min(2.2,pan.s*factor));
+    // zoom toward cursor
+    const rect=cv.getBoundingClientRect();
+    const cxp=e.clientX-rect.left, cyp=e.clientY-rect.top;
+    pan.x = cxp-(cxp-pan.x)*(ns/pan.s);
+    pan.y = cyp-(cyp-pan.y)*(ns/pan.s);
+    pan.s=ns; applyTransform();
+  },{passive:false});
+})();
+
+/* ============================================================ */
+/* DRAWER (facets) */
+let selId=null;
+function openNode(id){
+  selId=id; renderCanvas();
+  const n=CANVAS.nodes[id];
+  const kc = n.kind==='root'?'var(--root)':(n.kind==='atom'?'var(--line2)':'var(--accent)');
+  document.querySelector('#dKind .pill').style.background=kc;
+  document.querySelector('#dKind span:last-child').textContent = n.kind==='root'?CANVAS.rootKind:n.sub;
+  document.getElementById('dTitle').textContent=n.label;
+  // path
+  const path=[]; let cur=id;
+  while(cur){ path.unshift(CANVAS.nodes[cur].label); const p=parentOf(cur); cur=p?p.id:null; }
+  document.getElementById('dPath').textContent=path.join('  ›  ');
+  // facets
+  document.getElementById('dFacets').innerHTML=FACETS.map((f,i)=>{
+    const items=n.facets[f.key]||[];
+    return `
+      <div class="facet ${i<2?'open':''}">
+        <div class="facet-head" onclick="this.parentElement.classList.toggle('open')">
+          <span class="ic" style="background:${hex2rgba(f.color,.15)};color:${f.color}">${f.icon}</span>
+          <span class="ft">${f.label}</span>
+          <span class="fc">${items.length||'—'}</span>
+        </div>
+        <div class="facet-body">
+          ${items.length?`<ul>${items.map(it=>{
+            const txt = typeof it==='string'?it:it.t;
+            const canPromote = typeof it==='object' && it.promote;
+            const isDep = typeof it==='object' && it.dep;
+            return `<li class="${canPromote||isDep?'promote':''}">${txt}
+              ${canPromote?`<button class="promo-btn" onclick="alert('Draft: promote &quot;${txt}&quot; into its own node + sub-tree')">promote →</button>`:''}
+              ${isDep?`<button class="promo-btn" onclick="openNode('${it.dep}')">go to →</button>`:''}
+            </li>`;
+          }).join('')}</ul>`:`<div style="font-size:12px;color:var(--ink-faint);padding:2px 0 4px">Empty — click to fill in your thinking.</div>`}
+        </div>
+      </div>`;
+  }).join('');
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('scrim').classList.add('show');
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('scrim').classList.remove('show');
+  selId=null; renderCanvas();
+}
+function hex2rgba(h,a){ const n=parseInt(h.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+
+/* ============================================================ */
+/* NAV */
+function go(view){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(view).classList.add('active');
+  if(view==='galaxy'){ setCrumbs([{label:'Galaxy',view:'galaxy'}]); closeDrawer(); }
+}
+function openCanvas(id){
+  go('canvas');
+  setCrumbs([{label:'Galaxy',view:'galaxy'},{label:CANVAS.title,here:true}]);
+  pan={x:120,y:-40,s:.9}; applyTransform();
+  renderCanvas();
+}
+function setCrumbs(arr){
+  document.getElementById('crumbs').innerHTML = arr.map((c,i)=>{
+    const sep = i>0?'<span class="sep">›</span>':'';
+    return sep + (c.here?`<span class="here">${c.label}</span>`:`<button onclick="go('${c.view}')">${c.label}</button>`);
+  }).join(' ');
+}
+function toggleEssentials(){
+  essentialsOnly=!essentialsOnly;
+  document.getElementById('essBtn').classList.toggle('on',essentialsOnly);
+  renderCanvas();
+}
+
+/* init */
+renderGalaxy();
+applyTransform();
+</script>
+</body>
+</html>

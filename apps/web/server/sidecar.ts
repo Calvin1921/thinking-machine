@@ -15,41 +15,71 @@ export interface Sidecar {
   close: () => Promise<void>;
 }
 
+// Board ids are slugs (see core's slug()): a leading [a-z0-9] then up to 63 more
+// [a-z0-9-]. This guards `:id` before it reaches boardPath()/join(), so a value
+// like "../secret" or "..%2Fsecret" can never escape the boards dir.
+const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+const ROOT_TYPES = new Set(["objective", "cause", "decision", "concept"]);
+
 export function createSidecar(dir: string): Sidecar {
   const app = express();
   app.use(express.json());
   const clients = new Set<express.Response>();
 
+  // Validate `:id` and (when mutating) confirm the board exists. Returns the
+  // resolved file path, or null after sending the appropriate error response.
+  const resolveBoard = (res: express.Response, id: string, mustExist: boolean): string | null => {
+    if (!ID_RE.test(id)) { res.status(400).json({ error: "bad id" }); return null; }
+    const file = boardPath(dir, id);
+    if (mustExist && !existsSync(file)) { res.status(404).json({ error: "no such board" }); return null; }
+    return file;
+  };
+
   // --- collection ---
   app.get("/api/boards", (_req, res) => res.json(listBoards(dir)));
 
   app.post("/api/boards", (req, res) => {
-    const { title, rootType } = req.body;
-    res.json({ id: createBoard(dir, title, rootType) });
+    const { title, rootType } = req.body ?? {};
+    if (typeof title !== "string" || title.trim() === "") {
+      res.status(400).json({ error: "title required" }); return;
+    }
+    if (typeof rootType !== "string" || !ROOT_TYPES.has(rootType)) {
+      res.status(400).json({ error: "invalid rootType" }); return;
+    }
+    res.json({ id: createBoard(dir, title, rootType as "objective" | "cause" | "decision" | "concept") });
   });
 
   // --- a single board ---
   app.get("/api/boards/:id", (req, res) => {
-    const file = boardPath(dir, req.params.id);
-    if (!existsSync(file)) { res.status(404).json({ error: "no such board" }); return; }
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
     res.json(loadBoard(file));
   });
 
   app.post("/api/boards/:id/add", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
     const { label, parentId, kind } = req.body;
-    res.json(mutate(boardPath(dir, req.params.id), (b) => addNode(b, { label, parentId, kind })));
+    res.json(mutate(file, (b) => addNode(b, { label, parentId, kind })));
   });
   app.post("/api/boards/:id/link", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
     const { from, to, type } = req.body;
-    res.json(mutate(boardPath(dir, req.params.id), (b) => linkNodes(b, from, to, type)));
+    res.json(mutate(file, (b) => linkNodes(b, from, to, type)));
   });
   app.post("/api/boards/:id/facet", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
     const { nodeId, facet, items, mode } = req.body;
-    res.json(mutate(boardPath(dir, req.params.id), (b) => setFacet(b, nodeId, facet, items, mode)));
+    res.json(mutate(file, (b) => setFacet(b, nodeId, facet, items, mode)));
   });
   app.post("/api/boards/:id/move", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
     const { nodeId, x, y } = req.body;
-    res.json(mutate(boardPath(dir, req.params.id), (b) => updateNodePosition(b, nodeId, x, y)));
+    res.json(mutate(file, (b) => updateNodePosition(b, nodeId, x, y)));
   });
 
   app.get("/api/events", (req, res) => {

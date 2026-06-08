@@ -47,6 +47,28 @@ describe("sidecar", () => {
     expect(b.nodes.map((n: any) => n.label)).toContain("FE");
   });
 
+  it("rejects a path-traversal id with 400 and reads nothing outside the dir", async () => {
+    const res = await fetch(`${base}/api/boards/${encodeURIComponent("../package")}`);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad id" });
+  });
+
+  it("POST to a mutation endpoint on a nonexistent board returns 404", async () => {
+    const res = await json("/api/boards/ghost/add", { label: "X", parentId: "root", kind: "branch" });
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "no such board" });
+  });
+
+  it("POST /api/boards validates the body", async () => {
+    expect((await json("/api/boards", {})).status).toBe(400);
+    expect((await json("/api/boards", { title: "  ", rootType: "objective" })).status).toBe(400);
+    expect((await json("/api/boards", { title: "Valid", rootType: "bogus" })).status).toBe(400);
+    const ok = await json("/api/boards", { title: "Valid", rootType: "objective" });
+    expect(ok.status).toBe(200);
+    const list = await (await fetch(`${base}/api/boards`)).json();
+    expect(list.map((b: any) => b.title)).toContain("Valid");
+  });
+
   it("emits an SSE 'boards' event when a board file in the dir changes externally", async () => {
     const id = createBoard(dir, "App", "objective");
     const events: string[] = [];

@@ -78,6 +78,11 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         <Background color="#262c36" gap={24} />
         <Controls />
       </ReactFlow>
+      <div className="legend">
+        <div><span className="lg-line solid" /> part of</div>
+        <div><span className="lg-line dashed" /> depends on</div>
+        <div><span className="lg-box dashed" /> leaf (won't expand)</div>
+      </div>
       <QuickAdd boardId={boardId} rootId={board.rootId} onAdded={refresh} />
       <FacetDrawer boardId={boardId} node={selectedNode} onClose={() => setSelected(null)} onSaved={refresh} />
     </div>

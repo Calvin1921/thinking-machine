@@ -7,9 +7,19 @@ export interface ThinkNodeData {
   label: string;
   kind: BNode["kind"];
   rootType?: string;
-  sub: string;
-  filledFacets: boolean[]; // one per seed facet, for the preview dots
+  preview: string;        // first line of the node's own content — shown on the card
+  filledFacets: string[]; // names of the lenses that have content
   [key: string]: unknown;
+}
+
+/** The node's headline content: prefer the definition, else the first non-empty lens. */
+function firstContent(facets: BNode["facets"]): string {
+  const order = ["definition", ...SEED_FACETS.filter((f) => f !== "definition")];
+  for (const f of order) {
+    const v = facets[f];
+    if (v && v.length) return v[0];
+  }
+  return "";
 }
 
 export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; edges: FlowEdge[] } {
@@ -21,8 +31,8 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
       label: n.label,
       kind: n.kind,
       rootType: n.rootType,
-      sub: n.kind === "root" ? (n.rootType ?? "root") : n.kind,
-      filledFacets: SEED_FACETS.map((f) => (n.facets[f]?.length ?? 0) > 0),
+      preview: firstContent(n.facets),
+      filledFacets: SEED_FACETS.filter((f) => (n.facets[f]?.length ?? 0) > 0),
     },
   }));
 

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "thinking-machine": {
+      "command": "node",
+      "args": ["packages/mcp/dist/index.js"],
+      "env": {
+        "TM_BOARDS_DIR": "apps/web/boards"
+      }
+    }
+  }
+}

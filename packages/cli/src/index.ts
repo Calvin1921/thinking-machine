@@ -4,12 +4,16 @@ import { existsSync } from "node:fs";
 import {
   newBoard, loadBoard, saveBoard, mutate,
   addNode, linkNodes, setFacet, promoteFacetItem, decompose,
+  listBoards, createBoard,
 } from "@tm/core";
 
 const program = new Command();
-program.name("tm").description("Thinking Machine board CLI").option("-f, --file <path>", "board file", "board.json");
+program.name("tm").description("Thinking Machine board CLI")
+  .option("-f, --file <path>", "board file", "board.json")
+  .option("--dir <path>", "boards directory (for ls/new)", "boards");
 
 const file = () => program.opts().file as string;
+const dir = () => program.opts().dir as string;
 const out = (obj: unknown) => process.stdout.write(JSON.stringify(obj, null, 2) + "\n");
 
 program.command("init <title>")
@@ -17,6 +21,25 @@ program.command("init <title>")
   .action((title, opts) => {
     if (existsSync(file())) throw new Error(`${file()} already exists`);
     saveBoard(file(), newBoard(title, opts.rootType));
+  });
+
+program.command("ls")
+  .description("list boards in --dir")
+  .option("--json", "machine-readable output")
+  .action((opts) => {
+    const boards = listBoards(dir());
+    if (opts.json) { out(boards); return; }
+    for (const b of boards) {
+      process.stdout.write(`${b.id}  [${b.rootType ?? "?"}]  ${b.title}  (${b.nodeCount} nodes)\n`);
+    }
+  });
+
+program.command("new <title>")
+  .description("create a new board in --dir")
+  .requiredOption("--root-type <type>", "objective|cause|decision|concept")
+  .action((title, opts) => {
+    const id = createBoard(dir(), title, opts.rootType);
+    process.stdout.write(`${id}\n`);
   });
 
 program.command("show")

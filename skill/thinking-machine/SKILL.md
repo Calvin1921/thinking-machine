@@ -68,10 +68,14 @@ same call. `facets` are added to the node being decomposed (the `<id>`), not the
 
 ## MCP equivalents
 
-If the MCP server is connected, the same operations are tools: `tm_init`, `tm_show`,
-`tm_add_node`, `tm_link`, `tm_set_facet`, `tm_promote`, `tm_decompose` (same input shapes
-as the CLI). Prefer these in-session; fall back to the CLI otherwise. The MCP server reads
-the board path from the `TM_BOARD` env var.
+If the MCP server is connected, the same operations are tools — but the server is
+**directory-aware** (multi-board), matching the web app. Two collection tools manage
+boards: `tm_list_boards` (no args) and `tm_create_board` `{ title, rootType }` → returns a
+board `id`. Every other tool takes that `board` id as its first arg: `tm_show`,
+`tm_add_node`, `tm_link`, `tm_set_facet`, `tm_promote`, `tm_decompose` (otherwise the same
+input shapes as the CLI). Typical flow: call `tm_list_boards` (or `tm_create_board`) to get
+a board id, then operate on it. Prefer these in-session; fall back to the CLI otherwise. The
+MCP server reads the boards directory from the `TM_BOARDS_DIR` env var (default `boards`).
 
 ## Domain-aware decomposition method
 

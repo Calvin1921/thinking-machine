@@ -33,6 +33,11 @@ export function addNode(board: Board, input: AddNodeInput): Board {
   };
 }
 
+export function updateNodePosition(board: Board, nodeId: string, x: number, y: number): Board {
+  requireNode(board, nodeId);
+  return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, x, y } : n)) };
+}
+
 export function linkNodes(board: Board, from: string, to: string, type: EdgeType): Board {
   requireNode(board, from); requireNode(board, to);
   if (board.edges.some((e) => e.from === from && e.to === to && e.type === type)) return board;

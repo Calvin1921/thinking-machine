@@ -1,0 +1,54 @@
+#!/usr/bin/env node
+import { Command } from "commander";
+import { existsSync } from "node:fs";
+import {
+  newBoard, loadBoard, saveBoard, mutate,
+  addNode, linkNodes, setFacet, promoteFacetItem, decompose,
+} from "@tm/core";
+
+const program = new Command();
+program.name("tm").description("Thinking Machine board CLI").option("-f, --file <path>", "board file", "board.json");
+
+const file = () => program.opts().file as string;
+const out = (obj: unknown) => process.stdout.write(JSON.stringify(obj, null, 2) + "\n");
+
+program.command("init <title>")
+  .option("--root-type <type>", "objective|cause|decision|concept", "objective")
+  .action((title, opts) => {
+    if (existsSync(file())) throw new Error(`${file()} already exists`);
+    saveBoard(file(), newBoard(title, opts.rootType));
+  });
+
+program.command("show")
+  .option("--node <id>", "show a single node")
+  .option("--json", "machine-readable output")
+  .action((opts) => {
+    const b = loadBoard(file());
+    if (opts.node) { const n = b.nodes.find((x) => x.id === opts.node); if (!n) throw new Error("no such node"); out(n); return; }
+    if (opts.json) { out(b); return; }
+    process.stdout.write(`${b.title} (${b.nodes.length} nodes, ${b.edges.length} edges)\n`);
+    for (const n of b.nodes) process.stdout.write(`  ${n.id} [${n.kind}] ${n.label}\n`);
+  });
+
+program.command("add <label>")
+  .requiredOption("--parent <id>", "parent node id")
+  .option("--kind <kind>", "branch|atom", "branch")
+  .action((label, opts) => { mutate(file(), (b) => addNode(b, { label, parentId: opts.parent, kind: opts.kind })); });
+
+program.command("link <from> <to>")
+  .option("--type <type>", "decomposition|dependency", "dependency")
+  .action((from, to, opts) => { mutate(file(), (b) => linkNodes(b, from, to, opts.type)); });
+
+program.command("facet <id> <facet> <mode> [items...]")
+  .description("mode = set|add")
+  .action((id, facet, mode, items) => { mutate(file(), (b) => setFacet(b, id, facet, items, mode)); });
+
+program.command("promote <id> <facet> <index>")
+  .action((id, facet, index) => { mutate(file(), (b) => promoteFacetItem(b, id, facet, Number(index))); });
+
+program.command("decompose <id>")
+  .requiredOption("--json <proposal>", "JSON {decomposition, edges?, facets?}")
+  .action((id, opts) => { mutate(file(), (b) => decompose(b, id, JSON.parse(opts.json))); });
+
+try { program.parse(); }
+catch (err) { process.stderr.write(`Error: ${(err as Error).message}\n`); process.exit(1); }

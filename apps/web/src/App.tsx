@@ -4,6 +4,7 @@ import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import type { Board } from "@tm/core/schema";
 import { boardToFlow } from "./boardToFlow.js";
+import { tidyLayout } from "./tidyLayout.js";
 import { ThinkNode } from "./ThinkNode.js";
 import { FacetDrawer } from "./FacetDrawer.js";
 import { QuickAdd } from "./QuickAdd.js";
@@ -57,6 +58,13 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     }
   }, [boardId]);
 
+  const tidy = useCallback(() => {
+    if (!board) return;
+    const pos = tidyLayout(board);
+    setFlowNodes((ns) => ns.map((n) => (pos[n.id] ? { ...n, position: pos[n.id] } : n)));
+    Object.entries(pos).forEach(([id, p]) => moveNode(boardId, id, p.x, p.y));
+  }, [board, boardId]);
+
   if (!board) return <div className="loading">Loading board…</div>;
   const edges = boardToFlow(board).edges;
   const selectedNode = board.nodes.find((n) => n.id === selected) ?? null;
@@ -66,6 +74,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
       <div className="topbar">
         <button className="back" onClick={onBack}>← Canvases</button>
         <span className="topbar-title">{board.title}</span>
+        <button className="back" onClick={tidy} title="Auto-arrange the tree">⤢ Tidy</button>
       </div>
       <ReactFlow
         nodes={flowNodes}

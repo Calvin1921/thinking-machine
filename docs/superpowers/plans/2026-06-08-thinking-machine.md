@@ -116,13 +116,19 @@ Create `packages/core/package.json`:
   "name": "@tm/core",
   "version": "0.1.0",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "test": "vitest run",
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": { "zod": "^3.23.0" }
 }
+
+> **Build order note:** `@tm/core` resolves to its built output (`dist/`), so consumer
+> packages (cli, mcp, web) must have core built before they build/run. Run
+> `pnpm --filter @tm/core build` first (or `pnpm -r build`, which builds in dependency
+> order). Plain Node cannot import core's raw `.ts`, so `main` must point at `dist`.
 ```
 
 Create `packages/core/tsconfig.json`:

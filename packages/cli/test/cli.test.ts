@@ -34,6 +34,15 @@ describe("tm cli", () => {
     expect(out.nodes.map((n: any) => n.label)).toContain("Frontend");
   });
 
+  it("image attaches a url shown by show --json", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    run(["add", "Frontend", "--parent", "root", "--kind", "branch"]);
+    const fe = JSON.parse(run(["show", "--json"])).nodes.find((n: any) => n.label === "Frontend").id;
+    run(["image", fe, "https://example.com/x.png"]);
+    const node = JSON.parse(run(["show", "--node", fe]));
+    expect(node.image).toBe("https://example.com/x.png");
+  });
+
   it("decompose commits a JSON proposal", () => {
     run(["init", "App", "--root-type", "objective"]);
     const proposal = JSON.stringify({

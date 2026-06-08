@@ -26,6 +26,8 @@ export const moveNode = (boardId: string, nodeId: string, x: number, y: number) 
   post(`/api/boards/${boardId}/move`, { nodeId, x, y });
 export const setFacet = (boardId: string, nodeId: string, facet: string, items: string[], mode: "set" | "add") =>
   post(`/api/boards/${boardId}/facet`, { nodeId, facet, items, mode });
+export const setImage = (boardId: string, nodeId: string, url: string) =>
+  post(`/api/boards/${boardId}/image`, { nodeId, url });
 
 /** Subscribe to external board changes (CLI/MCP edits, new boards, etc.). */
 export function onBoardChange(cb: () => void): () => void {

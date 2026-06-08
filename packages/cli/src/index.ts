@@ -3,7 +3,7 @@ import { Command } from "commander";
 import { existsSync } from "node:fs";
 import {
   newBoard, loadBoard, saveBoard, mutate,
-  addNode, linkNodes, setFacet, promoteFacetItem, decompose,
+  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage,
   listBoards, createBoard,
 } from "@tm/core";
 
@@ -65,6 +65,10 @@ program.command("link <from> <to>")
 program.command("facet <id> <facet> <mode> [items...]")
   .description("mode = set|add")
   .action((id, facet, mode, items) => { mutate(file(), (b) => setFacet(b, id, facet, items, mode)); });
+
+program.command("image <id> <url>")
+  .description("attach an image url to a node (empty url clears it)")
+  .action((id, url) => { mutate(file(), (b) => setNodeImage(b, id, url)); });
 
 program.command("promote <id> <facet> <index>")
   .action((id, facet, index) => { mutate(file(), (b) => promoteFacetItem(b, id, facet, Number(index))); });

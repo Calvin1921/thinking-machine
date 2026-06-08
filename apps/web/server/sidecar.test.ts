@@ -47,6 +47,18 @@ describe("sidecar", () => {
     expect(b.nodes.map((n: any) => n.label)).toContain("FE");
   });
 
+  it("POST /api/boards/:id/image attaches an image url to a node", async () => {
+    const id = createBoard(dir, "App", "objective");
+    await json(`/api/boards/${id}/add`, { label: "FE", parentId: "root", kind: "branch" });
+    const before = await (await fetch(`${base}/api/boards/${id}`)).json();
+    const fe = before.nodes.find((n: any) => n.label === "FE").id;
+    await json(`/api/boards/${id}/image`, { nodeId: fe, url: "https://example.com/x.png" });
+    const after = await (await fetch(`${base}/api/boards/${id}`)).json();
+    expect(after.nodes.find((n: any) => n.id === fe).image).toBe("https://example.com/x.png");
+    // missing fields → 400
+    expect((await json(`/api/boards/${id}/image`, { nodeId: fe })).status).toBe(400);
+  });
+
   it("rejects a path-traversal id with 400 and reads nothing outside the dir", async () => {
     const res = await fetch(`${base}/api/boards/${encodeURIComponent("../package")}`);
     expect(res.status).toBe(400);

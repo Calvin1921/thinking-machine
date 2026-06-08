@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { z } from "zod";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
-  addNode, linkNodes, setFacet, promoteFacetItem, decompose,
+  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -61,6 +61,11 @@ export function buildServer(dir: string): McpServer {
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(), facet: z.string(), items: z.array(z.string()), mode: z.enum(["set", "add"]) },
     async ({ board, nodeId, facet, items, mode }) =>
       ok(mutate(resolveBoard(board), (b) => setFacet(b, nodeId, facet, items, mode))));
+
+  server.tool("tm_set_image", "Attach an optional image url to a node on a board (empty url clears it)",
+    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), url: z.string().describe("image URL, or empty string to clear") },
+    async ({ board, nodeId, url }) =>
+      ok(mutate(resolveBoard(board), (b) => setNodeImage(b, nodeId, url))));
 
   server.tool("tm_promote", "Promote a facet item into its own node on a board",
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(), facet: z.string(), index: z.number() },

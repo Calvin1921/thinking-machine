@@ -48,6 +48,19 @@ describe("mcp tools", () => {
     expect(b.nodes).toHaveLength(3);
   });
 
+  it("tm_set_image attaches an image url shown by tm_show", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({
+      name: "tm_create_board", arguments: { title: "App", rootType: "objective" },
+    }));
+    await c.callTool({ name: "tm_add_node", arguments: { board: id, label: "FE", parentId: "root", kind: "branch" } });
+    const board = payload(await c.callTool({ name: "tm_show", arguments: { board: id } }));
+    const fe = board.nodes.find((n: any) => n.label === "FE").id;
+    await c.callTool({ name: "tm_set_image", arguments: { board: id, nodeId: fe, url: "https://example.com/x.png" } });
+    const node = payload(await c.callTool({ name: "tm_show", arguments: { board: id, nodeId: fe } }));
+    expect(node.image).toBe("https://example.com/x.png");
+  });
+
   it("tm_list_boards returns the created boards", async () => {
     const c = await connect();
     const { id } = payload(await c.callTool({

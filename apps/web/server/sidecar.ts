@@ -3,7 +3,11 @@ import express from "express";
 import chokidar from "chokidar";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { loadBoard, mutate, addNode, linkNodes, setFacet, updateNodePosition } from "@tm/core";
+import { existsSync } from "node:fs";
+import {
+  boardPath, listBoards, createBoard, loadBoard, mutate,
+  addNode, linkNodes, setFacet, updateNodePosition,
+} from "@tm/core";
 
 export interface Sidecar {
   app: express.Express;
@@ -11,28 +15,41 @@ export interface Sidecar {
   close: () => Promise<void>;
 }
 
-export function createSidecar(file: string): Sidecar {
+export function createSidecar(dir: string): Sidecar {
   const app = express();
   app.use(express.json());
   const clients = new Set<express.Response>();
 
-  app.get("/api/board", (_req, res) => res.json(loadBoard(file)));
+  // --- collection ---
+  app.get("/api/boards", (_req, res) => res.json(listBoards(dir)));
 
-  app.post("/api/add", (req, res) => {
-    const b = mutate(file, (board) => addNode(board, req.body));
-    res.json(b);
+  app.post("/api/boards", (req, res) => {
+    const { title, rootType } = req.body;
+    res.json({ id: createBoard(dir, title, rootType) });
   });
-  app.post("/api/link", (req, res) => {
+
+  // --- a single board ---
+  app.get("/api/boards/:id", (req, res) => {
+    const file = boardPath(dir, req.params.id);
+    if (!existsSync(file)) { res.status(404).json({ error: "no such board" }); return; }
+    res.json(loadBoard(file));
+  });
+
+  app.post("/api/boards/:id/add", (req, res) => {
+    const { label, parentId, kind } = req.body;
+    res.json(mutate(boardPath(dir, req.params.id), (b) => addNode(b, { label, parentId, kind })));
+  });
+  app.post("/api/boards/:id/link", (req, res) => {
     const { from, to, type } = req.body;
-    res.json(mutate(file, (board) => linkNodes(board, from, to, type)));
+    res.json(mutate(boardPath(dir, req.params.id), (b) => linkNodes(b, from, to, type)));
   });
-  app.post("/api/facet", (req, res) => {
+  app.post("/api/boards/:id/facet", (req, res) => {
     const { nodeId, facet, items, mode } = req.body;
-    res.json(mutate(file, (board) => setFacet(board, nodeId, facet, items, mode)));
+    res.json(mutate(boardPath(dir, req.params.id), (b) => setFacet(b, nodeId, facet, items, mode)));
   });
-  app.post("/api/move", (req, res) => {
+  app.post("/api/boards/:id/move", (req, res) => {
     const { nodeId, x, y } = req.body;
-    res.json(mutate(file, (board) => updateNodePosition(board, nodeId, x, y)));
+    res.json(mutate(boardPath(dir, req.params.id), (b) => updateNodePosition(b, nodeId, x, y)));
   });
 
   app.get("/api/events", (req, res) => {
@@ -42,12 +59,18 @@ export function createSidecar(file: string): Sidecar {
     req.on("close", () => clients.delete(res));
   });
 
-  // Broadcast on external file changes (CLI/MCP writes). Ignore our own atomic temp files.
-  const watcher = chokidar.watch(file, { ignoreInitial: true });
+  // Watch the whole boards dir for *.json adds/changes/unlinks (CLI/MCP/other-tab
+  // writes). Ignore our own atomic temp/lock files so we don't echo our own writes.
+  const watcher = chokidar.watch(dir, {
+    ignoreInitial: true,
+    ignored: (p: string) => /\.(tmp|lock)$/.test(p) || /\.\d+\.tmp$/.test(p),
+  });
   const broadcast = () => {
-    for (const c of clients) c.write(`event: board\ndata: {}\n\n`);
+    for (const c of clients) c.write(`event: boards\ndata: {}\n\n`);
   };
+  watcher.on("add", broadcast);
   watcher.on("change", broadcast);
+  watcher.on("unlink", broadcast);
   // fsevents (macOS) returns from watch() before the initial scan finishes; a write
   // during that window is swallowed by ignoreInitial. Await `ready` so that once
   // listen() resolves, external edits are reliably detected.
@@ -75,6 +98,6 @@ export function createSidecar(file: string): Sidecar {
 
 // Stdio entrypoint: `node --import tsx server/sidecar.ts` boots the sidecar on :8787.
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const file = process.env.TM_BOARD ?? "board.json";
-  createSidecar(file).listen(8787).then(() => console.log("sidecar on :8787"));
+  const dir = process.env.TM_BOARDS_DIR ?? "boards";
+  createSidecar(dir).listen(8787).then(() => console.log("sidecar on :8787"));
 }

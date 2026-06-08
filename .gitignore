@@ -5,5 +5,7 @@ dist/
 
 # runtime board data + smoke artifacts
 apps/web/board.json
+apps/web/boards/
+boards/
 board.json
 docs/smoke-*.png

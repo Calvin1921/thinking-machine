@@ -3,7 +3,7 @@ import type { Node as BNode } from "@tm/core/schema";
 import { SEED_FACETS } from "@tm/core/schema";
 import { setFacet } from "./api.js";
 
-export function FacetDrawer({ node, onClose, onSaved }: { node: BNode | null; onClose: () => void; onSaved: () => void }) {
+export function FacetDrawer({ boardId, node, onClose, onSaved }: { boardId: string; node: BNode | null; onClose: () => void; onSaved: () => void }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!node) return;
@@ -13,7 +13,7 @@ export function FacetDrawer({ node, onClose, onSaved }: { node: BNode | null; on
 
   const save = async (facet: string) => {
     const items = draft[facet].split("\n").map((s) => s.trim()).filter(Boolean);
-    await setFacet(node.id, facet, items, "set");
+    await setFacet(boardId, node.id, facet, items, "set");
     onSaved();
   };
 

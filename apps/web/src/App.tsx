@@ -60,10 +60,13 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
 
   const tidy = useCallback(() => {
     if (!board) return;
-    const pos = tidyLayout(board);
+    // React Flow v12 exposes each rendered node's measured size as node.measured?.height.
+    const heights: Record<string, number> = {};
+    for (const n of flowNodes) { const hh = n.measured?.height; if (hh) heights[n.id] = hh; }
+    const pos = tidyLayout(board, heights);
     setFlowNodes((ns) => ns.map((n) => (pos[n.id] ? { ...n, position: pos[n.id] } : n)));
     Object.entries(pos).forEach(([id, p]) => moveNode(boardId, id, p.x, p.y));
-  }, [board, boardId]);
+  }, [board, boardId, flowNodes]);
 
   if (!board) return <div className="loading">Loading board…</div>;
   const edges = boardToFlow(board).edges;

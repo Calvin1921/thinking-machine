@@ -72,3 +72,9 @@ export function createSidecar(file: string): Sidecar {
     },
   };
 }
+
+// Stdio entrypoint: `node --import tsx server/sidecar.ts` boots the sidecar on :8787.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const file = process.env.TM_BOARD ?? "board.json";
+  createSidecar(file).listen(8787).then(() => console.log("sidecar on :8787"));
+}

@@ -1,0 +1,23 @@
+:root { --bg:#0d0f12; --panel:#171b22; --line:#262c36; --line2:#323a47; --ink:#e6e9ef; --dim:#9aa3b2; --accent:#7c9cff; --accent2:#5ce0c6; --root:#c78bff; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, sans-serif; }
+.app, .react-flow { width: 100vw; height: 100vh; }
+.loading { display: grid; place-items: center; height: 100vh; color: var(--dim); }
+.think { background: var(--panel); border: 1px solid var(--line2); border-radius: 8px; padding: 9px 12px; min-width: 120px; }
+.think.root { background: #1c1526; }
+.think.atom { border-style: dashed; }
+.think.sel { box-shadow: 0 0 0 3px rgba(92,224,198,.15); }
+.t-label { font-size: 13px; font-weight: 600; }
+.t-sub { font-size: 10px; color: #5c6573; margin-top: 2px; }
+.t-dots { display: flex; gap: 3px; margin-top: 6px; }
+.t-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--line2); }
+.t-dots i.on { background: var(--accent); }
+.quickadd { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 20; }
+.quickadd input { width: 360px; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line2); background: var(--panel); color: var(--ink); font-size: 13px; }
+.drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 360px; background: #13161b; border-left: 1px solid var(--line); padding: 20px; overflow: auto; z-index: 30; }
+.drawer-close { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--dim); font-size: 20px; cursor: pointer; }
+.drawer h2 { font-size: 18px; margin: 4px 0 2px; }
+.dsub { color: #5c6573; font-size: 11px; margin-bottom: 14px; }
+.facet { margin-bottom: 14px; }
+.facet label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin-bottom: 5px; }
+.facet textarea { width: 100%; min-height: 56px; resize: vertical; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; font-size: 12.5px; padding: 8px; }

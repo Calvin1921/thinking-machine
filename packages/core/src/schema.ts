@@ -37,6 +37,9 @@ export const BoardSchema = z.object({
 export type Node = z.infer<typeof NodeSchema>;
 export type Edge = z.infer<typeof EdgeSchema>;
 export type Board = z.infer<typeof BoardSchema>;
+// `EdgeType` above is the zod enum *value*; ops.ts uses the name as a type too.
+// A value and a type may share a name in TS, so expose the inferred union here.
+export type EdgeType = z.infer<typeof EdgeType>;
 
 export const SEED_FACETS = [
   "definition", "essentials", "dependencies",

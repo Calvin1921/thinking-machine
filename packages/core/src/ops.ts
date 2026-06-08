@@ -99,3 +99,67 @@ export function decompose(board: Board, nodeId: string, input: DecomposeInput): 
   }
   return b;
 }
+
+export interface GrowNode {
+  label: string;
+  kind: "branch" | "atom";
+  facets?: Record<string, string[]>;   // e.g. { definition: ["..."] }
+  children?: GrowNode[];                // recursive
+}
+export interface GrowInput {
+  nodes: GrowNode[];
+  edges?: { fromLabel: string; toLabel: string; type: EdgeType }[];  // cross-links by label
+}
+
+const GROW_MAX_NODES = 300;
+
+/** Total GrowNodes in a forest, counting all descendants. */
+function countGrowNodes(nodes: GrowNode[]): number {
+  return nodes.reduce((n, g) => n + 1 + countGrowNodes(g.children ?? []), 0);
+}
+
+/**
+ * Create a whole multi-level subtree under `parentId` in one immutable op.
+ * Each GrowNode becomes a node linked to its parent by a decomposition edge,
+ * with its facets seeded; children fan out to the right of their parent.
+ * After the tree is built, `input.edges` add cross-links resolved by label
+ * (last-created wins on duplicate labels).
+ */
+export function growSubtree(board: Board, parentId: string, input: GrowInput): Board {
+  requireNode(board, parentId);
+  if (countGrowNodes(input.nodes) > GROW_MAX_NODES) {
+    throw new Error("growSubtree: too many nodes (>300)");
+  }
+
+  const labelToId: Record<string, string> = {};
+  let b = board;
+
+  const growLevel = (siblings: GrowNode[], parent: string): void => {
+    const parentNode = requireNode(b, parent);
+    const pts = placeChildren(parentNode, siblings.length);
+    siblings.forEach((child, i) => {
+      const id = genId(b, child.label);
+      labelToId[child.label] = id;   // last-created wins on duplicate labels
+      b = {
+        ...b,
+        nodes: [...b.nodes, { id, label: child.label, kind: child.kind, x: pts[i].x, y: pts[i].y, facets: {} }],
+        edges: [...b.edges, { from: parent, to: id, type: "decomposition" as const }],
+      };
+      for (const [facet, items] of Object.entries(child.facets ?? {})) {
+        b = setFacet(b, id, facet, items, "set");
+      }
+      if (child.children?.length) growLevel(child.children, id);
+    });
+  };
+
+  growLevel(input.nodes, parentId);
+
+  for (const e of input.edges ?? []) {
+    const from = labelToId[e.fromLabel], to = labelToId[e.toLabel];
+    if (!from || !to) {
+      throw new Error(`growSubtree edge references unknown label "${from ? e.toLabel : e.fromLabel}"`);
+    }
+    b = linkNodes(b, from, to, e.type);
+  }
+  return b;
+}

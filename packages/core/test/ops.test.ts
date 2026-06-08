@@ -1,7 +1,8 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, growSubtree } from "../src/ops.js";
+import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
   it("addNode appends a node and a decomposition edge to its parent", () => {
@@ -66,6 +67,64 @@ describe("ops", () => {
   it("setNodeImage throws on an unknown node", () => {
     const b = newBoard("App", "objective");
     expect(() => setNodeImage(b, "nope", "x")).toThrow();
+  });
+
+  it("growSubtree builds a nested multi-level subtree with facets + cross-links", () => {
+    let b = newBoard("App", "objective");
+    b = growSubtree(b, "root", {
+      nodes: [
+        {
+          label: "A",
+          kind: "branch",
+          children: [
+            {
+              label: "B",
+              kind: "branch",
+              facets: { definition: ["the B thing"] },
+              children: [{ label: "C", kind: "atom" }],
+            },
+          ],
+        },
+        { label: "D", kind: "branch" },
+      ],
+      edges: [{ fromLabel: "D", toLabel: "A", type: "dependency" }],
+    });
+
+    // root + A + B + C + D
+    expect(b.nodes).toHaveLength(5);
+
+    const id = (label: string) => b.nodes.find((n) => n.label === label)!.id;
+    const hasDecomp = (from: string, to: string) =>
+      b.edges.some((e) => e.from === id(from) && e.to === id(to) && e.type === "decomposition");
+
+    // tree shape: root->A, A->B, B->C, root->D
+    expect(b.edges).toContainEqual({ from: "root", to: id("A"), type: "decomposition" });
+    expect(b.edges).toContainEqual({ from: "root", to: id("D"), type: "decomposition" });
+    expect(hasDecomp("A", "B")).toBe(true);
+    expect(hasDecomp("B", "C")).toBe(true);
+
+    // facet landed on B specifically
+    expect(b.nodes.find((n) => n.label === "B")!.facets.definition).toEqual(["the B thing"]);
+    expect(b.nodes.find((n) => n.label === "A")!.facets.definition).toBeUndefined();
+
+    // cross-link D -> A
+    expect(b.edges).toContainEqual({ from: id("D"), to: id("A"), type: "dependency" });
+  });
+
+  it("growSubtree throws when the subtree exceeds 300 nodes", () => {
+    const b = newBoard("App", "objective");
+    const nodes: GrowNode[] = Array.from({ length: 301 }, (_, i) => ({ label: `n${i}`, kind: "atom" as const }));
+    expect(() => growSubtree(b, "root", { nodes })).toThrow(/too many nodes/);
+  });
+
+  it("growSubtree throws on an unresolved cross-link label", () => {
+    const b = newBoard("App", "objective");
+    expect(() =>
+      growSubtree(b, "root", {
+        nodes: [{ label: "A", kind: "branch" }],
+        edges: [{ fromLabel: "A", toLabel: "ghost", type: "dependency" }],
+      }),
+    ).toThrow(/unknown label "ghost"/);
   });
 
   it("addNode throws on an unknown parent", () => {

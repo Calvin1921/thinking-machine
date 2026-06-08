@@ -1,6 +1,6 @@
 ---
 name: thinking-machine
-description: Use when the user wants to build, expand, or decompose a Thinking Machine board — mapping research, decisions, or system designs as a graph of nodes. Drives the `tm` CLI / MCP to read and edit board.json, decomposing nodes as a domain-aware LLM-judge with the user confirming before commit.
+description: Use when the user wants to build, expand, or decompose a Thinking Machine board — mapping research, decisions, or system designs as a graph of nodes. Drives the `tm` CLI / MCP to read and edit board.json, decomposing nodes as a domain-aware LLM-judge. Deep-dive by default — grows a full multi-level tree in one `tm grow` call, confirming the whole tree before commit.
 ---
 
 # Thinking Machine
@@ -29,16 +29,24 @@ concept), `branch` (decomposes further), `atom` (leaf — stop expanding).
 
 **Stopping rule:** mark a node `atom` when decomposing it further adds no insight.
 
-## The discipline: propose → confirm → commit
+## The discipline: deep-dive by default
 
-NEVER write a large decomposition silently. Always:
-1. Read the node: `tm show --node <id> --json`.
-2. Propose `{ decomposition, edges?, facets? }` to the user as plain text + the rationale.
-3. Ask which children/facets to keep (all / some / edit).
-4. Commit the confirmed set in ONE call: `tm decompose <id> --json '<proposal>'`.
+DEFAULT to building the **whole tree**, not one level. When the user asks to map or decompose
+a topic, recursively expand it to depth **3–4 (or until nodes are genuine `atom`s)**, applying
+the five heuristics (below) at EVERY level — then commit the entire subtree in ONE `tm grow`
+call. The old one-level-and-ask rhythm caps depth at 2–3 layers and makes the user drag depth
+out of you level by level; that is a *co-build* mode, not the default. Density is handled by
+the canvas's **⊟ Collapse all**, so depth is free to be deep — every node still carries its
+own `definition` so the deep tree is readable, not empty boxes.
 
-A proposal should usually be 3–6 children — not 30. Breadth comes from iterating, not
-from one explosion.
+Still: **never commit silently.** Present the proposed tree first — as an indented outline
+with the named crux at each level and any probe — and get one yes. The confirmation is over
+the WHOLE tree at once, not per level. Then `tm grow`.
+
+Use **shallow / co-build mode** (one level via `tm decompose`, confirm, iterate) only when the
+user explicitly wants to grow it slowly together, or a node is genuinely ambiguous.
+
+Keep each level to **3–6 children** — depth comes from recursion, not from 30 siblings on one node.
 
 ## CLI reference
 
@@ -53,9 +61,10 @@ atomically. Add `--json` to `show` for machine-readable output you can read back
 | `tm link <from> <to> --type decomposition\|dependency` | add an edge (use `dependency` for cross-links) |
 | `tm facet <id> <facet> set\|add <items...>` | set/append items on a lens |
 | `tm promote <id> <facet> <index>` | turn facet item #index into its own child node |
-| `tm decompose <id> --json '<proposal>'` | commit a full proposal in one shot (preferred write path) |
+| `tm decompose <id> --json '<proposal>'` | commit ONE level in one shot (co-build mode) |
+| `tm grow <id> --json '<tree>'` | **DEFAULT** — commit a whole multi-level subtree in one shot |
 
-`tm decompose` proposal shape:
+`tm decompose` (one level) proposal shape:
 ```json
 {
   "decomposition": [{ "label": "Frontend", "kind": "branch" }, { "label": "Database", "kind": "atom" }],
@@ -63,8 +72,25 @@ atomically. Add `--json` to `show` for machine-readable output you can read back
   "facets": { "considerations": ["scope creep is the #1 killer"] }
 }
 ```
-`edges[].fromLabel`/`toLabel` reference the `label`s of the children you're creating in the
-same call. `facets` are added to the node being decomposed (the `<id>`), not the children.
+
+`tm grow` (deep, nested — the default) shape — each node may carry `facets` and `children`:
+```json
+{
+  "nodes": [
+    { "label": "Frontend", "kind": "branch", "facets": { "definition": ["the user-facing layer"] },
+      "children": [
+        { "label": "UI components", "kind": "atom", "facets": { "definition": ["buttons, forms, views"] } },
+        { "label": "State", "kind": "atom", "facets": { "definition": ["client cache + form state"] } }
+      ] },
+    { "label": "Backend", "kind": "branch", "facets": { "definition": ["the server + data layer"] } }
+  ],
+  "edges": [{ "fromLabel": "Frontend", "toLabel": "Backend", "type": "dependency" }]
+}
+```
+`tm grow` creates the entire tree under `<id>` at once (decomposition edges built automatically);
+`edges[]` adds dependency cross-links by label across any nodes in the tree. Give EVERY node a
+`definition` so the deep tree reads on the canvas. (`tm decompose`'s `facets` apply to the parent;
+`tm grow`'s per-node `facets` apply to each created node.)
 
 ## MCP equivalents
 
@@ -72,10 +98,11 @@ If the MCP server is connected, the same operations are tools — but the server
 **directory-aware** (multi-board), matching the web app. Two collection tools manage
 boards: `tm_list_boards` (no args) and `tm_create_board` `{ title, rootType }` → returns a
 board `id`. Every other tool takes that `board` id as its first arg: `tm_show`,
-`tm_add_node`, `tm_link`, `tm_set_facet`, `tm_promote`, `tm_decompose` (otherwise the same
-input shapes as the CLI). Typical flow: call `tm_list_boards` (or `tm_create_board`) to get
-a board id, then operate on it. Prefer these in-session; fall back to the CLI otherwise. The
-MCP server reads the boards directory from the `TM_BOARDS_DIR` env var (default `boards`).
+`tm_add_node`, `tm_link`, `tm_set_facet`, `tm_promote`, `tm_decompose`, and **`tm_grow`**
+`{ board, parentId, nodes, edges? }` — the deep-by-default one (same nested `nodes` shape as
+`tm grow` above). Typical flow: call `tm_list_boards` (or `tm_create_board`) to get a board id,
+then `tm_grow` the whole tree. Prefer these in-session; fall back to the CLI otherwise. The MCP
+server reads the boards directory from the `TM_BOARDS_DIR` env var (default `boards`).
 
 ## The decomposition method — five heuristics (the engine's policy)
 
@@ -114,8 +141,14 @@ freely (decision → options/criteria/risks/reversibility; operations →
 inputs/steps/owners/failure-modes/metrics). Seed 1–3 items per lens where you have genuine
 signal; leave the rest for the user.
 
+### Apply the heuristics at EVERY level
+When growing deep, run heuristics 0–4 for the root node AND recursively for each branch child:
+MECE + drop a lens, rank by charge × tractability, name that level's crux, gate decisions.
+A branch with one good economic reason but no further insight becomes an `atom` — that's the
+recursion's stopping rule.
+
 ### Then commit
-Present the proposal — children + the dropped lens + the named crux + any probe — with your
-rationale, get the user's pick, then `tm decompose`. The canvas live-updates; tell the user
-to **⤢ Tidy** / fit-view if new nodes land off-screen, and to **⊟ Collapse all** for the
-overview on a deep board.
+Present the proposed **tree** (indented outline + each level's crux + any probe) with your
+rationale, get one yes, then **`tm grow`** the whole thing in a single call (use `tm decompose`
+only in co-build mode). The canvas live-updates; tell the user to **⤢ Tidy** to lay it out and
+**⊟ Collapse all** for the overview, then expand the crux branch to walk the depth.

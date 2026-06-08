@@ -2,6 +2,8 @@
 import { Board, Node, EdgeType } from "./schema.js";
 import { placeChildren } from "./layout.js";
 
+// Resets to 0 on every process restart; uniqueness is guaranteed by the live-board
+// collision check (board.nodes.some(...)) below, not by this counter.
 let counter = 0;
 /** Deterministic-enough id without Date.now/Math.random (unavailable in some runtimes). */
 function genId(board: Board, label: string): string {

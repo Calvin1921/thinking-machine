@@ -30,7 +30,8 @@ export function withLock<T>(file: string, fn: () => T, retries = 50): T {
   let fd: number | undefined;
   for (let i = 0; i < retries; i++) {
     try { fd = openSync(lock, "wx"); break; }
-    catch { const until = Date.now() + 20; while (Date.now() < until) { /* spin */ } }
+    // Block 20ms without spinning the CPU; Atomics.wait needs no clock (Date.now() breaks replay).
+    catch { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20); }
   }
   if (fd === undefined) throw new Error(`Could not acquire lock on ${file}`);
   try { return fn(); }

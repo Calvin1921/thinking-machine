@@ -1,9 +1,10 @@
 // packages/core/test/board.test.ts
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadBoard, saveBoard, newBoard } from "../src/board.js";
+import { loadBoard, saveBoard, newBoard, mutate } from "../src/board.js";
+import { addNode, setFacet } from "../src/ops.js";
 
 let dir: string, file: string;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "tm-")); file = join(dir, "board.json"); });
@@ -22,7 +23,6 @@ describe("board io", () => {
   it("save is atomic: no temp file left behind", () => {
     const b = newBoard("X", "cause");
     saveBoard(file, b);
-    const { readdirSync } = require("node:fs");
     expect(readdirSync(dir).filter((f: string) => f.includes(".tmp"))).toHaveLength(0);
   });
 
@@ -34,5 +34,25 @@ describe("board io", () => {
     const loaded = loadBoard(file);
     expect(loaded.version).toBe(1);
     expect(loaded.nodes[0].facets).toEqual({});
+  });
+});
+
+describe("mutate / withLock", () => {
+  it("applies fn's changes and persists them to disk", () => {
+    saveBoard(file, newBoard("Idea", "objective"));
+    const returned = mutate(file, (b) => addNode(b, { label: "Step one", parentId: "root", kind: "branch" }));
+    expect(returned.nodes.map((n) => n.label)).toContain("Step one");
+    // The change must be on disk, not just in the returned value.
+    const onDisk = loadBoard(file);
+    expect(onDisk.nodes.map((n) => n.label)).toContain("Step one");
+    expect(onDisk.nodes).toHaveLength(2);
+  });
+
+  it("composes sequential mutations: the second sees the first's result", () => {
+    saveBoard(file, newBoard("Idea", "objective"));
+    mutate(file, (b) => setFacet(b, "root", "risks", ["first"], "add"));
+    mutate(file, (b) => setFacet(b, "root", "risks", ["second"], "add"));
+    const onDisk = loadBoard(file);
+    expect(onDisk.nodes[0].facets.risks).toEqual(["first", "second"]);
   });
 });

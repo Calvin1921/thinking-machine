@@ -77,15 +77,45 @@ input shapes as the CLI). Typical flow: call `tm_list_boards` (or `tm_create_boa
 a board id, then operate on it. Prefer these in-session; fall back to the CLI otherwise. The
 MCP server reads the boards directory from the `TM_BOARDS_DIR` env var (default `boards`).
 
-## Domain-aware decomposition method
+## The decomposition method — five heuristics (the engine's policy)
 
-Given a node + its ancestor path + the board's `domainHint` + sibling labels:
-1. Infer the domain (software, business, decision, operations, research, …).
-2. Choose 3–6 child parts that are MECE-ish and worth deeper thought.
-3. Choose the 4–6 facet lenses that fit the domain; seed 1–3 items each where you have
-   genuine signal — leave the rest empty for the user.
-4. Add dependency edges only for real shared dependencies.
-5. Present, confirm, then `tm decompose`.
+These come from the thinking-skills this engine is built on. Apply them **in order, every
+time** you break a node down — they are what replaces a generic bullet list with structured
+thought. Given a node + its ancestor path + the board's `domainHint` + sibling labels:
 
-The web canvas live-updates as you commit. New child nodes are placed to the right of
-their parent automatically — tell the user to fit-view if they fall outside the viewport.
+**0 · Probe-or-decompose? (builder-loop heuristic)** — First ask: can this node be advanced
+by more *thinking*, or is it stuck on missing *reality*? If it's high-charge but intractable
+by thought (a fact you don't have, a market untested, a user unasked), do **not** spawn
+children — propose a **probe**: the cheapest real exposure that would resolve it, with a
+success threshold and a date. Decompose only what thought can actually advance.
+
+**1 · MECE, then drop the weakest (perspective-tree heuristic)** — Generate 3–6 children
+that are **mutually exclusive** (no overlap) and **collectively exhaustive** (nothing
+material missing) for the domain. Then **cut at least one** — the weakest. A breakdown with
+no dropped option is a list, not a decomposition.
+
+**2 · Rank by charge × tractability (unfog heuristic)** — Order the survivors by **how much
+each matters × how checkable/actionable it is**. The top one is what to expand next. A child
+that's high-charge but low-tractability is a **probe candidate** (→ 0), not a sub-tree.
+
+**3 · Name the crux by in-degree × uncertainty (reasoning-spine heuristic)** — Add
+**dependency** cross-edges for real shared dependencies. The **crux** = the child with the
+highest *in-degree × uncertainty* (what the most others depend on AND is least resolved).
+Record it in the parent's `priorities` facet and expand it first — it's load-bearing.
+
+**4 · For `decision` nodes, run the gate (decide heuristic)** — children should be the
+pipeline **options · criteria · risks · reversibility**, and the decomposition must **exit
+on a probe**: a dated, numeric test of the crux + a tripwire ("wrong if X by DATE"). Never
+leave a decision node as analysis with no next action.
+
+### Domain → lenses
+Infer the domain and pick the 4–6 facet lenses that fit — the seed six are a default, swap
+freely (decision → options/criteria/risks/reversibility; operations →
+inputs/steps/owners/failure-modes/metrics). Seed 1–3 items per lens where you have genuine
+signal; leave the rest for the user.
+
+### Then commit
+Present the proposal — children + the dropped lens + the named crux + any probe — with your
+rationale, get the user's pick, then `tm decompose`. The canvas live-updates; tell the user
+to **⤢ Tidy** / fit-view if new nodes land off-screen, and to **⊟ Collapse all** for the
+overview on a deep board.

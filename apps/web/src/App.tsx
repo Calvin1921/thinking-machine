@@ -8,13 +8,13 @@ import { tidyLayout } from "./tidyLayout.js";
 import { funnelLayout } from "./funnelLayout.js";
 import { sectionedLayout, HEADER_H } from "./sectionedLayout.js";
 import { ThinkNode } from "./ThinkNode.js";
-import { SectionHeaderNode, NoteNode } from "./SectionNodes.js";
+import { SectionHeaderNode, NoteNode, SectionBgNode } from "./SectionNodes.js";
 import { FacetDrawer } from "./FacetDrawer.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { CollectionView } from "./CollectionView.js";
 import { getBoard, moveNode, onBoardChange, setLayout } from "./api.js";
 
-const nodeTypes = { think: ThinkNode, sectionHeader: SectionHeaderNode, note: NoteNode };
+const nodeTypes = { think: ThinkNode, sectionHeader: SectionHeaderNode, note: NoteNode, sectionBg: SectionBgNode };
 
 /** Ids of nodes hidden because an ancestor is collapsed (the collapsed node itself stays visible). */
 function computeHidden(board: Board, collapsed: Set<string>): Set<string> {
@@ -128,7 +128,14 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const displayNodes = useMemo(() => {
     if (sl) {
       // Section mode: position graph nodes by the sectioned layout, then add the
-      // header bands and note panels as non-draggable pseudo-nodes.
+      // header bands, note panels, and boundary backgrounds as non-draggable pseudo-nodes.
+      const PAD_X = 32, PAD_TOP = 14, PAD_BOTTOM = 32;
+      const backgrounds = sl.sections.map((s) => ({
+        id: `__bg_${s.id}`, type: "sectionBg",
+        position: { x: -PAD_X, y: s.y - PAD_TOP },
+        data: { w: Math.max(s.w, 320) + PAD_X * 2, h: s.h + PAD_TOP + PAD_BOTTOM, kind: s.kind },
+        draggable: false, selectable: false, zIndex: -1,
+      }));
       const graph = flowNodes
         .filter((n) => sl.nodes[n.id] && !hidden.has(n.id))
         .map((n) => ({ ...n, position: sl.nodes[n.id], draggable: false, data: { ...n.data, collapsed: collapsed.has(n.id), onToggle: toggleCollapse } }));
@@ -141,7 +148,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         id: `__note_${s.id}`, type: "note", position: { x: s.x, y: s.y + HEADER_H },
         data: { title: s.title, note: s.note ?? "" }, draggable: false, selectable: false,
       }));
-      return [...headers, ...notes, ...graph];
+      return [...backgrounds, ...headers, ...notes, ...graph];
     }
     return flowNodes
       .filter((n) => !hidden.has(n.id))

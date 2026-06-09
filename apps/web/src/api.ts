@@ -40,6 +40,10 @@ export const setSectionLayout = (boardId: string, sectionId: string, layout: str
   post(`/api/boards/${boardId}/section-layout`, { sectionId, layout });
 export const setSectionPos = (boardId: string, sectionId: string, x: number, y: number) =>
   post(`/api/boards/${boardId}/section-pos`, { sectionId, x, y });
+export const setNodeSize = (boardId: string, nodeId: string, w: number, h: number) =>
+  post(`/api/boards/${boardId}/node-size`, { nodeId, w, h });
+export const setSectionSize = (boardId: string, sectionId: string, w: number, h: number) =>
+  post(`/api/boards/${boardId}/section-size`, { sectionId, w, h });
 
 /** Subscribe to external board changes (CLI/MCP edits, new boards, etc.). */
 export function onBoardChange(cb: () => void): () => void {

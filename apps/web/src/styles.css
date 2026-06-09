@@ -8,6 +8,10 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, 
 .think.root { background: #1c1526; }
 .think.atom { border-style: dashed; }
 .think.sel { box-shadow: 0 0 0 3px rgba(92,224,198,.15); }
+.think.sized { max-width: none; width: 100%; height: 100%; overflow: auto; }
+/* resize handles (NodeResizer) */
+.nr-line { border-color: rgba(92,224,198,.5); }
+.nr-handle { width: 9px; height: 9px; border-radius: 2px; background: var(--accent2); border: 1px solid var(--bg); }
 .t-label { font-size: 13px; font-weight: 600; line-height: 1.3; }
 .t-sub { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--root); margin-top: 3px; }
 .t-status { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;

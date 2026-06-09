@@ -25,6 +25,8 @@ export const SectionSchema = z.object({
   note: z.string().optional(),      // note sections: the markdown/plain text body
   x: z.number().optional(),         // section origin on the surface (set once it's placed/dragged)
   y: z.number().optional(),
+  w: z.number().optional(),         // explicit container size once the user resizes (else computed)
+  h: z.number().optional(),
 });
 
 export const NodeSchema = z.object({
@@ -37,6 +39,8 @@ export const NodeSchema = z.object({
   sectionId: z.string().optional(),  // which section this node belongs to (graph sections)
   x: z.number(),
   y: z.number(),
+  w: z.number().optional(),          // explicit size once the user resizes (else auto)
+  h: z.number().optional(),
   // facet key -> list of thought items (strings in v1). Domain-specific keys allowed.
   facets: z.record(z.string(), z.array(z.string())),
 });

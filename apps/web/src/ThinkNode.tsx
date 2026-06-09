@@ -1,4 +1,4 @@
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, Position, NodeResizer, type NodeProps } from "@xyflow/react";
 import type { ThinkNodeData } from "./boardToFlow.js";
 
 const KIND_BORDER: Record<string, string> = { root: "#c78bff", branch: "#323a47", atom: "#323a47" };
@@ -11,9 +11,10 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
   const statusColor = data.status ? STATUS_COLOR[data.status] : undefined;
   return (
     <div
-      className={`think ${data.kind} ${selected ? "sel" : ""}`}
+      className={`think ${data.kind} ${selected ? "sel" : ""} ${data.sized ? "sized" : ""}`}
       style={{ borderColor: statusColor ?? KIND_BORDER[data.kind], borderLeftWidth: statusColor ? 4 : undefined }}
     >
+      <NodeResizer isVisible={selected} minWidth={150} minHeight={56} lineClassName="nr-line" handleClassName="nr-handle" />
       <Handle type="target" position={Position.Left} id="l" />
       <Handle type="target" position={Position.Top} id="t" />
       {data.image && (

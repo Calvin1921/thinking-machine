@@ -12,6 +12,7 @@ export interface ThinkNodeData {
   preview: string;        // the node's own content (full, untruncated) — shown on the card
   filledFacets: string[]; // names of the lenses that have content
   childCount: number;     // number of decomposition children (for the collapse toggle)
+  sized?: boolean;        // node has an explicit user size → fill the node element
   collapsed?: boolean;    // injected at render time
   onToggle?: (id: string) => void; // injected at render time
   [key: string]: unknown;
@@ -41,21 +42,26 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
   for (const n of board.nodes) childCount[n.id] = 0;
   for (const e of board.edges) if (e.type === "decomposition") childCount[e.from] = (childCount[e.from] ?? 0) + 1;
 
-  const nodes = board.nodes.map((n) => ({
-    id: n.id,
-    type: "think",
-    position: { x: n.x, y: n.y },
-    data: {
-      label: n.label,
-      kind: n.kind,
-      rootType: n.rootType,
-      status: n.status,
-      image: n.image,
-      preview: firstContent(n.facets),
-      filledFacets: SEED_FACETS.filter((f) => (n.facets[f]?.length ?? 0) > 0),
-      childCount: childCount[n.id] ?? 0,
-    },
-  }));
+  const nodes = board.nodes.map((n) => {
+    const sized = n.w != null && n.h != null;
+    return {
+      id: n.id,
+      type: "think",
+      position: { x: n.x, y: n.y },
+      ...(sized ? { width: n.w, height: n.h, style: { width: n.w, height: n.h } } : {}),
+      data: {
+        label: n.label,
+        kind: n.kind,
+        rootType: n.rootType,
+        status: n.status,
+        image: n.image,
+        preview: firstContent(n.facets),
+        filledFacets: SEED_FACETS.filter((f) => (n.facets[f]?.length ?? 0) > 0),
+        childCount: childCount[n.id] ?? 0,
+        sized,
+      },
+    };
+  });
 
   const edges = board.edges.map((e, i) => ({
     id: `e${i}`,

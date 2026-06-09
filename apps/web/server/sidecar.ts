@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
   addNode, linkNodes, setFacet, updateNodePosition, setNodeImage, setNodeStatus, setBoardLayout,
-  addSection, setSectionNote, setSectionLayout, setSectionPos,
+  addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize,
 } from "@tm/core";
 
 export interface Sidecar {
@@ -136,6 +136,24 @@ export function createSidecar(dir: string): Sidecar {
       res.status(400).json({ error: "sectionId, x, y required" }); return;
     }
     res.json(mutate(file, (b) => setSectionPos(b, sectionId, x, y)));
+  });
+  app.post("/api/boards/:id/node-size", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
+    const { nodeId, w, h } = req.body ?? {};
+    if (typeof nodeId !== "string" || typeof w !== "number" || typeof h !== "number") {
+      res.status(400).json({ error: "nodeId, w, h required" }); return;
+    }
+    res.json(mutate(file, (b) => setNodeSize(b, nodeId, w, h)));
+  });
+  app.post("/api/boards/:id/section-size", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
+    const { sectionId, w, h } = req.body ?? {};
+    if (typeof sectionId !== "string" || typeof w !== "number" || typeof h !== "number") {
+      res.status(400).json({ error: "sectionId, w, h required" }); return;
+    }
+    res.json(mutate(file, (b) => setSectionSize(b, sectionId, w, h)));
   });
   app.post("/api/boards/:id/move", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);

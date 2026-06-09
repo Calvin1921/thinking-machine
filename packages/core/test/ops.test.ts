@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, growSubtree } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, growSubtree } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -104,6 +104,17 @@ describe("ops", () => {
     const moved = b.sections!.find((x) => x.id === gs.id)!;
     expect([moved.x, moved.y]).toEqual([700, 300]);
     expect(() => setSectionPos(b, "nope", 0, 0)).toThrow();
+
+    b = setSectionSize(b, gs.id, 480, 360);
+    const sized = b.sections!.find((x) => x.id === gs.id)!;
+    expect([sized.w, sized.h]).toEqual([480, 360]);
+  });
+
+  it("setNodeSize stores an explicit node size", () => {
+    let b = newBoard("App", "objective");
+    b = setNodeSize(b, "root", 300, 180);
+    expect([b.nodes[0].w, b.nodes[0].h]).toEqual([300, 180]);
+    expect(() => setNodeSize(b, "nope", 1, 1)).toThrow();
   });
 
   it("setBoardLayout sets funnel, resets on tree/empty, rejects garbage", () => {

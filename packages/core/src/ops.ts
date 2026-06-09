@@ -38,6 +38,12 @@ export function updateNodePosition(board: Board, nodeId: string, x: number, y: n
   return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, x, y } : n)) };
 }
 
+/** Set a node's explicit size (from a resize). */
+export function setNodeSize(board: Board, nodeId: string, w: number, h: number): Board {
+  requireNode(board, nodeId);
+  return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, w, h } : n)) };
+}
+
 /** Attach (or clear) an optional image URL on a node. Empty string clears it. */
 export function setNodeImage(board: Board, nodeId: string, image: string): Board {
   requireNode(board, nodeId);
@@ -100,6 +106,12 @@ export function setSectionNote(board: Board, sectionId: string, note: string): B
 export function setSectionPos(board: Board, sectionId: string, x: number, y: number): Board {
   requireSection(board, sectionId);
   return { ...board, sections: (board.sections ?? []).map((s) => (s.id === sectionId ? { ...s, x, y } : s)) };
+}
+
+/** Set a section container's explicit size (from a resize). */
+export function setSectionSize(board: Board, sectionId: string, w: number, h: number): Board {
+  requireSection(board, sectionId);
+  return { ...board, sections: (board.sections ?? []).map((s) => (s.id === sectionId ? { ...s, w, h } : s)) };
 }
 
 /** Set the layout of a graph section (tree|funnel). Empty string resets to default (tree). */

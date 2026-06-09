@@ -12,7 +12,7 @@ import { SectionBox } from "./SectionNodes.js";
 import { FacetDrawer } from "./FacetDrawer.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { CollectionView } from "./CollectionView.js";
-import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos } from "./api.js";
+import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos, setNodeSize, setSectionSize } from "./api.js";
 
 const nodeTypes = { think: ThinkNode, sectionBox: SectionBox };
 const SEC_PREFIX = "__sec_";
@@ -88,12 +88,13 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     for (const s of b.sections) {
       const rect = rectById.get(s.id);
       if (!rect) continue;
-      const w = Math.max(rect.w, 300) + SEC_PAD_X * 2, h = rect.h + 34;
+      const w = s.w ?? (Math.max(rect.w, 300) + SEC_PAD_X * 2);
+      const h = s.h ?? (rect.h + 34);
       const placed = s.x != null && s.y != null;
       out.push({
         id: `${SEC_PREFIX}${s.id}`, type: "sectionBox",
         position: placed ? { x: s.x!, y: s.y! } : { x: rect.x, y: rect.y },
-        style: { width: w, height: h, zIndex: 0 }, draggable: true, selectable: true,
+        width: w, height: h, style: { width: w, height: h, zIndex: 0 }, draggable: true, selectable: true,
         data: { title: s.title, purpose: s.kind === "note" ? "note" : (s.layout === "funnel" ? "funnel" : "tree"), kind: s.kind, note: s.note ?? "", w, h },
       } as FlowNode);
     }
@@ -135,9 +136,21 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setFlowNodes((ns) => applyNodeChanges(changes, ns));
     for (const c of changes) {
+      const isSec = "id" in c && c.id.startsWith(SEC_PREFIX);
+      const secId = isSec ? (c as { id: string }).id.slice(SEC_PREFIX.length) : "";
       if (c.type === "position" && c.dragging === false && c.position) {
-        if (c.id.startsWith(SEC_PREFIX)) setSectionPos(boardId, c.id.slice(SEC_PREFIX.length), c.position.x, c.position.y);
+        if (isSec) setSectionPos(boardId, secId, c.position.x, c.position.y);
         else moveNode(boardId, c.id, c.position.x, c.position.y);
+      } else if (c.type === "dimensions" && c.resizing === false && c.dimensions) {
+        const w = Math.round(c.dimensions.width), h = Math.round(c.dimensions.height);
+        if (isSec) setSectionSize(boardId, secId, w, h);
+        else setNodeSize(boardId, c.id, w, h);
+        // a top/left resize also shifts position — persist it from the same batch.
+        const pc = changes.find((x) => "id" in x && x.id === c.id && x.type === "position" && x.position);
+        if (pc && pc.type === "position" && pc.position) {
+          if (isSec) setSectionPos(boardId, secId, pc.position.x, pc.position.y);
+          else moveNode(boardId, c.id, pc.position.x, pc.position.y);
+        }
       }
     }
   }, [boardId]);

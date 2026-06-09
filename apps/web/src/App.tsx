@@ -5,11 +5,12 @@ import "./styles.css";
 import type { Board } from "@tm/core/schema";
 import { boardToFlow } from "./boardToFlow.js";
 import { tidyLayout } from "./tidyLayout.js";
+import { funnelLayout } from "./funnelLayout.js";
 import { ThinkNode } from "./ThinkNode.js";
 import { FacetDrawer } from "./FacetDrawer.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { CollectionView } from "./CollectionView.js";
-import { getBoard, moveNode, onBoardChange } from "./api.js";
+import { getBoard, moveNode, onBoardChange, setLayout } from "./api.js";
 
 const nodeTypes = { think: ThinkNode };
 
@@ -81,17 +82,26 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     }
   }, [boardId]);
 
-  const tidy = useCallback(() => {
-    if (!board) return;
-    // React Flow v12 exposes each rendered node's measured size as node.measured?.height.
+  // Re-arrange the FULL tree with the given layout (ignore collapse): persisting a
+  // collapse-aware partial layout would leave hidden children at stale positions.
+  const arrange = useCallback((b: Board, kind: "tree" | "funnel") => {
     const heights: Record<string, number> = {};
     for (const n of flowNodes) { const hh = n.measured?.height; if (hh) heights[n.id] = hh; }
-    // Always lay out the FULL tree (ignore collapse): persisting a collapse-aware partial
-    // layout would leave hidden children at stale positions and break the expanded view.
-    const pos = tidyLayout(board, heights);
+    const pos = kind === "funnel" ? funnelLayout(b, heights) : tidyLayout(b, heights);
     setFlowNodes((ns) => ns.map((n) => (pos[n.id] ? { ...n, position: pos[n.id] } : n)));
     Object.entries(pos).forEach(([id, p]) => moveNode(boardId, id, p.x, p.y));
-  }, [board, boardId, flowNodes]);
+  }, [boardId, flowNodes]);
+
+  const tidy = useCallback(() => { if (board) arrange(board, board.layout === "funnel" ? "funnel" : "tree"); }, [board, arrange]);
+
+  // Toggle the board between tree and funnel: persist the choice, flip handles, re-arrange.
+  const switchLayout = useCallback((kind: "tree" | "funnel") => {
+    if (!board) return;
+    const next = { ...board, layout: kind === "funnel" ? ("funnel" as const) : undefined };
+    setBoard(next);             // re-renders edges with the right handles immediately
+    arrange(next, kind);
+    setLayout(boardId, kind);   // persist (SSE refresh will reconcile)
+  }, [board, boardId, arrange]);
 
   // Collapse all nodes that have children, except the root → overview = root + its direct children.
   const collapseAll = useCallback(() => {
@@ -119,9 +129,11 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
       <div className="topbar">
         <button className="back" onClick={onBack}>← Canvases</button>
         <span className="topbar-title">{board.title}</span>
-        <button className="back" onClick={tidy} title="Auto-arrange the tree">⤢ Tidy</button>
+        <button className="back" onClick={tidy} title="Auto-arrange">⤢ Tidy</button>
         <button className="back" onClick={collapsed.size ? expandAll : collapseAll}
           title="Toggle overview">{collapsed.size ? "⊞ Expand all" : "⊟ Collapse all"}</button>
+        <button className="back" onClick={() => switchLayout(board.layout === "funnel" ? "tree" : "funnel")}
+          title="Switch representation">{board.layout === "funnel" ? "🌳 Tree" : "▽ Funnel"}</button>
       </div>
       <ReactFlow
         nodes={displayNodes}

@@ -14,7 +14,8 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
       className={`think ${data.kind} ${selected ? "sel" : ""}`}
       style={{ borderColor: statusColor ?? KIND_BORDER[data.kind], borderLeftWidth: statusColor ? 4 : undefined }}
     >
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} id="l" />
+      <Handle type="target" position={Position.Top} id="t" />
       {data.image && (
         <img
           className="t-img"
@@ -45,7 +46,8 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
           {data.collapsed ? `+${data.childCount}` : "–"}
         </button>
       )}
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} id="r" />
+      <Handle type="source" position={Position.Bottom} id="b" />
     </div>
   );
 }

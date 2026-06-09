@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { z } from "zod";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
-  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, growSubtree,
+  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, growSubtree,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -71,6 +71,11 @@ export function buildServer(dir: string): McpServer {
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(), status: z.enum(["todo", "running", "passed", "failed", "blocked", ""]).describe("one of todo|running|passed|failed|blocked, or empty to clear") },
     async ({ board, nodeId, status }) =>
       ok(mutate(resolveBoard(board), (b) => setNodeStatus(b, nodeId, status))));
+
+  server.tool("tm_set_layout", "Set how the canvas lays out a board: 'tree' (default) or 'funnel' (sequential stages narrowing top→bottom)",
+    { board: z.string().describe(BOARD_DESC), layout: z.enum(["tree", "funnel"]) },
+    async ({ board, layout }) =>
+      ok(mutate(resolveBoard(board), (b) => setBoardLayout(b, layout))));
 
   server.tool("tm_promote", "Promote a facet item into its own node on a board",
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(), facet: z.string(), index: z.number() },

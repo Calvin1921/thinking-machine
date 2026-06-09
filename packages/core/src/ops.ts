@@ -1,5 +1,5 @@
 // packages/core/src/ops.ts
-import { Board, Node, EdgeType, NodeStatus } from "./schema.js";
+import { Board, Node, EdgeType, NodeStatus, BoardLayout } from "./schema.js";
 import { placeChildren } from "./layout.js";
 
 // Resets to 0 on every process restart; uniqueness is guaranteed by the live-board
@@ -49,6 +49,11 @@ export function setNodeStatus(board: Board, nodeId: string, status: NodeStatus |
   requireNode(board, nodeId);
   const next = status === "" ? undefined : NodeStatus.parse(status);
   return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, status: next } : n)) };
+}
+
+/** Set the board's canvas layout. Empty string resets to the default (tree). */
+export function setBoardLayout(board: Board, layout: BoardLayout | ""): Board {
+  return { ...board, layout: layout === "" || layout === "tree" ? undefined : BoardLayout.parse(layout) };
 }
 
 export function linkNodes(board: Board, from: string, to: string, type: EdgeType): Board {

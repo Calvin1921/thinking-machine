@@ -8,6 +8,9 @@ export const RootType = z.enum(["objective", "cause", "decision", "concept"]);
 export const EdgeType = z.enum(["decomposition", "dependency"]);
 // Probe/work status for a node. Drives the canvas "scoreboard" colors. Absent = untracked.
 export const NodeStatus = z.enum(["todo", "running", "passed", "failed", "blocked"]);
+// How the canvas lays the graph out. The neutral foundation defaults to "tree"; a
+// methodology can pick another representation (FR-2). Absent = tree.
+export const BoardLayout = z.enum(["tree", "funnel"]);
 
 export const NodeSchema = z.object({
   id: z.string().min(1),
@@ -33,6 +36,7 @@ export const BoardSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   domainHint: z.string().optional(),
+  layout: BoardLayout.optional(),
   rootId: z.string().min(1),
   nodes: z.array(NodeSchema),
   edges: z.array(EdgeSchema),
@@ -45,6 +49,7 @@ export type Board = z.infer<typeof BoardSchema>;
 // A value and a type may share a name in TS, so expose the inferred union here.
 export type EdgeType = z.infer<typeof EdgeType>;
 export type NodeStatus = z.infer<typeof NodeStatus>;
+export type BoardLayout = z.infer<typeof BoardLayout>;
 
 export const SEED_FACETS = [
   "definition", "essentials", "dependencies",

@@ -30,6 +30,8 @@ export const setImage = (boardId: string, nodeId: string, url: string) =>
   post(`/api/boards/${boardId}/image`, { nodeId, url });
 export const setStatus = (boardId: string, nodeId: string, status: string) =>
   post(`/api/boards/${boardId}/status`, { nodeId, status });
+export const setLayout = (boardId: string, layout: string) =>
+  post(`/api/boards/${boardId}/layout`, { layout });
 
 /** Subscribe to external board changes (CLI/MCP edits, new boards, etc.). */
 export function onBoardChange(cb: () => void): () => void {

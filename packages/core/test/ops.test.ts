@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, growSubtree } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, growSubtree } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -77,6 +77,18 @@ describe("ops", () => {
     expect(b.nodes[0].status).toBeUndefined();
     expect(() => setNodeStatus(b, "root", "done" as never)).toThrow();
     expect(() => setNodeStatus(b, "nope", "todo")).toThrow();
+  });
+
+  it("setBoardLayout sets funnel, resets on tree/empty, rejects garbage", () => {
+    let b = newBoard("App", "objective");
+    b = setBoardLayout(b, "funnel");
+    expect(b.layout).toBe("funnel");
+    b = setBoardLayout(b, "tree");
+    expect(b.layout).toBeUndefined();
+    b = setBoardLayout(b, "funnel");
+    b = setBoardLayout(b, "");
+    expect(b.layout).toBeUndefined();
+    expect(() => setBoardLayout(b, "spiral" as never)).toThrow();
   });
 
   it("growSubtree builds a nested multi-level subtree with facets + cross-links", () => {

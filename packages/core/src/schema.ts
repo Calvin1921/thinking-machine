@@ -11,6 +11,19 @@ export const NodeStatus = z.enum(["todo", "running", "passed", "failed", "blocke
 // How the canvas lays the graph out. The neutral foundation defaults to "tree"; a
 // methodology can pick another representation (FR-2). Absent = tree.
 export const BoardLayout = z.enum(["tree", "funnel"]);
+// A board can hold many sections, each a different representation for a different purpose
+// (the "nothing explains in one graph" insight). A graph section lays out its own nodes;
+// a note section is just free text. Absent sections[] → the board is a single graph (legacy).
+export const SectionKind = z.enum(["graph", "note"]);
+
+export const SectionSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  kind: SectionKind,
+  layout: BoardLayout.optional(),   // graph sections: how this section lays out
+  rootId: z.string().optional(),    // graph sections: this section's own root node id
+  note: z.string().optional(),      // note sections: the markdown/plain text body
+});
 
 export const NodeSchema = z.object({
   id: z.string().min(1),
@@ -19,6 +32,7 @@ export const NodeSchema = z.object({
   rootType: RootType.optional(),
   image: z.string().optional(),
   status: NodeStatus.optional(),
+  sectionId: z.string().optional(),  // which section this node belongs to (graph sections)
   x: z.number(),
   y: z.number(),
   // facet key -> list of thought items (strings in v1). Domain-specific keys allowed.
@@ -37,6 +51,7 @@ export const BoardSchema = z.object({
   title: z.string().min(1),
   domainHint: z.string().optional(),
   layout: BoardLayout.optional(),
+  sections: z.array(SectionSchema).optional(),
   rootId: z.string().min(1),
   nodes: z.array(NodeSchema),
   edges: z.array(EdgeSchema),
@@ -50,6 +65,8 @@ export type Board = z.infer<typeof BoardSchema>;
 export type EdgeType = z.infer<typeof EdgeType>;
 export type NodeStatus = z.infer<typeof NodeStatus>;
 export type BoardLayout = z.infer<typeof BoardLayout>;
+export type SectionKind = z.infer<typeof SectionKind>;
+export type Section = z.infer<typeof SectionSchema>;
 
 export const SEED_FACETS = [
   "definition", "essentials", "dependencies",

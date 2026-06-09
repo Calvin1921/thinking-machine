@@ -1,5 +1,5 @@
 // packages/core/src/ops.ts
-import { Board, Node, EdgeType, NodeStatus, BoardLayout } from "./schema.js";
+import { Board, Node, EdgeType, NodeStatus, BoardLayout, Section, SectionKind } from "./schema.js";
 import { placeChildren } from "./layout.js";
 
 // Resets to 0 on every process restart; uniqueness is guaranteed by the live-board
@@ -25,7 +25,7 @@ export function addNode(board: Board, input: AddNodeInput): Board {
   const parent = requireNode(board, input.parentId);
   const [pt] = placeChildren(parent, 1);
   const id = genId(board, input.label);
-  const node: Node = { id, label: input.label, kind: input.kind, x: pt.x, y: pt.y, facets: {} };
+  const node: Node = { id, label: input.label, kind: input.kind, x: pt.x, y: pt.y, facets: {}, sectionId: parent.sectionId };
   return {
     ...board,
     nodes: [...board.nodes, node],
@@ -54,6 +54,54 @@ export function setNodeStatus(board: Board, nodeId: string, status: NodeStatus |
 /** Set the board's canvas layout. Empty string resets to the default (tree). */
 export function setBoardLayout(board: Board, layout: BoardLayout | ""): Board {
   return { ...board, layout: layout === "" || layout === "tree" ? undefined : BoardLayout.parse(layout) };
+}
+
+function genSectionId(board: Board, title: string): string {
+  const base = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 24) || "section";
+  const existing = board.sections ?? [];
+  let id = base;
+  while (existing.some((s) => s.id === id)) id = `${base}-${++counter}`;
+  return id;
+}
+
+export interface AddSectionInput { title: string; kind: SectionKind; layout?: BoardLayout; note?: string; }
+
+/**
+ * Add a section to the board — a self-contained view for one purpose. A `graph` section
+ * gets its own root node (so it lays out independently); a `note` section holds free text.
+ * The new section is appended last; read board.sections[last].id for its id.
+ */
+export function addSection(board: Board, input: AddSectionInput): Board {
+  const id = genSectionId(board, input.title);
+  if (input.kind === "graph") {
+    const rootId = genId(board, `${input.title}-root`);
+    const root: Node = { id: rootId, label: input.title, kind: "root", x: 0, y: 0, facets: {}, sectionId: id };
+    const section: Section = { id, title: input.title, kind: "graph", layout: input.layout, rootId };
+    return { ...board, sections: [...(board.sections ?? []), section], nodes: [...board.nodes, root] };
+  }
+  const section: Section = { id, title: input.title, kind: "note", note: input.note ?? "" };
+  return { ...board, sections: [...(board.sections ?? []), section] };
+}
+
+function requireSection(board: Board, sectionId: string): Section {
+  const s = (board.sections ?? []).find((x) => x.id === sectionId);
+  if (!s) throw new Error(`No section with id "${sectionId}"`);
+  return s;
+}
+
+/** Set the text body of a note section. */
+export function setSectionNote(board: Board, sectionId: string, note: string): Board {
+  const s = requireSection(board, sectionId);
+  if (s.kind !== "note") throw new Error(`Section "${sectionId}" is not a note`);
+  return { ...board, sections: (board.sections ?? []).map((x) => (x.id === sectionId ? { ...x, note } : x)) };
+}
+
+/** Set the layout of a graph section (tree|funnel). Empty string resets to default (tree). */
+export function setSectionLayout(board: Board, sectionId: string, layout: BoardLayout | ""): Board {
+  const s = requireSection(board, sectionId);
+  if (s.kind !== "graph") throw new Error(`Section "${sectionId}" is not a graph`);
+  const next = layout === "" || layout === "tree" ? undefined : BoardLayout.parse(layout);
+  return { ...board, sections: (board.sections ?? []).map((x) => (x.id === sectionId ? { ...x, layout: next } : x)) };
 }
 
 export function linkNodes(board: Board, from: string, to: string, type: EdgeType): Board {
@@ -97,7 +145,7 @@ export function decompose(board: Board, nodeId: string, input: DecomposeInput): 
     labelToId[child.label] = id;
     b = {
       ...b,
-      nodes: [...b.nodes, { id, label: child.label, kind: child.kind, x: pts[i].x, y: pts[i].y, facets: {} }],
+      nodes: [...b.nodes, { id, label: child.label, kind: child.kind, x: pts[i].x, y: pts[i].y, facets: {}, sectionId: parent.sectionId }],
       edges: [...b.edges, { from: parent.id, to: id, type: "decomposition" as const }],
     };
   });
@@ -154,7 +202,7 @@ export function growSubtree(board: Board, parentId: string, input: GrowInput): B
       labelToId[child.label] = id;   // last-created wins on duplicate labels
       b = {
         ...b,
-        nodes: [...b.nodes, { id, label: child.label, kind: child.kind, x: pts[i].x, y: pts[i].y, facets: {} }],
+        nodes: [...b.nodes, { id, label: child.label, kind: child.kind, x: pts[i].x, y: pts[i].y, facets: {}, sectionId: parentNode.sectionId }],
         edges: [...b.edges, { from: parent, to: id, type: "decomposition" as const }],
       };
       for (const [facet, items] of Object.entries(child.facets ?? {})) {

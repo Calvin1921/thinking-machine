@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, growSubtree } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, growSubtree } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -77,6 +77,28 @@ describe("ops", () => {
     expect(b.nodes[0].status).toBeUndefined();
     expect(() => setNodeStatus(b, "root", "done" as never)).toThrow();
     expect(() => setNodeStatus(b, "nope", "todo")).toThrow();
+  });
+
+  it("addSection makes a graph section with its own root, and a note section with text", () => {
+    let b = newBoard("Workspace", "concept");
+    b = addSection(b, { title: "Roadmap", kind: "graph", layout: "funnel" });
+    const gs = b.sections!.at(-1)!;
+    expect(gs.kind).toBe("graph");
+    expect(gs.layout).toBe("funnel");
+    const root = b.nodes.find((n) => n.id === gs.rootId)!;
+    expect(root.kind).toBe("root");
+    expect(root.sectionId).toBe(gs.id);
+    // grown children inherit the section
+    b = growSubtree(b, gs.rootId!, { nodes: [{ label: "Phase 1", kind: "atom" }] });
+    expect(b.nodes.find((n) => n.label === "Phase 1")!.sectionId).toBe(gs.id);
+
+    b = addSection(b, { title: "Notes", kind: "note" });
+    const ns = b.sections!.at(-1)!;
+    expect(ns.kind).toBe("note");
+    b = setSectionNote(b, ns.id, "remember to ship");
+    expect(b.sections!.find((s) => s.id === ns.id)!.note).toBe("remember to ship");
+    expect(() => setSectionLayout(b, ns.id, "funnel")).toThrow(); // not a graph
+    expect(() => setSectionNote(b, gs.id, "x")).toThrow();        // not a note
   });
 
   it("setBoardLayout sets funnel, resets on tree/empty, rejects garbage", () => {

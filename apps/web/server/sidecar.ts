@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
   addNode, linkNodes, setFacet, updateNodePosition, setNodeImage, setNodeStatus, setBoardLayout,
+  addSection, setSectionNote, setSectionLayout,
 } from "@tm/core";
 
 export interface Sidecar {
@@ -99,6 +100,33 @@ export function createSidecar(dir: string): Sidecar {
     const { layout } = req.body ?? {};
     if (typeof layout !== "string") { res.status(400).json({ error: "layout required" }); return; }
     res.json(mutate(file, (b) => setBoardLayout(b, layout as "" | "tree" | "funnel")));
+  });
+  app.post("/api/boards/:id/section", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
+    const { title, kind, layout } = req.body ?? {};
+    if (typeof title !== "string" || (kind !== "graph" && kind !== "note")) {
+      res.status(400).json({ error: "title and kind (graph|note) required" }); return;
+    }
+    res.json(mutate(file, (b) => addSection(b, { title, kind, layout })));
+  });
+  app.post("/api/boards/:id/note", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
+    const { sectionId, note } = req.body ?? {};
+    if (typeof sectionId !== "string" || typeof note !== "string") {
+      res.status(400).json({ error: "sectionId and note required" }); return;
+    }
+    res.json(mutate(file, (b) => setSectionNote(b, sectionId, note)));
+  });
+  app.post("/api/boards/:id/section-layout", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
+    const { sectionId, layout } = req.body ?? {};
+    if (typeof sectionId !== "string" || typeof layout !== "string") {
+      res.status(400).json({ error: "sectionId and layout required" }); return;
+    }
+    res.json(mutate(file, (b) => setSectionLayout(b, sectionId, layout as "" | "tree" | "funnel")));
   });
   app.post("/api/boards/:id/move", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);

@@ -29,9 +29,14 @@ function firstContent(facets: BNode["facets"]): string {
 
 export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; edges: FlowEdge[] } {
   // Funnel flows top→bottom (bottom→top handles); tree flows left→right (right→left).
-  const funnel = board.layout === "funnel";
-  const sourceHandle = funnel ? "b" : "r";
-  const targetHandle = funnel ? "t" : "l";
+  // With sections, each edge follows ITS section's layout, not the board's.
+  const sectionLayout = new Map((board.sections ?? []).map((s) => [s.id, s.layout]));
+  const nodeSection = new Map(board.nodes.map((n) => [n.id, n.sectionId]));
+  const handlesFor = (fromId: string) => {
+    const layout = board.sections?.length ? sectionLayout.get(nodeSection.get(fromId) ?? "") : board.layout;
+    const funnel = layout === "funnel";
+    return { sourceHandle: funnel ? "b" : "r", targetHandle: funnel ? "t" : "l" };
+  };
   const childCount: Record<string, number> = {};
   for (const n of board.nodes) childCount[n.id] = 0;
   for (const e of board.edges) if (e.type === "decomposition") childCount[e.from] = (childCount[e.from] ?? 0) + 1;
@@ -56,8 +61,7 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
     id: `e${i}`,
     source: e.from,
     target: e.to,
-    sourceHandle,
-    targetHandle,
+    ...handlesFor(e.from),
     animated: e.type === "dependency",
     style: e.type === "dependency"
       ? { stroke: "#f0a868", strokeDasharray: "5 5" }

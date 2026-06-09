@@ -32,6 +32,12 @@ export const setStatus = (boardId: string, nodeId: string, status: string) =>
   post(`/api/boards/${boardId}/status`, { nodeId, status });
 export const setLayout = (boardId: string, layout: string) =>
   post(`/api/boards/${boardId}/layout`, { layout });
+export const addSection = (boardId: string, title: string, kind: "graph" | "note", layout?: string) =>
+  post(`/api/boards/${boardId}/section`, { title, kind, layout });
+export const setNote = (boardId: string, sectionId: string, note: string) =>
+  post(`/api/boards/${boardId}/note`, { sectionId, note });
+export const setSectionLayout = (boardId: string, sectionId: string, layout: string) =>
+  post(`/api/boards/${boardId}/section-layout`, { sectionId, layout });
 
 /** Subscribe to external board changes (CLI/MCP edits, new boards, etc.). */
 export function onBoardChange(cb: () => void): () => void {

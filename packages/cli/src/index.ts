@@ -3,7 +3,8 @@ import { Command } from "commander";
 import { existsSync } from "node:fs";
 import {
   newBoard, loadBoard, saveBoard, mutate,
-  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, growSubtree,
+  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout,
+  addSection, setSectionNote, setSectionLayout, growSubtree,
   listBoards, createBoard,
 } from "@tm/core";
 
@@ -77,6 +78,23 @@ program.command("status <id> <status>")
 program.command("layout <type>")
   .description("set board layout: tree|funnel")
   .action((type) => { mutate(file(), (b) => setBoardLayout(b, type)); });
+
+program.command("section <title>")
+  .description("add a section: --kind graph|note, graph takes --layout tree|funnel. Prints the new section id.")
+  .requiredOption("--kind <kind>", "graph|note")
+  .option("--layout <layout>", "graph section layout: tree|funnel")
+  .action((title, opts) => {
+    const b = mutate(file(), (bb) => addSection(bb, { title, kind: opts.kind, layout: opts.layout }));
+    process.stdout.write(`${b.sections!.at(-1)!.id}\n`);
+  });
+
+program.command("note <sectionId> <text...>")
+  .description("set the text body of a note section")
+  .action((sectionId, text) => { mutate(file(), (b) => setSectionNote(b, sectionId, (text as string[]).join(" "))); });
+
+program.command("section-layout <sectionId> <type>")
+  .description("set a graph section's layout: tree|funnel")
+  .action((sectionId, type) => { mutate(file(), (b) => setSectionLayout(b, sectionId, type)); });
 
 program.command("promote <id> <facet> <index>")
   .action((id, facet, index) => { mutate(file(), (b) => promoteFacetItem(b, id, facet, Number(index))); });

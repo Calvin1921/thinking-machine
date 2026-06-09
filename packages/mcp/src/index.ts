@@ -5,7 +5,8 @@ import { existsSync } from "node:fs";
 import { z } from "zod";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
-  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, growSubtree,
+  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout,
+  addSection, setSectionNote, setSectionLayout, growSubtree,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -76,6 +77,31 @@ export function buildServer(dir: string): McpServer {
     { board: z.string().describe(BOARD_DESC), layout: z.enum(["tree", "funnel"]) },
     async ({ board, layout }) =>
       ok(mutate(resolveBoard(board), (b) => setBoardLayout(b, layout))));
+
+  server.tool("tm_add_section",
+    "Add a section to a board — a self-contained view for one purpose (the 'nothing explains in one graph' idea). " +
+    "kind 'graph' gets its own root node (grow under it via tm_grow) and its own layout; kind 'note' holds free text. Returns the new section id.",
+    {
+      board: z.string().describe(BOARD_DESC),
+      title: z.string(),
+      kind: z.enum(["graph", "note"]),
+      layout: z.enum(["tree", "funnel"]).optional().describe("graph sections only"),
+    },
+    async ({ board, title, kind, layout }) => {
+      const b = mutate(resolveBoard(board), (bb) => addSection(bb, { title, kind, layout }));
+      const s = b.sections!.at(-1)!;
+      return ok({ id: s.id, rootId: s.rootId });   // rootId is where you tm_grow for graph sections
+    });
+
+  server.tool("tm_set_note", "Set the text body of a note section on a board",
+    { board: z.string().describe(BOARD_DESC), sectionId: z.string(), note: z.string() },
+    async ({ board, sectionId, note }) =>
+      ok(mutate(resolveBoard(board), (b) => setSectionNote(b, sectionId, note))));
+
+  server.tool("tm_set_section_layout", "Set a graph section's layout on a board: tree|funnel",
+    { board: z.string().describe(BOARD_DESC), sectionId: z.string(), layout: z.enum(["tree", "funnel"]) },
+    async ({ board, sectionId, layout }) =>
+      ok(mutate(resolveBoard(board), (b) => setSectionLayout(b, sectionId, layout))));
 
   server.tool("tm_promote", "Promote a facet item into its own node on a board",
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(), facet: z.string(), index: z.number() },

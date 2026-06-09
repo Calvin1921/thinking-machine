@@ -6,13 +6,15 @@ import type { Board } from "@tm/core/schema";
 import { boardToFlow } from "./boardToFlow.js";
 import { tidyLayout } from "./tidyLayout.js";
 import { funnelLayout } from "./funnelLayout.js";
+import { sectionedLayout, HEADER_H } from "./sectionedLayout.js";
 import { ThinkNode } from "./ThinkNode.js";
+import { SectionHeaderNode, NoteNode } from "./SectionNodes.js";
 import { FacetDrawer } from "./FacetDrawer.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { CollectionView } from "./CollectionView.js";
 import { getBoard, moveNode, onBoardChange, setLayout } from "./api.js";
 
-const nodeTypes = { think: ThinkNode };
+const nodeTypes = { think: ThinkNode, sectionHeader: SectionHeaderNode, note: NoteNode };
 
 /** Ids of nodes hidden because an ancestor is collapsed (the collapsed node itself stays visible). */
 function computeHidden(board: Board, collapsed: Set<string>): Set<string> {
@@ -28,7 +30,9 @@ function computeHidden(board: Board, collapsed: Set<string>): Set<string> {
     const childUnder = under || collapsed.has(id);
     for (const c of kids[id] ?? []) walk(c, childUnder);
   };
+  // Walk from the board root AND each section's own root (sections are separate sub-trees).
   walk(board.rootId, false);
+  for (const s of board.sections ?? []) if (s.rootId) walk(s.rootId, false);
   return hidden;
 }
 
@@ -112,16 +116,42 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   }, [board]);
   const expandAll = useCallback(() => setCollapsed(new Set()), []);
 
-  const hidden = useMemo(() => (board ? computeHidden(board, collapsed) : new Set<string>()), [board, collapsed]);
-  const displayNodes = useMemo(
-    () => flowNodes
-      .filter((n) => !hidden.has(n.id))
-      .map((n) => ({ ...n, data: { ...n.data, collapsed: collapsed.has(n.id), onToggle: toggleCollapse } })),
-    [flowNodes, hidden, collapsed, toggleCollapse],
+  const sectioned = !!board?.sections?.length;
+  // Sections auto-arrange (deterministic from structure) — no persisted positions needed.
+  const sl = useMemo(() => (board && sectioned ? sectionedLayout(board) : null), [board, sectioned]);
+  const sectionLayoutById = useMemo(
+    () => new Map((board?.sections ?? []).map((s) => [s.id, s.layout])),
+    [board],
   );
 
+  const hidden = useMemo(() => (board ? computeHidden(board, collapsed) : new Set<string>()), [board, collapsed]);
+  const displayNodes = useMemo(() => {
+    if (sl) {
+      // Section mode: position graph nodes by the sectioned layout, then add the
+      // header bands and note panels as non-draggable pseudo-nodes.
+      const graph = flowNodes
+        .filter((n) => sl.nodes[n.id] && !hidden.has(n.id))
+        .map((n) => ({ ...n, position: sl.nodes[n.id], draggable: false, data: { ...n.data, collapsed: collapsed.has(n.id), onToggle: toggleCollapse } }));
+      const headers = sl.sections.map((s) => ({
+        id: `__sec_${s.id}`, type: "sectionHeader", position: { x: s.x, y: s.y },
+        data: { title: s.title, purpose: s.kind === "note" ? "note" : (sectionLayoutById.get(s.id) === "funnel" ? "funnel" : "tree") },
+        draggable: false, selectable: false,
+      }));
+      const notes = sl.sections.filter((s) => s.kind === "note").map((s) => ({
+        id: `__note_${s.id}`, type: "note", position: { x: s.x, y: s.y + HEADER_H },
+        data: { title: s.title, note: s.note ?? "" }, draggable: false, selectable: false,
+      }));
+      return [...headers, ...notes, ...graph];
+    }
+    return flowNodes
+      .filter((n) => !hidden.has(n.id))
+      .map((n) => ({ ...n, data: { ...n.data, collapsed: collapsed.has(n.id), onToggle: toggleCollapse } }));
+  }, [flowNodes, hidden, collapsed, toggleCollapse, sl, sectionLayoutById]);
+
   if (!board) return <div className="loading">Loading board…</div>;
-  const edges = boardToFlow(board).edges.filter((e) => !hidden.has(e.source) && !hidden.has(e.target));
+  const edges = boardToFlow(board).edges.filter(
+    (e) => !hidden.has(e.source) && !hidden.has(e.target) && (!sl || (sl.nodes[e.source] && sl.nodes[e.target])),
+  );
   const selectedNode = board.nodes.find((n) => n.id === selected) ?? null;
 
   return (
@@ -129,11 +159,11 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
       <div className="topbar">
         <button className="back" onClick={onBack}>← Canvases</button>
         <span className="topbar-title">{board.title}</span>
-        <button className="back" onClick={tidy} title="Auto-arrange">⤢ Tidy</button>
         <button className="back" onClick={collapsed.size ? expandAll : collapseAll}
           title="Toggle overview">{collapsed.size ? "⊞ Expand all" : "⊟ Collapse all"}</button>
-        <button className="back" onClick={() => switchLayout(board.layout === "funnel" ? "tree" : "funnel")}
-          title="Switch representation">{board.layout === "funnel" ? "🌳 Tree" : "▽ Funnel"}</button>
+        {!sectioned && <button className="back" onClick={tidy} title="Auto-arrange">⤢ Tidy</button>}
+        {!sectioned && <button className="back" onClick={() => switchLayout(board.layout === "funnel" ? "tree" : "funnel")}
+          title="Switch representation">{board.layout === "funnel" ? "🌳 Tree" : "▽ Funnel"}</button>}
       </div>
       <ReactFlow
         nodes={displayNodes}
@@ -142,6 +172,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         onNodesChange={onNodesChange}
         onNodeClick={(_, n) => setSelected(n.id)}
         fitView
+        minZoom={0.1}
       >
         <Background color="#262c36" gap={24} />
         <Controls />
@@ -151,7 +182,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         <div><span className="lg-line dashed" /> depends on</div>
         <div><span className="lg-box dashed" /> leaf (won't expand)</div>
       </div>
-      <QuickAdd boardId={boardId} rootId={board.rootId} onAdded={refresh} />
+      {!sectioned && <QuickAdd boardId={boardId} rootId={board.rootId} onAdded={refresh} />}
       <FacetDrawer boardId={boardId} node={selectedNode} onClose={() => setSelected(null)} onSaved={refresh} />
     </div>
   );

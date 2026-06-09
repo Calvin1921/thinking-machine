@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ReactFlow, Background, Controls, applyNodeChanges, type Node as FlowNode, type NodeChange } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
@@ -8,13 +8,15 @@ import { tidyLayout } from "./tidyLayout.js";
 import { funnelLayout } from "./funnelLayout.js";
 import { sectionedLayout, HEADER_H } from "./sectionedLayout.js";
 import { ThinkNode } from "./ThinkNode.js";
-import { SectionHeaderNode, NoteNode, SectionBgNode } from "./SectionNodes.js";
+import { SectionBox } from "./SectionNodes.js";
 import { FacetDrawer } from "./FacetDrawer.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { CollectionView } from "./CollectionView.js";
-import { getBoard, moveNode, onBoardChange, setLayout } from "./api.js";
+import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos } from "./api.js";
 
-const nodeTypes = { think: ThinkNode, sectionHeader: SectionHeaderNode, note: NoteNode, sectionBg: SectionBgNode };
+const nodeTypes = { think: ThinkNode, sectionBox: SectionBox };
+const SEC_PREFIX = "__sec_";
+const SEC_PAD_X = 32; // horizontal inset of section nodes from the container's left edge
 
 /** Ids of nodes hidden because an ancestor is collapsed (the collapsed node itself stays visible). */
 function computeHidden(board: Board, collapsed: Set<string>): Set<string> {
@@ -63,31 +65,85 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const [flowNodes, setFlowNodes] = useState<FlowNode[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const seededRef = useRef<string | null>(null);   // boardId whose sections we've already seeded
 
   const toggleCollapse = useCallback((id: string) => {
     setCollapsed((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }, []);
 
+  // Build the controlled node list from a board + collapse state. In section mode each
+  // section is a draggable parent container; its graph nodes are children (relative coords).
+  const buildNodes = useCallback((b: Board, collapsedSet: Set<string>): FlowNode[] => {
+    const hidden = computeHidden(b, collapsedSet);
+    const flow = boardToFlow(b);
+    if (!b.sections?.length) {
+      return flow.nodes
+        .filter((n) => !hidden.has(n.id))
+        .map((n) => ({ ...n, data: { ...n.data, collapsed: collapsedSet.has(n.id), onToggle: toggleCollapse } }));
+    }
+    const sl = sectionedLayout(b);
+    const rectById = new Map(sl.sections.map((s) => [s.id, s]));
+    const byId = new Map(flow.nodes.map((n) => [n.id, n]));
+    const out: FlowNode[] = [];
+    for (const s of b.sections) {
+      const rect = rectById.get(s.id);
+      if (!rect) continue;
+      const w = Math.max(rect.w, 300) + SEC_PAD_X * 2, h = rect.h + 34;
+      const placed = s.x != null && s.y != null;
+      out.push({
+        id: `${SEC_PREFIX}${s.id}`, type: "sectionBox",
+        position: placed ? { x: s.x!, y: s.y! } : { x: rect.x, y: rect.y },
+        style: { width: w, height: h, zIndex: 0 }, draggable: true, selectable: true,
+        data: { title: s.title, purpose: s.kind === "note" ? "note" : (s.layout === "funnel" ? "funnel" : "tree"), kind: s.kind, note: s.note ?? "", w, h },
+      } as FlowNode);
+    }
+    for (const n of b.nodes) {
+      if (!n.sectionId || hidden.has(n.id)) continue;
+      const base = byId.get(n.id);
+      const sec = b.sections.find((s) => s.id === n.sectionId);
+      if (!base || !sec) continue;
+      // placed → persisted relative coords; unplaced → freshly computed relative + inset.
+      const rel = sec.x != null
+        ? { x: n.x, y: n.y }
+        : (sl.nodes[n.id] ? { x: sl.nodes[n.id].x + SEC_PAD_X, y: sl.nodes[n.id].y } : { x: SEC_PAD_X, y: HEADER_H });
+      out.push({ ...base, parentId: `${SEC_PREFIX}${n.sectionId}`, position: rel, draggable: true,
+        data: { ...base.data, collapsed: collapsedSet.has(n.id), onToggle: toggleCollapse } } as FlowNode);
+    }
+    return out;
+  }, [toggleCollapse]);
+
   const refresh = useCallback(async () => {
     const b = await getBoard(boardId);
     setBoard(b);
-    setFlowNodes(boardToFlow(b).nodes);
+    // One-time seed: give unplaced sections + their nodes concrete persisted positions so
+    // they can then be dragged. After this the board carries section.x/y and relative node x/y.
+    if (b.sections?.some((s) => s.x == null) && seededRef.current !== boardId) {
+      seededRef.current = boardId;
+      const sl = sectionedLayout(b);
+      // Serialize: each write loads-modifies-saves the same file, so parallel writes
+      // would clobber each other (last-writer-wins). Await them one at a time.
+      for (const s of b.sections) { const r = sl.sections.find((x) => x.id === s.id); if (r) await setSectionPos(boardId, s.id, r.x, r.y); }
+      for (const n of b.nodes) { if (n.sectionId && sl.nodes[n.id]) await moveNode(boardId, n.id, sl.nodes[n.id].x + SEC_PAD_X, sl.nodes[n.id].y); }
+    }
   }, [boardId]);
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => onBoardChange(refresh), [refresh]);   // live reload on CLI/MCP edits
+  // Rebuild the controlled node list whenever the board or collapse state changes.
+  useEffect(() => { if (board) setFlowNodes(buildNodes(board, collapsed)); }, [board, collapsed, buildNodes]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setFlowNodes((ns) => applyNodeChanges(changes, ns));
     for (const c of changes) {
       if (c.type === "position" && c.dragging === false && c.position) {
-        moveNode(boardId, c.id, c.position.x, c.position.y);
+        if (c.id.startsWith(SEC_PREFIX)) setSectionPos(boardId, c.id.slice(SEC_PREFIX.length), c.position.x, c.position.y);
+        else moveNode(boardId, c.id, c.position.x, c.position.y);
       }
     }
   }, [boardId]);
 
-  // Re-arrange the FULL tree with the given layout (ignore collapse): persisting a
-  // collapse-aware partial layout would leave hidden children at stale positions.
+  // Re-arrange the FULL tree with the given layout (tree boards), or re-seed section
+  // positions (section boards) — a "reset layout" that undoes manual dragging.
   const arrange = useCallback((b: Board, kind: "tree" | "funnel") => {
     const heights: Record<string, number> = {};
     for (const n of flowNodes) { const hh = n.measured?.height; if (hh) heights[n.id] = hh; }
@@ -96,7 +152,16 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     Object.entries(pos).forEach(([id, p]) => moveNode(boardId, id, p.x, p.y));
   }, [boardId, flowNodes]);
 
-  const tidy = useCallback(() => { if (board) arrange(board, board.layout === "funnel" ? "funnel" : "tree"); }, [board, arrange]);
+  const tidy = useCallback(() => {
+    if (!board) return;
+    if (board.sections?.length) {
+      const sl = sectionedLayout(board);
+      for (const s of board.sections) { const r = sl.sections.find((x) => x.id === s.id); if (r) setSectionPos(boardId, s.id, r.x, r.y); }
+      for (const n of board.nodes) { if (n.sectionId && sl.nodes[n.id]) moveNode(boardId, n.id, sl.nodes[n.id].x + SEC_PAD_X, sl.nodes[n.id].y); }
+      return;
+    }
+    arrange(board, board.layout === "funnel" ? "funnel" : "tree");
+  }, [board, boardId, arrange]);
 
   // Toggle the board between tree and funnel: persist the choice, flip handles, re-arrange.
   const switchLayout = useCallback((kind: "tree" | "funnel") => {
@@ -112,53 +177,16 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     if (!board) return;
     const counts: Record<string, number> = {};
     for (const e of board.edges) if (e.type === "decomposition") counts[e.from] = (counts[e.from] ?? 0) + 1;
-    setCollapsed(new Set(board.nodes.filter((n) => counts[n.id] && n.id !== board.rootId).map((n) => n.id)));
+    const roots = new Set([board.rootId, ...(board.sections ?? []).map((s) => s.rootId).filter(Boolean) as string[]]);
+    setCollapsed(new Set(board.nodes.filter((n) => counts[n.id] && !roots.has(n.id)).map((n) => n.id)));
   }, [board]);
   const expandAll = useCallback(() => setCollapsed(new Set()), []);
 
   const sectioned = !!board?.sections?.length;
-  // Sections auto-arrange (deterministic from structure) — no persisted positions needed.
-  const sl = useMemo(() => (board && sectioned ? sectionedLayout(board) : null), [board, sectioned]);
-  const sectionLayoutById = useMemo(
-    () => new Map((board?.sections ?? []).map((s) => [s.id, s.layout])),
-    [board],
-  );
-
-  const hidden = useMemo(() => (board ? computeHidden(board, collapsed) : new Set<string>()), [board, collapsed]);
-  const displayNodes = useMemo(() => {
-    if (sl) {
-      // Section mode: position graph nodes by the sectioned layout, then add the
-      // header bands, note panels, and boundary backgrounds as non-draggable pseudo-nodes.
-      const PAD_X = 32, PAD_TOP = 14, PAD_BOTTOM = 32;
-      const backgrounds = sl.sections.map((s) => ({
-        id: `__bg_${s.id}`, type: "sectionBg",
-        position: { x: -PAD_X, y: s.y - PAD_TOP },
-        data: { w: Math.max(s.w, 320) + PAD_X * 2, h: s.h + PAD_TOP + PAD_BOTTOM, kind: s.kind },
-        draggable: false, selectable: false, zIndex: -1,
-      }));
-      const graph = flowNodes
-        .filter((n) => sl.nodes[n.id] && !hidden.has(n.id))
-        .map((n) => ({ ...n, position: sl.nodes[n.id], draggable: false, data: { ...n.data, collapsed: collapsed.has(n.id), onToggle: toggleCollapse } }));
-      const headers = sl.sections.map((s) => ({
-        id: `__sec_${s.id}`, type: "sectionHeader", position: { x: s.x, y: s.y },
-        data: { title: s.title, purpose: s.kind === "note" ? "note" : (sectionLayoutById.get(s.id) === "funnel" ? "funnel" : "tree") },
-        draggable: false, selectable: false,
-      }));
-      const notes = sl.sections.filter((s) => s.kind === "note").map((s) => ({
-        id: `__note_${s.id}`, type: "note", position: { x: s.x, y: s.y + HEADER_H },
-        data: { title: s.title, note: s.note ?? "" }, draggable: false, selectable: false,
-      }));
-      return [...backgrounds, ...headers, ...notes, ...graph];
-    }
-    return flowNodes
-      .filter((n) => !hidden.has(n.id))
-      .map((n) => ({ ...n, data: { ...n.data, collapsed: collapsed.has(n.id), onToggle: toggleCollapse } }));
-  }, [flowNodes, hidden, collapsed, toggleCollapse, sl, sectionLayoutById]);
 
   if (!board) return <div className="loading">Loading board…</div>;
-  const edges = boardToFlow(board).edges.filter(
-    (e) => !hidden.has(e.source) && !hidden.has(e.target) && (!sl || (sl.nodes[e.source] && sl.nodes[e.target])),
-  );
+  const visibleIds = new Set(flowNodes.map((n) => n.id));
+  const edges = boardToFlow(board).edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target));
   const selectedNode = board.nodes.find((n) => n.id === selected) ?? null;
 
   return (
@@ -168,12 +196,12 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         <span className="topbar-title">{board.title}</span>
         <button className="back" onClick={collapsed.size ? expandAll : collapseAll}
           title="Toggle overview">{collapsed.size ? "⊞ Expand all" : "⊟ Collapse all"}</button>
-        {!sectioned && <button className="back" onClick={tidy} title="Auto-arrange">⤢ Tidy</button>}
+        <button className="back" onClick={tidy} title={sectioned ? "Reset section layout" : "Auto-arrange"}>⤢ Tidy</button>
         {!sectioned && <button className="back" onClick={() => switchLayout(board.layout === "funnel" ? "tree" : "funnel")}
           title="Switch representation">{board.layout === "funnel" ? "🌳 Tree" : "▽ Funnel"}</button>}
       </div>
       <ReactFlow
-        nodes={displayNodes}
+        nodes={flowNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}

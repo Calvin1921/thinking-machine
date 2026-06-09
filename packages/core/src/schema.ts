@@ -23,6 +23,8 @@ export const SectionSchema = z.object({
   layout: BoardLayout.optional(),   // graph sections: how this section lays out
   rootId: z.string().optional(),    // graph sections: this section's own root node id
   note: z.string().optional(),      // note sections: the markdown/plain text body
+  x: z.number().optional(),         // section origin on the surface (set once it's placed/dragged)
+  y: z.number().optional(),
 });
 
 export const NodeSchema = z.object({

@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
   addNode, linkNodes, setFacet, updateNodePosition, setNodeImage, setNodeStatus, setBoardLayout,
-  addSection, setSectionNote, setSectionLayout,
+  addSection, setSectionNote, setSectionLayout, setSectionPos,
 } from "@tm/core";
 
 export interface Sidecar {
@@ -127,6 +127,15 @@ export function createSidecar(dir: string): Sidecar {
       res.status(400).json({ error: "sectionId and layout required" }); return;
     }
     res.json(mutate(file, (b) => setSectionLayout(b, sectionId, layout as "" | "tree" | "funnel")));
+  });
+  app.post("/api/boards/:id/section-pos", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
+    const { sectionId, x, y } = req.body ?? {};
+    if (typeof sectionId !== "string" || typeof x !== "number" || typeof y !== "number") {
+      res.status(400).json({ error: "sectionId, x, y required" }); return;
+    }
+    res.json(mutate(file, (b) => setSectionPos(b, sectionId, x, y)));
   });
   app.post("/api/boards/:id/move", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);

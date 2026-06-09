@@ -96,6 +96,12 @@ export function setSectionNote(board: Board, sectionId: string, note: string): B
   return { ...board, sections: (board.sections ?? []).map((x) => (x.id === sectionId ? { ...x, note } : x)) };
 }
 
+/** Move a section's origin on the surface (drag-to-reposition). */
+export function setSectionPos(board: Board, sectionId: string, x: number, y: number): Board {
+  requireSection(board, sectionId);
+  return { ...board, sections: (board.sections ?? []).map((s) => (s.id === sectionId ? { ...s, x, y } : s)) };
+}
+
 /** Set the layout of a graph section (tree|funnel). Empty string resets to default (tree). */
 export function setSectionLayout(board: Board, sectionId: string, layout: BoardLayout | ""): Board {
   const s = requireSection(board, sectionId);

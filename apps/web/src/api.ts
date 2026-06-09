@@ -38,6 +38,8 @@ export const setNote = (boardId: string, sectionId: string, note: string) =>
   post(`/api/boards/${boardId}/note`, { sectionId, note });
 export const setSectionLayout = (boardId: string, sectionId: string, layout: string) =>
   post(`/api/boards/${boardId}/section-layout`, { sectionId, layout });
+export const setSectionPos = (boardId: string, sectionId: string, x: number, y: number) =>
+  post(`/api/boards/${boardId}/section-pos`, { sectionId, x, y });
 
 /** Subscribe to external board changes (CLI/MCP edits, new boards, etc.). */
 export function onBoardChange(cb: () => void): () => void {

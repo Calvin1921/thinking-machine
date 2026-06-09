@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, growSubtree } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, growSubtree } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -99,6 +99,11 @@ describe("ops", () => {
     expect(b.sections!.find((s) => s.id === ns.id)!.note).toBe("remember to ship");
     expect(() => setSectionLayout(b, ns.id, "funnel")).toThrow(); // not a graph
     expect(() => setSectionNote(b, gs.id, "x")).toThrow();        // not a note
+
+    b = setSectionPos(b, gs.id, 700, 300);
+    const moved = b.sections!.find((x) => x.id === gs.id)!;
+    expect([moved.x, moved.y]).toEqual([700, 300]);
+    expect(() => setSectionPos(b, "nope", 0, 0)).toThrow();
   });
 
   it("setBoardLayout sets funnel, resets on tree/empty, rejects garbage", () => {

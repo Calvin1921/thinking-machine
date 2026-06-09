@@ -28,12 +28,12 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, 
 .sec-title { font-size: 16px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
 .sec-purpose { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim);
   border: 1px solid var(--line2); border-radius: 999px; padding: 2px 8px; }
-.note-card { background: #15140d; border: 1px solid #3a3320; border-left: 4px solid #f0c868; border-radius: 8px;
-  padding: 12px 15px; width: 600px; min-height: 110px; }
-.note-body { font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; color: #ece4cf; }
-.note-empty { font-size: 11px; font-style: italic; color: #6a6450; }
-.sec-bg { border: 1px solid var(--line); background: rgba(124, 156, 255, .035); border-radius: 16px; pointer-events: none; }
-.sec-bg.note { border-color: #3a3320; background: rgba(240, 200, 104, .04); }
+.note-body { font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; color: #ece4cf; margin-top: 4px; }
+.note-empty { font-size: 11px; font-style: italic; color: #6a6450; margin-top: 4px; }
+/* section container = draggable parent box holding its nodes / note */
+.sec-box { box-sizing: border-box; padding: 12px 16px; border: 1px solid var(--line);
+  background: rgba(124, 156, 255, .04); border-radius: 16px; }
+.sec-box.note { border-color: #3a3320; border-left: 4px solid #f0c868; background: rgba(240, 200, 104, .05); }
 
 /* --- canvas legend --- */
 .legend { position: fixed; left: 16px; bottom: 16px; z-index: 20; display: flex; flex-direction: column; gap: 7px;

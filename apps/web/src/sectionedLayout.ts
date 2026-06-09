@@ -44,8 +44,10 @@ export function sectionedLayout(board: Board): { nodes: Record<string, { x: numb
         maxX = Math.max(maxX, p.x + CARD_W); maxY = Math.max(maxY, p.y + NODE_H);
       }
       if (!isFinite(minX)) { minX = 0; minY = 0; maxX = CARD_W; maxY = NODE_H; }
-      const offX = -minX;                       // left-align the section at x=0
-      const offY = cursorY + HEADER_H - minY;   // drop below the header band
+      // Positions are RELATIVE to the section's own origin (children of a parent container):
+      // left-aligned at x=0, dropped below the header band.
+      const offX = -minX;
+      const offY = HEADER_H - minY;
       for (const id of Object.keys(pos)) nodes[id] = { x: pos[id].x + offX, y: pos[id].y + offY };
       const w = maxX - minX, h = maxY - minY;
       sections.push({ id: sec.id, title: sec.title, kind: "graph", x: 0, y: cursorY, w, h: h + HEADER_H });

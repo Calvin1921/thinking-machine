@@ -6,6 +6,8 @@ export const CURRENT_VERSION = 1;
 export const NodeKind = z.enum(["root", "branch", "atom"]);
 export const RootType = z.enum(["objective", "cause", "decision", "concept"]);
 export const EdgeType = z.enum(["decomposition", "dependency"]);
+// Probe/work status for a node. Drives the canvas "scoreboard" colors. Absent = untracked.
+export const NodeStatus = z.enum(["todo", "running", "passed", "failed", "blocked"]);
 
 export const NodeSchema = z.object({
   id: z.string().min(1),
@@ -13,6 +15,7 @@ export const NodeSchema = z.object({
   kind: NodeKind,
   rootType: RootType.optional(),
   image: z.string().optional(),
+  status: NodeStatus.optional(),
   x: z.number(),
   y: z.number(),
   // facet key -> list of thought items (strings in v1). Domain-specific keys allowed.
@@ -41,6 +44,7 @@ export type Board = z.infer<typeof BoardSchema>;
 // `EdgeType` above is the zod enum *value*; ops.ts uses the name as a type too.
 // A value and a type may share a name in TS, so expose the inferred union here.
 export type EdgeType = z.infer<typeof EdgeType>;
+export type NodeStatus = z.infer<typeof NodeStatus>;
 
 export const SEED_FACETS = [
   "definition", "essentials", "dependencies",

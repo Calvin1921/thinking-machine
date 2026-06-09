@@ -6,7 +6,7 @@ import type { AddressInfo } from "node:net";
 import { existsSync } from "node:fs";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
-  addNode, linkNodes, setFacet, updateNodePosition, setNodeImage,
+  addNode, linkNodes, setFacet, updateNodePosition, setNodeImage, setNodeStatus,
 } from "@tm/core";
 
 export interface Sidecar {
@@ -83,6 +83,15 @@ export function createSidecar(dir: string): Sidecar {
       res.status(400).json({ error: "nodeId and url required" }); return;
     }
     res.json(mutate(file, (b) => setNodeImage(b, nodeId, url)));
+  });
+  app.post("/api/boards/:id/status", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
+    const { nodeId, status } = req.body ?? {};
+    if (typeof nodeId !== "string" || typeof status !== "string") {
+      res.status(400).json({ error: "nodeId and status required" }); return;
+    }
+    res.json(mutate(file, (b) => setNodeStatus(b, nodeId, status as "" | "todo" | "running" | "passed" | "failed" | "blocked")));
   });
   app.post("/api/boards/:id/move", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);

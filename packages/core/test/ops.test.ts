@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, growSubtree } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, growSubtree } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -67,6 +67,16 @@ describe("ops", () => {
   it("setNodeImage throws on an unknown node", () => {
     const b = newBoard("App", "objective");
     expect(() => setNodeImage(b, "nope", "x")).toThrow();
+  });
+
+  it("setNodeStatus sets a valid status, clears on empty, and rejects garbage", () => {
+    let b = newBoard("App", "objective");
+    b = setNodeStatus(b, "root", "passed");
+    expect(b.nodes[0].status).toBe("passed");
+    b = setNodeStatus(b, "root", "");
+    expect(b.nodes[0].status).toBeUndefined();
+    expect(() => setNodeStatus(b, "root", "done" as never)).toThrow();
+    expect(() => setNodeStatus(b, "nope", "todo")).toThrow();
   });
 
   it("growSubtree builds a nested multi-level subtree with facets + cross-links", () => {

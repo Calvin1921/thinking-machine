@@ -1,5 +1,5 @@
 // packages/core/src/ops.ts
-import { Board, Node, EdgeType } from "./schema.js";
+import { Board, Node, EdgeType, NodeStatus } from "./schema.js";
 import { placeChildren } from "./layout.js";
 
 // Resets to 0 on every process restart; uniqueness is guaranteed by the live-board
@@ -42,6 +42,13 @@ export function updateNodePosition(board: Board, nodeId: string, x: number, y: n
 export function setNodeImage(board: Board, nodeId: string, image: string): Board {
   requireNode(board, nodeId);
   return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, image: image || undefined } : n)) };
+}
+
+/** Set (or clear) a node's probe/work status. Empty string clears it; any other value is validated. */
+export function setNodeStatus(board: Board, nodeId: string, status: NodeStatus | ""): Board {
+  requireNode(board, nodeId);
+  const next = status === "" ? undefined : NodeStatus.parse(status);
+  return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, status: next } : n)) };
 }
 
 export function linkNodes(board: Board, from: string, to: string, type: EdgeType): Board {

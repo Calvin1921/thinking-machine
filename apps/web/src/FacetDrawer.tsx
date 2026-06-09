@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import type { Node as BNode } from "@tm/core/schema";
 import { SEED_FACETS } from "@tm/core/schema";
-import { setFacet, setImage } from "./api.js";
+import { setFacet, setImage, setStatus } from "./api.js";
+
+const STATUSES = ["todo", "running", "passed", "failed", "blocked"] as const;
 
 export function FacetDrawer({ boardId, node, onClose, onSaved }: { boardId: string; node: BNode | null; onClose: () => void; onSaved: () => void }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -31,6 +33,17 @@ export function FacetDrawer({ boardId, node, onClose, onSaved }: { boardId: stri
       <button className="drawer-close" onClick={onClose}>×</button>
       <h2>{node.label}</h2>
       <div className="dsub">{node.kind === "root" ? node.rootType : node.kind}</div>
+      <div className="facet">
+        <label>status</label>
+        <select
+          className="facet-input"
+          value={node.status ?? ""}
+          onChange={async (e) => { await setStatus(boardId, node.id, e.target.value); onSaved(); }}
+        >
+          <option value="">— none —</option>
+          {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
       <div className="facet">
         <label>image url</label>
         <input

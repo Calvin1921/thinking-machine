@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { z } from "zod";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
-  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, growSubtree,
+  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, growSubtree,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -66,6 +66,11 @@ export function buildServer(dir: string): McpServer {
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(), url: z.string().describe("image URL, or empty string to clear") },
     async ({ board, nodeId, url }) =>
       ok(mutate(resolveBoard(board), (b) => setNodeImage(b, nodeId, url))));
+
+  server.tool("tm_set_status", "Set a node's probe/work status on a board; colors the node on the canvas (empty string clears)",
+    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), status: z.enum(["todo", "running", "passed", "failed", "blocked", ""]).describe("one of todo|running|passed|failed|blocked, or empty to clear") },
+    async ({ board, nodeId, status }) =>
+      ok(mutate(resolveBoard(board), (b) => setNodeStatus(b, nodeId, status))));
 
   server.tool("tm_promote", "Promote a facet item into its own node on a board",
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(), facet: z.string(), index: z.number() },

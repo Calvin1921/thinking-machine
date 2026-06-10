@@ -1,4 +1,5 @@
 import { NodeResizer, type NodeProps } from "@xyflow/react";
+import { RefText } from "./refLinks.js";
 
 export interface SectionBoxData {
   title: string;
@@ -25,7 +26,7 @@ export function SectionBox({ data, selected }: NodeProps & { data: SectionBoxDat
       </div>
       {data.kind === "note" && (
         data.note
-          ? <div className="note-body">{data.note}</div>
+          ? <div className="note-body"><RefText text={data.note} /></div>
           : <div className="note-empty">empty note — set text via `tm note`…</div>
       )}
     </div>

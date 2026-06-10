@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { Node as BNode } from "@tm/core/schema";
 import { SEED_FACETS } from "@tm/core/schema";
 import { setFacet, setImage, setStatus } from "./api.js";
+import { RefText } from "./refLinks.js";
 
 const STATUSES = ["todo", "running", "passed", "failed", "blocked"] as const;
 
@@ -63,6 +64,9 @@ export function FacetDrawer({ boardId, node, onClose, onSaved }: { boardId: stri
             onChange={(e) => setDraft({ ...draft, [f]: e.target.value })}
             onBlur={() => save(f)}
           />
+          {(draft[f] ?? "").includes("[[") && (
+            <div className="facet-refs"><RefText text={draft[f]} /></div>
+          )}
         </div>
       ))}
     </div>

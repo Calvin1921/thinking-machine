@@ -79,6 +79,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const [selected, setSelected] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const seededRef = useRef<string | null>(null);   // boardId whose sections we've already seeded
+  const fnRef = useRef<FlowNode[]>([]);             // latest flow nodes, for reading post-change positions
 
   const toggleCollapse = useCallback((id: string) => {
     setCollapsed((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -145,56 +146,37 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => onBoardChange(refresh), [refresh]);   // live reload on CLI/MCP edits
   // Rebuild the controlled node list whenever the board or collapse state changes.
-  useEffect(() => { if (board) setFlowNodes(buildNodes(board, collapsed)); }, [board, collapsed, buildNodes]);
+  useEffect(() => { if (board) { const fn = buildNodes(board, collapsed); fnRef.current = fn; setFlowNodes(fn); } }, [board, collapsed, buildNodes]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setFlowNodes((ns) => {
-      let next = applyNodeChanges(changes, ns);
-      // Live free-form: when a section's origin moves DUE TO A RESIZE (position + dimensions
-      // in the same batch), shift its children by the inverse delta so they stay put on
-      // screen during the drag. A plain section drag (position only) is left alone — the
-      // section should move with its content.
-      for (const c of changes) {
-        if (c.type !== "position" || !("id" in c) || !c.id.startsWith(SEC_PREFIX) || !c.position) continue;
-        if (!changes.some((x) => "id" in x && x.id === c.id && x.type === "dimensions")) continue;
-        const old = ns.find((n) => n.id === c.id);
-        if (!old) continue;
-        const dx = c.position.x - old.position.x, dy = c.position.y - old.position.y;
-        if (dx || dy) next = next.map((n) => (n.parentId === c.id ? { ...n, position: { x: n.position.x - dx, y: n.position.y - dy } } : n));
-      }
-      return next;
-    });
+    // ReactFlow already corrects child positions for a top/left section resize (it emits the
+    // child position changes here), so we just apply them — no manual compensation.
+    const next = applyNodeChanges(changes, fnRef.current);
+    fnRef.current = next;
+    setFlowNodes(next);
+    const at = (id: string) => next.find((n) => n.id === id);
     for (const c of changes) {
       const isSec = "id" in c && c.id.startsWith(SEC_PREFIX);
       const secId = isSec ? (c as { id: string }).id.slice(SEC_PREFIX.length) : "";
-      if (c.type === "position" && c.dragging === false && c.position) {
-        // a plain drag: section moves with its content; a node just moves.
-        if (isSec) setSectionPos(boardId, secId, c.position.x, c.position.y);
-        else moveNode(boardId, c.id, c.position.x, c.position.y);
-      } else if (c.type === "dimensions" && c.resizing === false && c.dimensions) {
+      if (c.type === "position" && c.dragging === false) {          // drag-end
+        const n = at(c.id); if (!n) continue;
+        if (isSec) setSectionPos(boardId, secId, n.position.x, n.position.y);
+        else moveNode(boardId, c.id, n.position.x, n.position.y);
+      } else if (c.type === "dimensions" && c.resizing === false && c.dimensions) { // resize-end
+        const n = at(c.id); if (!n) continue;
         const w = Math.round(c.dimensions.width), h = Math.round(c.dimensions.height);
-        // top/left resize emits a position change too (the box origin moved).
-        const pc = changes.find((x) => "id" in x && x.id === c.id && x.type === "position" && x.position);
-        const newPos = pc && pc.type === "position" && pc.position ? pc.position : undefined;
         if (isSec) {
-          const sec = board?.sections?.find((s) => s.id === secId);
-          if (newPos && sec && (sec.x != null || sec.y != null)) {
-            // Free-form: the origin moved, so shift children by the inverse delta to keep
-            // the content visually fixed (the box edge extends, content stays put).
-            const dx = newPos.x - (sec.x ?? 0), dy = newPos.y - (sec.y ?? 0);
-            const positions: Record<string, { x: number; y: number }> = {};
-            for (const n of board?.nodes ?? []) if (n.sectionId === secId) positions[n.id] = { x: n.x - dx, y: n.y - dy };
-            applyLayout(boardId, { sectionPositions: { [secId]: newPos }, sectionSizes: { [secId]: { w, h } }, positions });
-          } else {
-            applyLayout(boardId, { sectionSizes: { [secId]: { w, h } } });
-          }
+          // persist the resized box AND the children's ReactFlow-corrected positions
+          const positions: Record<string, { x: number; y: number }> = {};
+          for (const ch of next) if (ch.parentId === c.id) positions[ch.id] = { x: ch.position.x, y: ch.position.y };
+          applyLayout(boardId, { sectionPositions: { [secId]: { x: n.position.x, y: n.position.y } }, sectionSizes: { [secId]: { w, h } }, positions });
         } else {
           setNodeSize(boardId, c.id, w, h);
-          if (newPos) moveNode(boardId, c.id, newPos.x, newPos.y);
+          moveNode(boardId, c.id, n.position.x, n.position.y);
         }
       }
     }
-  }, [boardId, board]);
+  }, [boardId]);
 
   // Re-arrange a NON-sectioned board with the given layout, sizing every card to the
   // uniform cell and aligning to it — committed atomically (one write, no race).

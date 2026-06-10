@@ -18,12 +18,14 @@ export function tidyLayout(
   board: Board,
   heights: Record<string, number> = {},
   collapsed: Set<string> = new Set(),
+  cell?: { w: number; h: number },   // uniform cell → every column & row aligns
 ): Record<string, { x: number; y: number }> {
   const kids: Record<string, string[]> = {};
   for (const n of board.nodes) kids[n.id] = [];
   for (const e of board.edges) if (e.type === "decomposition") kids[e.from]?.push(e.to);
 
-  const h = (id: string) => heights[id] || DEFAULT_H;
+  const dx = cell ? cell.w + 110 : DX;
+  const h = (id: string) => (cell ? cell.h : heights[id] || DEFAULT_H);
   const pos: Record<string, { x: number; y: number }> = {};
   const seen = new Set<string>();
   let cursor = 0; // next free vertical pixel for the upcoming leaf slot
@@ -41,7 +43,7 @@ export function tidyLayout(
       const centers = cs.map((c) => place(c, depth + 1));
       center = (Math.min(...centers) + Math.max(...centers)) / 2;
     }
-    pos[id] = { x: depth * DX, y: center - h(id) / 2 }; // store as top-left for React Flow
+    pos[id] = { x: depth * dx, y: center - h(id) / 2 }; // store as top-left for React Flow
     return center;
   };
 

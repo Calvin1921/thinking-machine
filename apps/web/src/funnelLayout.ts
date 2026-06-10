@@ -22,12 +22,18 @@ const GAP = 40;
 export function funnelLayout(
   board: Board,
   heights: Record<string, number> = {},
+  cell?: { w: number; h: number },   // uniform cell → equal cards, even bands
 ): Record<string, { x: number; y: number }> {
   const kids: Record<string, string[]> = {};
   for (const n of board.nodes) kids[n.id] = [];
   for (const e of board.edges) if (e.type === "decomposition") kids[e.from]?.push(e.to);
 
-  const h = (id: string) => heights[id] || DEFAULT_H;
+  const cw = cell ? cell.w : CARD_W;
+  const minSlot = cell ? cell.w + 70 : MIN_SLOT;
+  const rootDrop = cell ? cell.h + 90 : ROOT_DROP;
+  const bandH = cell ? cell.h * 2 + 150 : BAND_H;
+  const stageToChild = cell ? cell.h + 50 : STAGE_TO_CHILD;
+  const h = (id: string) => (cell ? cell.h : heights[id] || DEFAULT_H);
   const pos: Record<string, { x: number; y: number }> = {};
 
   // Lay a horizontal, centered row of `ids` at vertical `y`, spread across `width`.
@@ -37,8 +43,8 @@ export function funnelLayout(
     const slot = width / n;
     ids.forEach((id, k) => {
       const cx = -width / 2 + slot * (k + 0.5);   // center of this child's slot
-      pos[id] = { x: cx - CARD_W / 2, y };
-      placeDeep(id, cx - CARD_W / 2, y);
+      pos[id] = { x: cx - cw / 2, y };
+      placeDeep(id, cx - cw / 2, y);
     });
   };
 
@@ -47,28 +53,28 @@ export function funnelLayout(
     let cursor = py;
     for (const c of kids[parent] ?? []) {
       if (pos[c]) continue;
-      pos[c] = { x: px + CARD_W + 70, y: cursor };
+      pos[c] = { x: px + cw + 70, y: cursor };
       cursor += h(c) + GAP;
-      placeDeep(c, px + CARD_W + 70, pos[c].y);
+      placeDeep(c, px + cw + 70, pos[c].y);
     }
   };
 
-  pos[board.rootId] = { x: -CARD_W / 2, y: 0 };
+  pos[board.rootId] = { x: -cw / 2, y: 0 };
   const stages = kids[board.rootId] ?? [];
   stages.forEach((stageId, i) => {
-    const stageY = ROOT_DROP + i * BAND_H;
-    pos[stageId] = { x: -CARD_W / 2, y: stageY };     // stage cards form the central spine
+    const stageY = rootDrop + i * bandH;
+    pos[stageId] = { x: -cw / 2, y: stageY };     // stage cards form the central spine
     const cs = kids[stageId] ?? [];
-    const width = Math.max(MIN_SLOT * Math.max(cs.length, 1), TOP_WIDTH - i * STEP);
-    row(cs, stageY + STAGE_TO_CHILD, width);
+    const width = Math.max(minSlot * Math.max(cs.length, 1), TOP_WIDTH - i * STEP);
+    row(cs, stageY + stageToChild, width);
   });
 
   // Orphans (no parent) get parked below the funnel so nothing is lost.
   const hasParent = new Set<string>();
   for (const list of Object.values(kids)) for (const c of list) hasParent.add(c);
-  let cursor = ROOT_DROP + stages.length * BAND_H + 80;
+  let cursor = rootDrop + stages.length * bandH + 80;
   for (const n of board.nodes) {
-    if (!pos[n.id] && !hasParent.has(n.id)) { pos[n.id] = { x: -CARD_W / 2, y: cursor }; cursor += h(n.id) + GAP; }
+    if (!pos[n.id] && !hasParent.has(n.id)) { pos[n.id] = { x: -cw / 2, y: cursor }; cursor += h(n.id) + GAP; }
   }
   return pos;
 }

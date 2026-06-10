@@ -44,6 +44,32 @@ export function setNodeSize(board: Board, nodeId: string, w: number, h: number):
   return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, w, h } : n)) };
 }
 
+export interface LayoutUpdate {
+  positions?: Record<string, { x: number; y: number }>;
+  sizes?: Record<string, { w: number; h: number }>;
+  sectionPositions?: Record<string, { x: number; y: number }>;
+  sectionSizes?: Record<string, { w: number; h: number }>;
+}
+
+/**
+ * Apply a whole layout pass — node positions/sizes and section positions/sizes — in ONE
+ * immutable update. Used by Tidy/seed so dozens of placements commit atomically instead of
+ * racing as parallel single-field writes that clobber each other on the board file.
+ */
+export function applyLayout(board: Board, u: LayoutUpdate): Board {
+  const nodes = board.nodes.map((n) => {
+    const p = u.positions?.[n.id]; const s = u.sizes?.[n.id];
+    if (!p && !s) return n;
+    return { ...n, ...(p ? { x: p.x, y: p.y } : {}), ...(s ? { w: s.w, h: s.h } : {}) };
+  });
+  const sections = (board.sections ?? []).map((sec) => {
+    const p = u.sectionPositions?.[sec.id]; const s = u.sectionSizes?.[sec.id];
+    if (!p && !s) return sec;
+    return { ...sec, ...(p ? { x: p.x, y: p.y } : {}), ...(s ? { w: s.w, h: s.h } : {}) };
+  });
+  return { ...board, nodes, sections };
+}
+
 /** Attach (or clear) an optional image URL on a node. Empty string clears it. */
 export function setNodeImage(board: Board, nodeId: string, image: string): Board {
   requireNode(board, nodeId);

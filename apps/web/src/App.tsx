@@ -14,7 +14,18 @@ import { SectionBox } from "./SectionNodes.js";
 import { FacetDrawer } from "./FacetDrawer.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { CollectionView } from "./CollectionView.js";
-import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos, setNodeSize, setSectionSize } from "./api.js";
+import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout } from "./api.js";
+
+// Uniform cell = the widest × tallest measured think-node, so every card matches and aligns.
+function uniformCell(flowNodes: FlowNode[]): { w: number; h: number } {
+  let w = 230, h = 120;
+  for (const n of flowNodes) {
+    if (n.type !== "think") continue;
+    if (n.measured?.width) w = Math.max(w, n.measured.width);
+    if (n.measured?.height) h = Math.max(h, n.measured.height);
+  }
+  return { w: Math.round(w), h: Math.round(h) };
+}
 
 const nodeTypes = { think: ThinkNode, sectionBox: SectionBox };
 const SEC_PREFIX = "__sec_";
@@ -123,10 +134,11 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     if (b.sections?.some((s) => s.x == null) && seededRef.current !== boardId) {
       seededRef.current = boardId;
       const sl = sectionedLayout(b);
-      // Serialize: each write loads-modifies-saves the same file, so parallel writes
-      // would clobber each other (last-writer-wins). Await them one at a time.
-      for (const s of b.sections) { const r = sl.sections.find((x) => x.id === s.id); if (r) await setSectionPos(boardId, s.id, r.x, r.y); }
-      for (const n of b.nodes) { if (n.sectionId && sl.nodes[n.id]) await moveNode(boardId, n.id, sl.nodes[n.id].x + SEC_PAD_X, sl.nodes[n.id].y); }
+      const positions: Record<string, { x: number; y: number }> = {};
+      for (const id of Object.keys(sl.nodes)) positions[id] = { x: sl.nodes[id].x + SEC_PAD_X, y: sl.nodes[id].y };
+      const sectionPositions: Record<string, { x: number; y: number }> = {};
+      for (const r of sl.sections) sectionPositions[r.id] = { x: r.x, y: r.y };
+      applyLayout(boardId, { positions, sectionPositions });   // one atomic write, no race
     }
   }, [boardId]);
 
@@ -157,26 +169,32 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     }
   }, [boardId]);
 
-  // Re-arrange the FULL tree with the given layout (tree boards), or re-seed section
-  // positions (section boards) — a "reset layout" that undoes manual dragging.
+  // Re-arrange a NON-sectioned board with the given layout, sizing every card to the
+  // uniform cell and aligning to it — committed atomically (one write, no race).
   const arrange = useCallback((b: Board, kind: "tree" | "funnel" | "grid" | "timeline") => {
-    const heights: Record<string, number> = {};
-    for (const n of flowNodes) { const hh = n.measured?.height; if (hh) heights[n.id] = hh; }
-    const pos = kind === "funnel" ? funnelLayout(b, heights) : kind === "grid" ? gridLayout(b, heights) : kind === "timeline" ? timelineLayout(b, heights) : tidyLayout(b, heights);
-    setFlowNodes((ns) => ns.map((n) => (pos[n.id] ? { ...n, position: pos[n.id] } : n)));
-    Object.entries(pos).forEach(([id, p]) => moveNode(boardId, id, p.x, p.y));
+    const cell = uniformCell(flowNodes);
+    const pos = kind === "funnel" ? funnelLayout(b, {}, cell) : kind === "grid" ? gridLayout(b, {}, cell) : kind === "timeline" ? timelineLayout(b, {}, cell) : tidyLayout(b, {}, new Set(), cell);
+    const sizes: Record<string, { w: number; h: number }> = {};
+    for (const n of b.nodes) sizes[n.id] = cell;
+    applyLayout(boardId, { positions: pos, sizes });
   }, [boardId, flowNodes]);
 
   const tidy = useCallback(() => {
     if (!board) return;
+    const cell = uniformCell(flowNodes);
     if (board.sections?.length) {
-      const sl = sectionedLayout(board);
-      for (const s of board.sections) { const r = sl.sections.find((x) => x.id === s.id); if (r) setSectionPos(boardId, s.id, r.x, r.y); }
-      for (const n of board.nodes) { if (n.sectionId && sl.nodes[n.id]) moveNode(boardId, n.id, sl.nodes[n.id].x + SEC_PAD_X, sl.nodes[n.id].y); }
+      const sl = sectionedLayout(board, cell);
+      const positions: Record<string, { x: number; y: number }> = {};
+      for (const id of Object.keys(sl.nodes)) positions[id] = { x: sl.nodes[id].x + SEC_PAD_X, y: sl.nodes[id].y };
+      const sizes: Record<string, { w: number; h: number }> = {};
+      for (const n of board.nodes) if (n.sectionId) sizes[n.id] = cell;
+      const sectionPositions: Record<string, { x: number; y: number }> = {};
+      for (const r of sl.sections) sectionPositions[r.id] = { x: r.x, y: r.y };
+      applyLayout(boardId, { positions, sizes, sectionPositions });
       return;
     }
     arrange(board, board.layout ?? "tree");
-  }, [board, boardId, arrange]);
+  }, [board, boardId, arrange, flowNodes]);
 
   // Cycle the board layout tree → funnel → grid: persist, flip handles, re-arrange.
   const switchLayout = useCallback((kind: "tree" | "funnel" | "grid" | "timeline") => {

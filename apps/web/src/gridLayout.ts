@@ -17,12 +17,15 @@ const DEFAULT_H = 120;
 export function gridLayout(
   board: Board,
   heights: Record<string, number> = {},
+  cell?: { w: number; h: number },   // uniform cell → equal cards, aligned columns
 ): Record<string, { x: number; y: number }> {
   const kids: Record<string, string[]> = {};
   for (const n of board.nodes) kids[n.id] = [];
   for (const e of board.edges) if (e.type === "decomposition") kids[e.from]?.push(e.to);
 
-  const h = (id: string) => heights[id] || DEFAULT_H;
+  const cw = cell ? cell.w : CARD_W;
+  const colW = cell ? cell.w + 60 : COL_W;
+  const h = (id: string) => (cell ? cell.h : heights[id] || DEFAULT_H);
   const pos: Record<string, { x: number; y: number }> = {};
 
   const blocks = kids[board.rootId] ?? [];
@@ -40,11 +43,11 @@ export function gridLayout(
 
   blocks.forEach((b, i) => {
     const col = i % cols;
-    const bottom = layoutBlock(b, col * COL_W, colCursor[col], 0);
+    const bottom = layoutBlock(b, col * colW, colCursor[col], 0);
     colCursor[col] = bottom + BLOCK_GAP;
   });
 
   // Root sits centered above the grid.
-  pos[board.rootId] = { x: (cols * COL_W) / 2 - CARD_W / 2, y: 0 };
+  pos[board.rootId] = { x: (cols * colW) / 2 - cw / 2, y: 0 };
   return pos;
 }

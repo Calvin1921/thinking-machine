@@ -40,6 +40,14 @@ export const setSectionLayout = (boardId: string, sectionId: string, layout: str
   post(`/api/boards/${boardId}/section-layout`, { sectionId, layout });
 export const setSectionPos = (boardId: string, sectionId: string, x: number, y: number) =>
   post(`/api/boards/${boardId}/section-pos`, { sectionId, x, y });
+export interface LayoutUpdate {
+  positions?: Record<string, { x: number; y: number }>;
+  sizes?: Record<string, { w: number; h: number }>;
+  sectionPositions?: Record<string, { x: number; y: number }>;
+  sectionSizes?: Record<string, { w: number; h: number }>;
+}
+export const applyLayout = (boardId: string, update: LayoutUpdate) =>
+  post(`/api/boards/${boardId}/layout-bulk`, update);
 export const setNodeSize = (boardId: string, nodeId: string, w: number, h: number) =>
   post(`/api/boards/${boardId}/node-size`, { nodeId, w, h });
 export const setSectionSize = (boardId: string, sectionId: string, w: number, h: number) =>

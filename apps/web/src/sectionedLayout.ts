@@ -26,9 +26,11 @@ export interface SectionRect {
  * positions plus a rect per section (for header + background rendering). Deterministic
  * from structure — no measured heights needed — so it never feedback-loops on render.
  */
-export function sectionedLayout(board: Board): { nodes: Record<string, { x: number; y: number }>; sections: SectionRect[] } {
+export function sectionedLayout(board: Board, cell?: { w: number; h: number }): { nodes: Record<string, { x: number; y: number }>; sections: SectionRect[] } {
   const nodes: Record<string, { x: number; y: number }> = {};
   const sections: SectionRect[] = [];
+  const cw = cell ? cell.w : CARD_W;
+  const ch = cell ? cell.h : NODE_H;
   let cursorY = 0;
 
   for (const sec of board.sections ?? []) {
@@ -37,15 +39,15 @@ export function sectionedLayout(board: Board): { nodes: Record<string, { x: numb
       const ids = new Set(members.map((n) => n.id));
       const edges = board.edges.filter((e) => ids.has(e.from) && ids.has(e.to));
       const sub = { rootId: sec.rootId, nodes: members, edges, layout: sec.layout } as unknown as Board;
-      const pos = sec.layout === "funnel" ? funnelLayout(sub) : sec.layout === "grid" ? gridLayout(sub) : sec.layout === "timeline" ? timelineLayout(sub) : tidyLayout(sub);
+      const pos = sec.layout === "funnel" ? funnelLayout(sub, {}, cell) : sec.layout === "grid" ? gridLayout(sub, {}, cell) : sec.layout === "timeline" ? timelineLayout(sub, {}, cell) : tidyLayout(sub, {}, new Set(), cell);
 
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const id of Object.keys(pos)) {
         const p = pos[id];
         minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
-        maxX = Math.max(maxX, p.x + CARD_W); maxY = Math.max(maxY, p.y + NODE_H);
+        maxX = Math.max(maxX, p.x + cw); maxY = Math.max(maxY, p.y + ch);
       }
-      if (!isFinite(minX)) { minX = 0; minY = 0; maxX = CARD_W; maxY = NODE_H; }
+      if (!isFinite(minX)) { minX = 0; minY = 0; maxX = cw; maxY = ch; }
       // Positions are RELATIVE to the section's own origin (children of a parent container):
       // left-aligned at x=0, dropped below the header band.
       const offX = -minX;

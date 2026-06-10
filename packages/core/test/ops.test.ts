@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, growSubtree } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -115,6 +115,22 @@ describe("ops", () => {
     b = setNodeSize(b, "root", 300, 180);
     expect([b.nodes[0].w, b.nodes[0].h]).toEqual([300, 180]);
     expect(() => setNodeSize(b, "nope", 1, 1)).toThrow();
+  });
+
+  it("applyLayout commits node positions + sizes + section positions in one pass", () => {
+    let b = newBoard("App", "objective");
+    b = addNode(b, { label: "Child", parentId: "root", kind: "atom" });
+    b = addSection(b, { title: "Notes", kind: "note" });
+    const child = b.nodes.find((n) => n.label === "Child")!;
+    const sid = b.sections!.at(-1)!.id;
+    b = applyLayout(b, {
+      positions: { [child.id]: { x: 12, y: 34 } },
+      sizes: { [child.id]: { w: 240, h: 130 } },
+      sectionPositions: { [sid]: { x: 100, y: 200 } },
+    });
+    const c = b.nodes.find((n) => n.id === child.id)!;
+    expect([c.x, c.y, c.w, c.h]).toEqual([12, 34, 240, 130]);
+    expect([b.sections!.find((s) => s.id === sid)!.x, b.sections!.find((s) => s.id === sid)!.y]).toEqual([100, 200]);
   });
 
   it("setBoardLayout sets funnel, resets on tree/empty, rejects garbage", () => {

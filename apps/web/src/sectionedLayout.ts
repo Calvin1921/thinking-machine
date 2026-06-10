@@ -2,6 +2,7 @@ import type { Board } from "@tm/core/schema";
 import { tidyLayout } from "./tidyLayout.js";
 import { funnelLayout } from "./funnelLayout.js";
 import { gridLayout } from "./gridLayout.js";
+import { timelineLayout } from "./timelineLayout.js";
 
 const CARD_W = 230;
 export const HEADER_H = 64; // space the section title band occupies (shared with App rendering)
@@ -36,7 +37,7 @@ export function sectionedLayout(board: Board): { nodes: Record<string, { x: numb
       const ids = new Set(members.map((n) => n.id));
       const edges = board.edges.filter((e) => ids.has(e.from) && ids.has(e.to));
       const sub = { rootId: sec.rootId, nodes: members, edges, layout: sec.layout } as unknown as Board;
-      const pos = sec.layout === "funnel" ? funnelLayout(sub) : sec.layout === "grid" ? gridLayout(sub) : tidyLayout(sub);
+      const pos = sec.layout === "funnel" ? funnelLayout(sub) : sec.layout === "grid" ? gridLayout(sub) : sec.layout === "timeline" ? timelineLayout(sub) : tidyLayout(sub);
 
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const id of Object.keys(pos)) {

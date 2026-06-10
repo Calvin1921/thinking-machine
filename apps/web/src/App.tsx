@@ -7,6 +7,7 @@ import { boardToFlow } from "./boardToFlow.js";
 import { tidyLayout } from "./tidyLayout.js";
 import { funnelLayout } from "./funnelLayout.js";
 import { gridLayout } from "./gridLayout.js";
+import { timelineLayout } from "./timelineLayout.js";
 import { sectionedLayout, HEADER_H } from "./sectionedLayout.js";
 import { ThinkNode } from "./ThinkNode.js";
 import { SectionBox } from "./SectionNodes.js";
@@ -158,10 +159,10 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
 
   // Re-arrange the FULL tree with the given layout (tree boards), or re-seed section
   // positions (section boards) — a "reset layout" that undoes manual dragging.
-  const arrange = useCallback((b: Board, kind: "tree" | "funnel" | "grid") => {
+  const arrange = useCallback((b: Board, kind: "tree" | "funnel" | "grid" | "timeline") => {
     const heights: Record<string, number> = {};
     for (const n of flowNodes) { const hh = n.measured?.height; if (hh) heights[n.id] = hh; }
-    const pos = kind === "funnel" ? funnelLayout(b, heights) : kind === "grid" ? gridLayout(b, heights) : tidyLayout(b, heights);
+    const pos = kind === "funnel" ? funnelLayout(b, heights) : kind === "grid" ? gridLayout(b, heights) : kind === "timeline" ? timelineLayout(b, heights) : tidyLayout(b, heights);
     setFlowNodes((ns) => ns.map((n) => (pos[n.id] ? { ...n, position: pos[n.id] } : n)));
     Object.entries(pos).forEach(([id, p]) => moveNode(boardId, id, p.x, p.y));
   }, [boardId, flowNodes]);
@@ -178,7 +179,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   }, [board, boardId, arrange]);
 
   // Cycle the board layout tree → funnel → grid: persist, flip handles, re-arrange.
-  const switchLayout = useCallback((kind: "tree" | "funnel" | "grid") => {
+  const switchLayout = useCallback((kind: "tree" | "funnel" | "grid" | "timeline") => {
     if (!board) return;
     const next = { ...board, layout: kind === "tree" ? undefined : kind };
     setBoard(next);             // re-renders edges with the right handles immediately
@@ -212,8 +213,9 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
           title="Toggle overview">{collapsed.size ? "⊞ Expand all" : "⊟ Collapse all"}</button>
         <button className="back" onClick={tidy} title={sectioned ? "Reset section layout" : "Auto-arrange"}>⤢ Tidy</button>
         {!sectioned && (() => {
-          const next = board.layout === "funnel" ? "grid" : board.layout === "grid" ? "tree" : "funnel";
-          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid" } as const;
+          const cycle = { tree: "funnel", funnel: "grid", grid: "timeline", timeline: "tree" } as const;
+          const next = cycle[board.layout ?? "tree"];
+          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline" } as const;
           return <button className="back" onClick={() => switchLayout(next)} title="Switch representation">{label[next]}</button>;
         })()}
       </div>

@@ -1,7 +1,7 @@
 // apps/web/src/boardToFlow.ts
 import type { Board, Node as BNode } from "@tm/core/schema";
 import { SEED_FACETS } from "@tm/core/schema";
-import type { Node as FlowNode, Edge as FlowEdge } from "@xyflow/react";
+import { MarkerType, type Node as FlowNode, type Edge as FlowEdge } from "@xyflow/react";
 
 export interface ThinkNodeData {
   label: string;
@@ -29,18 +29,14 @@ function firstContent(facets: BNode["facets"]): string {
 }
 
 export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; edges: FlowEdge[] } {
-  // Funnel flows top→bottom (bottom→top handles); tree flows left→right (right→left).
-  // With sections, each edge follows ITS section's layout, not the board's.
   const sectionLayout = new Map((board.sections ?? []).map((s) => [s.id, s.layout]));
   const nodeSection = new Map(board.nodes.map((n) => [n.id, n.sectionId]));
-  const handlesFor = (fromId: string) => {
-    const layout = board.sections?.length ? sectionLayout.get(nodeSection.get(fromId) ?? "") : board.layout;
-    const vertical = layout === "funnel" || layout === "grid"; // both flow top→bottom
-    return { sourceHandle: vertical ? "b" : "r", targetHandle: vertical ? "t" : "l" };
-  };
+  // decomposition children, in order, per parent
+  const kids: Record<string, string[]> = {};
+  for (const n of board.nodes) kids[n.id] = [];
+  for (const e of board.edges) if (e.type === "decomposition") kids[e.from].push(e.to);
   const childCount: Record<string, number> = {};
-  for (const n of board.nodes) childCount[n.id] = 0;
-  for (const e of board.edges) if (e.type === "decomposition") childCount[e.from] = (childCount[e.from] ?? 0) + 1;
+  for (const id of Object.keys(kids)) childCount[id] = kids[id].length;
 
   const nodes = board.nodes.map((n) => {
     const sized = n.w != null && n.h != null;
@@ -63,17 +59,53 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
     };
   });
 
-  const edges = board.edges.map((e, i) => ({
-    id: `e${i}`,
-    source: e.from,
-    target: e.to,
-    ...handlesFor(e.from),
-    animated: e.type === "dependency",
-    style: e.type === "dependency"
-      ? { stroke: "#f0a868", strokeDasharray: "5 5" }
-      : { stroke: "#5ce0c6" },
-    data: { type: e.type },
-  }));
+  // --- layout-aware edges ---
+  // The layout already encodes the relationship, so edges follow it:
+  //   tree → hierarchy (parent→child) · funnel → sequence between stages ·
+  //   timeline → sequence left→right within each lane · grid → none (position says it all).
+  const TEAL = "#5ce0c6", AMBER = "#f0a868";
+  const edges: FlowEdge[] = [];
+  let ei = 0;
+  const push = (from: string, to: string, vertical: boolean, kind: "hierarchy" | "sequence" | "dependency") => {
+    edges.push({
+      id: `e${ei++}`, source: from, target: to,
+      sourceHandle: vertical ? "b" : "r", targetHandle: vertical ? "t" : "l",
+      animated: kind === "dependency",
+      markerEnd: kind === "sequence" ? { type: MarkerType.ArrowClosed, color: TEAL, width: 16, height: 16 } : undefined,
+      style: kind === "dependency" ? { stroke: AMBER, strokeDasharray: "5 5" } : { stroke: TEAL },
+      data: { type: kind },
+    });
+  };
+
+  const roots = board.sections?.length
+    ? board.sections.filter((s) => s.kind === "graph" && s.rootId).map((s) => ({ root: s.rootId!, layout: s.layout }))
+    : [{ root: board.rootId, layout: board.layout }];
+
+  for (const { root, layout } of roots) {
+    if (layout === "grid") continue;                                    // none — spatial only
+    if (layout === "funnel") {                                          // sequence: root→stage→stage
+      const seq = [root, ...(kids[root] ?? [])];
+      for (let i = 0; i + 1 < seq.length; i++) push(seq[i], seq[i + 1], true, "sequence");
+    } else if (layout === "timeline") {                                 // sequence per lane, left→right
+      for (const lane of kids[root] ?? []) {
+        const cells = kids[lane] ?? [];
+        for (let j = 0; j + 1 < cells.length; j++) push(cells[j], cells[j + 1], false, "sequence");
+      }
+    } else {                                                            // tree: full hierarchy
+      const stack = [root];
+      while (stack.length) {
+        const p = stack.pop()!;
+        for (const c of kids[p] ?? []) { push(p, c, false, "hierarchy"); stack.push(c); }
+      }
+    }
+  }
+  // explicit dependency cross-links: keep them (intentional), except in edge-free grid sections
+  for (const e of board.edges) {
+    if (e.type !== "dependency") continue;
+    const lay = board.sections?.length ? sectionLayout.get(nodeSection.get(e.from) ?? "") : board.layout;
+    if (lay === "grid") continue;
+    push(e.from, e.to, lay === "funnel", "dependency");
+  }
 
   return { nodes, edges };
 }

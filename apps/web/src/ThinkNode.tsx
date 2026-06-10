@@ -17,27 +17,29 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
       <NodeResizer isVisible={selected} minWidth={150} minHeight={56} lineClassName="nr-line" handleClassName="nr-handle" />
       <Handle type="target" position={Position.Left} id="l" />
       <Handle type="target" position={Position.Top} id="t" />
-      {data.image && (
-        <img
-          className="t-img"
-          src={data.image}
-          alt=""
-          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-        />
-      )}
-      <div className="t-label">{data.label}</div>
-      {data.status && (
-        <div className="t-status" style={{ color: statusColor, borderColor: statusColor }}>{data.status}</div>
-      )}
-      {data.kind === "root" && data.rootType && <div className="t-sub">{data.rootType}</div>}
-      {data.preview
-        ? <div className="t-preview">{data.preview}</div>
-        : <div className="t-empty">click to add your thinking…</div>}
-      {data.filledFacets.length > 0 && (
-        <div className="t-facets">
-          {data.filledFacets.map((f) => <span key={f}>{f}</span>)}
-        </div>
-      )}
+      <div className="t-body">
+        {data.image && (
+          <img
+            className="t-img"
+            src={data.image}
+            alt=""
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+          />
+        )}
+        <div className="t-label">{data.label}</div>
+        {data.status && (
+          <div className="t-status" style={{ color: statusColor, borderColor: statusColor }}>{data.status}</div>
+        )}
+        {data.kind === "root" && data.rootType && <div className="t-sub">{data.rootType}</div>}
+        {data.preview
+          ? <div className="t-preview">{data.preview}</div>
+          : <div className="t-empty">click to add your thinking…</div>}
+        {data.filledFacets.length > 0 && (
+          <div className="t-facets">
+            {data.filledFacets.map((f) => <span key={f}>{f}</span>)}
+          </div>
+        )}
+      </div>
       {data.childCount > 0 && (
         <button
           className="t-toggle"

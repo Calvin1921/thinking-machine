@@ -73,8 +73,8 @@ export function buildServer(dir: string): McpServer {
     async ({ board, nodeId, status }) =>
       ok(mutate(resolveBoard(board), (b) => setNodeStatus(b, nodeId, status))));
 
-  server.tool("tm_set_layout", "Set how the canvas lays out a board: 'tree' (default), 'funnel' (sequential stages), 'grid' (tight 2D matrix), or 'timeline' (swimlane rows × left→right columns, Gantt-style)",
-    { board: z.string().describe(BOARD_DESC), layout: z.enum(["tree", "funnel", "grid", "timeline"]) },
+  server.tool("tm_set_layout", "Set how the canvas lays out a board: 'tree' (default), 'funnel' (sequential stages), 'grid' (tight 2D matrix), 'timeline' (swimlane rows × left→right columns, Gantt-style), or 'radial' (ecosystem map — root in the center, one angular sector per top-level child, rings by depth)",
+    { board: z.string().describe(BOARD_DESC), layout: z.enum(["tree", "funnel", "grid", "timeline", "radial"]) },
     async ({ board, layout }) =>
       ok(mutate(resolveBoard(board), (b) => setBoardLayout(b, layout))));
 
@@ -98,8 +98,8 @@ export function buildServer(dir: string): McpServer {
     async ({ board, sectionId, note }) =>
       ok(mutate(resolveBoard(board), (b) => setSectionNote(b, sectionId, note))));
 
-  server.tool("tm_set_section_layout", "Set a graph section's layout on a board: tree|funnel|grid|timeline",
-    { board: z.string().describe(BOARD_DESC), sectionId: z.string(), layout: z.enum(["tree", "funnel", "grid", "timeline"]) },
+  server.tool("tm_set_section_layout", "Set a graph section's layout on a board: tree|funnel|grid|timeline|radial",
+    { board: z.string().describe(BOARD_DESC), sectionId: z.string(), layout: z.enum(["tree", "funnel", "grid", "timeline", "radial"]) },
     async ({ board, sectionId, layout }) =>
       ok(mutate(resolveBoard(board), (b) => setSectionLayout(b, sectionId, layout))));
 

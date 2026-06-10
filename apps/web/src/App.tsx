@@ -8,6 +8,7 @@ import { tidyLayout } from "./tidyLayout.js";
 import { funnelLayout } from "./funnelLayout.js";
 import { gridLayout } from "./gridLayout.js";
 import { timelineLayout } from "./timelineLayout.js";
+import { radialLayout } from "./radialLayout.js";
 import { sectionedLayout, HEADER_H } from "./sectionedLayout.js";
 import { ThinkNode } from "./ThinkNode.js";
 import { SectionBox } from "./SectionNodes.js";
@@ -180,9 +181,9 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
 
   // Re-arrange a NON-sectioned board with the given layout, sizing every card to the
   // uniform cell and aligning to it — committed atomically (one write, no race).
-  const arrange = useCallback((b: Board, kind: "tree" | "funnel" | "grid" | "timeline") => {
+  const arrange = useCallback((b: Board, kind: "tree" | "funnel" | "grid" | "timeline" | "radial") => {
     const cell = uniformCell(flowNodes);
-    const pos = kind === "funnel" ? funnelLayout(b, {}, cell) : kind === "grid" ? gridLayout(b, {}, cell) : kind === "timeline" ? timelineLayout(b, {}, cell) : tidyLayout(b, {}, new Set(), cell);
+    const pos = kind === "funnel" ? funnelLayout(b, {}, cell) : kind === "grid" ? gridLayout(b, {}, cell) : kind === "timeline" ? timelineLayout(b, {}, cell) : kind === "radial" ? radialLayout(b, {}, cell) : tidyLayout(b, {}, new Set(), cell);
     const sizes: Record<string, { w: number; h: number }> = {};
     for (const n of b.nodes) sizes[n.id] = cell;
     applyLayout(boardId, { positions: pos, sizes });
@@ -205,8 +206,8 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     arrange(board, board.layout ?? "tree");
   }, [board, boardId, arrange, flowNodes]);
 
-  // Cycle the board layout tree → funnel → grid: persist, flip handles, re-arrange.
-  const switchLayout = useCallback((kind: "tree" | "funnel" | "grid" | "timeline") => {
+  // Cycle the board layout tree → funnel → grid → timeline → radial: persist, flip handles, re-arrange.
+  const switchLayout = useCallback((kind: "tree" | "funnel" | "grid" | "timeline" | "radial") => {
     if (!board) return;
     const next = { ...board, layout: kind === "tree" ? undefined : kind };
     setBoard(next);             // re-renders edges with the right handles immediately
@@ -240,9 +241,9 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
           title="Toggle overview">{collapsed.size ? "⊞ Expand all" : "⊟ Collapse all"}</button>
         <button className="back" onClick={tidy} title={sectioned ? "Reset section layout" : "Auto-arrange"}>⤢ Tidy</button>
         {!sectioned && (() => {
-          const cycle = { tree: "funnel", funnel: "grid", grid: "timeline", timeline: "tree" } as const;
+          const cycle = { tree: "funnel", funnel: "grid", grid: "timeline", timeline: "radial", radial: "tree" } as const;
           const next = cycle[board.layout ?? "tree"];
-          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline" } as const;
+          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline", radial: "◎ Radial" } as const;
           return <button className="back" onClick={() => switchLayout(next)} title="Switch representation">{label[next]}</button>;
         })()}
       </div>

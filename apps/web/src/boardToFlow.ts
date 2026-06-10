@@ -62,14 +62,25 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
   // --- layout-aware edges ---
   // The layout already encodes the relationship, so edges follow it:
   //   tree → hierarchy (parent→child) · funnel → sequence between stages ·
-  //   timeline → sequence left→right within each lane · grid → none (position says it all).
+  //   timeline → sequence left→right within each lane · grid → none (position says it all) ·
+  //   radial → hierarchy with handles picked by geometry (the side facing the other node).
   const TEAL = "#5ce0c6", AMBER = "#f0a868";
+  const npos = new Map(board.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+  // Handle pair for an edge whose endpoints can be anywhere around each other (radial):
+  // pick the dominant axis of the source→target vector and exit/enter the facing sides.
+  const geoHandles = (from: string, to: string): { s: string; t: string } => {
+    const a = npos.get(from), b = npos.get(to);
+    if (!a || !b) return { s: "r", t: "l" };
+    const dx = b.x - a.x, dy = b.y - a.y;
+    if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? { s: "r", t: "l" } : { s: "ls", t: "rt" };
+    return dy >= 0 ? { s: "b", t: "t" } : { s: "ts", t: "bt" };
+  };
   const edges: FlowEdge[] = [];
   let ei = 0;
-  const push = (from: string, to: string, vertical: boolean, kind: "hierarchy" | "sequence" | "dependency") => {
+  const push = (from: string, to: string, handles: { s: string; t: string }, kind: "hierarchy" | "sequence" | "dependency") => {
     edges.push({
       id: `e${ei++}`, source: from, target: to,
-      sourceHandle: vertical ? "b" : "r", targetHandle: vertical ? "t" : "l",
+      sourceHandle: handles.s, targetHandle: handles.t,
       animated: kind === "dependency",
       markerEnd: kind === "sequence" ? { type: MarkerType.ArrowClosed, color: TEAL, width: 16, height: 16 } : undefined,
       style: kind === "dependency" ? { stroke: AMBER, strokeDasharray: "5 5" } : { stroke: TEAL },
@@ -81,21 +92,23 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
     ? board.sections.filter((s) => s.kind === "graph" && s.rootId).map((s) => ({ root: s.rootId!, layout: s.layout }))
     : [{ root: board.rootId, layout: board.layout }];
 
+  const V = { s: "b", t: "t" }, H = { s: "r", t: "l" };   // the classic down / right pairs
   for (const { root, layout } of roots) {
     if (layout === "grid") continue;                                    // none — spatial only
     if (layout === "funnel") {                                          // sequence: root→stage→stage
       const seq = [root, ...(kids[root] ?? [])];
-      for (let i = 0; i + 1 < seq.length; i++) push(seq[i], seq[i + 1], true, "sequence");
+      for (let i = 0; i + 1 < seq.length; i++) push(seq[i], seq[i + 1], V, "sequence");
     } else if (layout === "timeline") {                                 // sequence per lane, left→right
       for (const lane of kids[root] ?? []) {
         const cells = kids[lane] ?? [];
-        for (let j = 0; j + 1 < cells.length; j++) push(cells[j], cells[j + 1], false, "sequence");
+        for (let j = 0; j + 1 < cells.length; j++) push(cells[j], cells[j + 1], H, "sequence");
       }
-    } else {                                                            // tree: full hierarchy
+    } else {                                                            // tree/radial: full hierarchy
+      const radial = layout === "radial";
       const stack = [root];
       while (stack.length) {
         const p = stack.pop()!;
-        for (const c of kids[p] ?? []) { push(p, c, false, "hierarchy"); stack.push(c); }
+        for (const c of kids[p] ?? []) { push(p, c, radial ? geoHandles(p, c) : H, "hierarchy"); stack.push(c); }
       }
     }
   }
@@ -104,7 +117,7 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
     if (e.type !== "dependency") continue;
     const lay = board.sections?.length ? sectionLayout.get(nodeSection.get(e.from) ?? "") : board.layout;
     if (lay === "grid") continue;
-    push(e.from, e.to, lay === "funnel", "dependency");
+    push(e.from, e.to, lay === "radial" ? geoHandles(e.from, e.to) : lay === "funnel" ? V : H, "dependency");
   }
 
   return { nodes, edges };

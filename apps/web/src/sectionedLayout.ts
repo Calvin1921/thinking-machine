@@ -3,6 +3,7 @@ import { tidyLayout } from "./tidyLayout.js";
 import { funnelLayout } from "./funnelLayout.js";
 import { gridLayout } from "./gridLayout.js";
 import { timelineLayout } from "./timelineLayout.js";
+import { radialLayout } from "./radialLayout.js";
 
 const CARD_W = 230;
 export const HEADER_H = 64; // space the section title band occupies (shared with App rendering)
@@ -39,7 +40,7 @@ export function sectionedLayout(board: Board, cell?: { w: number; h: number }): 
       const ids = new Set(members.map((n) => n.id));
       const edges = board.edges.filter((e) => ids.has(e.from) && ids.has(e.to));
       const sub = { rootId: sec.rootId, nodes: members, edges, layout: sec.layout } as unknown as Board;
-      const pos = sec.layout === "funnel" ? funnelLayout(sub, {}, cell) : sec.layout === "grid" ? gridLayout(sub, {}, cell) : sec.layout === "timeline" ? timelineLayout(sub, {}, cell) : tidyLayout(sub, {}, new Set(), cell);
+      const pos = sec.layout === "funnel" ? funnelLayout(sub, {}, cell) : sec.layout === "grid" ? gridLayout(sub, {}, cell) : sec.layout === "timeline" ? timelineLayout(sub, {}, cell) : sec.layout === "radial" ? radialLayout(sub, {}, cell) : tidyLayout(sub, {}, new Set(), cell);
 
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const id of Object.keys(pos)) {

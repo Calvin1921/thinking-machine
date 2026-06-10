@@ -10,7 +10,7 @@ export const EdgeType = z.enum(["decomposition", "dependency"]);
 export const NodeStatus = z.enum(["todo", "running", "passed", "failed", "blocked"]);
 // How the canvas lays the graph out. The neutral foundation defaults to "tree"; a
 // methodology can pick another representation (FR-2). Absent = tree.
-export const BoardLayout = z.enum(["tree", "funnel", "grid", "timeline"]);
+export const BoardLayout = z.enum(["tree", "funnel", "grid", "timeline", "radial"]);
 // A board can hold many sections, each a different representation for a different purpose
 // (the "nothing explains in one graph" insight). A graph section lays out its own nodes;
 // a note section is just free text. Absent sections[] → the board is a single graph (legacy).

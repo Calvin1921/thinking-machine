@@ -17,6 +17,9 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
       <NodeResizer isVisible={selected} minWidth={150} minHeight={56} lineClassName="nr-line" handleClassName="nr-handle" />
       <Handle type="target" position={Position.Left} id="l" />
       <Handle type="target" position={Position.Top} id="t" />
+      {/* radial layout picks handles by geometry, so every side needs both directions */}
+      <Handle type="target" position={Position.Right} id="rt" />
+      <Handle type="target" position={Position.Bottom} id="bt" />
       <div className="t-body">
         {data.image && (
           <img
@@ -51,6 +54,8 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
       )}
       <Handle type="source" position={Position.Right} id="r" />
       <Handle type="source" position={Position.Bottom} id="b" />
+      <Handle type="source" position={Position.Left} id="ls" />
+      <Handle type="source" position={Position.Top} id="ts" />
     </div>
   );
 }

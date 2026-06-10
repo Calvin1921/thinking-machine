@@ -99,7 +99,7 @@ export function createSidecar(dir: string): Sidecar {
     if (!file) return;
     const { layout } = req.body ?? {};
     if (typeof layout !== "string") { res.status(400).json({ error: "layout required" }); return; }
-    res.json(mutate(file, (b) => setBoardLayout(b, layout as "" | "tree" | "funnel")));
+    res.json(mutate(file, (b) => setBoardLayout(b, layout as Parameters<typeof setBoardLayout>[1])));
   });
   app.post("/api/boards/:id/section", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);
@@ -126,7 +126,7 @@ export function createSidecar(dir: string): Sidecar {
     if (typeof sectionId !== "string" || typeof layout !== "string") {
       res.status(400).json({ error: "sectionId and layout required" }); return;
     }
-    res.json(mutate(file, (b) => setSectionLayout(b, sectionId, layout as "" | "tree" | "funnel")));
+    res.json(mutate(file, (b) => setSectionLayout(b, sectionId, layout as Parameters<typeof setSectionLayout>[2])));
   });
   app.post("/api/boards/:id/section-pos", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);

@@ -110,7 +110,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         id: `${SEC_PREFIX}${s.id}`, type: "sectionBox",
         position: placed ? { x: s.x!, y: s.y! } : { x: rect.x, y: rect.y },
         width: w, height: h, style: { width: w, height: h, zIndex: 0 }, draggable: true, selectable: true,
-        data: { title: s.title, purpose: s.kind === "note" ? "note" : (s.layout === "funnel" ? "funnel" : "tree"), kind: s.kind, note: s.note ?? "", w, h },
+        data: { title: s.title, purpose: s.kind === "note" ? "note" : (s.layout ?? "tree"), kind: s.kind, note: s.note ?? "", w, h },
       } as FlowNode);
     }
     for (const n of b.nodes) {

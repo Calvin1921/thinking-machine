@@ -14,7 +14,7 @@ import { SectionBox } from "./SectionNodes.js";
 import { FacetDrawer } from "./FacetDrawer.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { CollectionView } from "./CollectionView.js";
-import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout } from "./api.js";
+import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos, setNodeSize, applyLayout } from "./api.js";
 
 // Uniform cell = the widest × tallest measured think-node, so every card matches and aligns.
 function uniformCell(flowNodes: FlowNode[]): { w: number; h: number } {
@@ -148,26 +148,53 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   useEffect(() => { if (board) setFlowNodes(buildNodes(board, collapsed)); }, [board, collapsed, buildNodes]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setFlowNodes((ns) => applyNodeChanges(changes, ns));
+    setFlowNodes((ns) => {
+      let next = applyNodeChanges(changes, ns);
+      // Live free-form: when a section's origin moves DUE TO A RESIZE (position + dimensions
+      // in the same batch), shift its children by the inverse delta so they stay put on
+      // screen during the drag. A plain section drag (position only) is left alone — the
+      // section should move with its content.
+      for (const c of changes) {
+        if (c.type !== "position" || !("id" in c) || !c.id.startsWith(SEC_PREFIX) || !c.position) continue;
+        if (!changes.some((x) => "id" in x && x.id === c.id && x.type === "dimensions")) continue;
+        const old = ns.find((n) => n.id === c.id);
+        if (!old) continue;
+        const dx = c.position.x - old.position.x, dy = c.position.y - old.position.y;
+        if (dx || dy) next = next.map((n) => (n.parentId === c.id ? { ...n, position: { x: n.position.x - dx, y: n.position.y - dy } } : n));
+      }
+      return next;
+    });
     for (const c of changes) {
       const isSec = "id" in c && c.id.startsWith(SEC_PREFIX);
       const secId = isSec ? (c as { id: string }).id.slice(SEC_PREFIX.length) : "";
       if (c.type === "position" && c.dragging === false && c.position) {
+        // a plain drag: section moves with its content; a node just moves.
         if (isSec) setSectionPos(boardId, secId, c.position.x, c.position.y);
         else moveNode(boardId, c.id, c.position.x, c.position.y);
       } else if (c.type === "dimensions" && c.resizing === false && c.dimensions) {
         const w = Math.round(c.dimensions.width), h = Math.round(c.dimensions.height);
-        if (isSec) setSectionSize(boardId, secId, w, h);
-        else setNodeSize(boardId, c.id, w, h);
-        // a top/left resize also shifts position — persist it from the same batch.
+        // top/left resize emits a position change too (the box origin moved).
         const pc = changes.find((x) => "id" in x && x.id === c.id && x.type === "position" && x.position);
-        if (pc && pc.type === "position" && pc.position) {
-          if (isSec) setSectionPos(boardId, secId, pc.position.x, pc.position.y);
-          else moveNode(boardId, c.id, pc.position.x, pc.position.y);
+        const newPos = pc && pc.type === "position" && pc.position ? pc.position : undefined;
+        if (isSec) {
+          const sec = board?.sections?.find((s) => s.id === secId);
+          if (newPos && sec && (sec.x != null || sec.y != null)) {
+            // Free-form: the origin moved, so shift children by the inverse delta to keep
+            // the content visually fixed (the box edge extends, content stays put).
+            const dx = newPos.x - (sec.x ?? 0), dy = newPos.y - (sec.y ?? 0);
+            const positions: Record<string, { x: number; y: number }> = {};
+            for (const n of board?.nodes ?? []) if (n.sectionId === secId) positions[n.id] = { x: n.x - dx, y: n.y - dy };
+            applyLayout(boardId, { sectionPositions: { [secId]: newPos }, sectionSizes: { [secId]: { w, h } }, positions });
+          } else {
+            applyLayout(boardId, { sectionSizes: { [secId]: { w, h } } });
+          }
+        } else {
+          setNodeSize(boardId, c.id, w, h);
+          if (newPos) moveNode(boardId, c.id, newPos.x, newPos.y);
         }
       }
     }
-  }, [boardId]);
+  }, [boardId, board]);
 
   // Re-arrange a NON-sectioned board with the given layout, sizing every card to the
   // uniform cell and aligning to it — committed atomically (one write, no race).

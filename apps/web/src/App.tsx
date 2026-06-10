@@ -254,7 +254,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         onNodesChange={onNodesChange}
         onNodeClick={(_, n) => setSelected(n.id)}
         fitView
-        minZoom={0.1}
+        minZoom={0.02}
       >
         <Background color="#262c36" gap={24} />
         <Controls />

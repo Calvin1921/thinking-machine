@@ -72,4 +72,41 @@ describe("radialLayout", () => {
     const b = ecosystem(5, 4);
     expect(radialLayout(b)).toEqual(radialLayout(b));
   });
+
+  it("arc-band packs a mega wheel: zero rect overlaps and a sane max radius", () => {
+    // 12 sectors × 5 categories × 5 leaves = 373 nodes — the genai-mega-wheel shape.
+    // One shared leaf ring would need R ≈ 14k px; bands must keep it tight.
+    let b = newBoard("Mega", "concept");
+    for (let s = 0; s < 12; s++) {
+      b = addNode(b, { label: `S${s}`, parentId: "root", kind: "branch" });
+      const sid = b.nodes.at(-1)!.id;
+      for (let c = 0; c < 5; c++) {
+        b = addNode(b, { label: `S${s}C${c}`, parentId: sid, kind: "branch" });
+        const cid = b.nodes.at(-1)!.id;
+        for (let l = 0; l < 5; l++) b = addNode(b, { label: `S${s}C${c}L${l}`, parentId: cid, kind: "atom" });
+      }
+    }
+    const pos = radialLayout(b);
+    // zero axis-aligned rectangle intersections across ALL nodes
+    const rects = b.nodes.map((n) => ({ id: n.id, x: pos[n.id].x, y: pos[n.id].y, w: CARD_W, h: DEFAULT_H }));
+    const overlaps: string[] = [];
+    for (let i = 0; i < rects.length; i++)
+      for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i], c = rects[j];
+        if (a.x < c.x + c.w && c.x < a.x + a.w && a.y < c.y + c.h && c.y < a.y + a.h)
+          overlaps.push(`${a.id}×${c.id}`);
+      }
+    expect(overlaps).toEqual([]);
+    // every card stays within a sane wheel radius
+    const maxR = Math.max(...b.nodes.map((n) => Math.hypot(center(pos[n.id]).x, center(pos[n.id]).y)));
+    expect(maxR).toBeLessThan(6000);
+  });
+
+  it("keeps small wheels in pure ring mode (no banding regression)", () => {
+    // HK-AI-ecosystem shape: 6 sectors × 5 leaves — all leaves must share ONE ring radius.
+    const b = ecosystem(6, 5);
+    const pos = radialLayout(b);
+    const rs = b.nodes.filter((n) => n.kind === "atom").map((n) => Math.hypot(center(pos[n.id]).x, center(pos[n.id]).y));
+    for (const v of rs) expect(v).toBeCloseTo(rs[0], 6);
+  });
 });

@@ -4,15 +4,15 @@ const CARD_W = 230;
 const COL_W = 340;        // width per grid column
 const INDENT = 26;        // per-depth indent inside a block
 const ROW_GAP = 16;       // vertical gap between stacked nodes in a block
-const BLOCK_GAP = 64;     // vertical gap between blocks stacked in one column
 const ROOT_GAP = 200;     // gap from root down to the grid
 const DEFAULT_H = 120;
 
 /**
- * Grid layout: the root's children become "blocks" packed into a few columns
- * (round-robin), each block laying its own subtree out as a compact indented vertical
- * list. This trades a tree's tall single-column sprawl for a tight 2D matrix — the shape
- * a capability model or value chain wants. Returns top-left {x,y} per node id.
+ * Grid layout: the root's children become "blocks" laid out in ONE horizontal row (one
+ * column each — never wrapped, so same-level siblings always stay on the same line and the
+ * hierarchy reads true), and each block stacks its own subtree vertically beneath it. With
+ * a uniform cell, the per-level rows line up across columns → a clean capability/value-chain
+ * matrix. Returns top-left {x,y} per node id.
  */
 export function gridLayout(
   board: Board,
@@ -29,8 +29,7 @@ export function gridLayout(
   const pos: Record<string, { x: number; y: number }> = {};
 
   const blocks = kids[board.rootId] ?? [];
-  const cols = Math.min(4, Math.max(1, blocks.length));
-  const colCursor = new Array(cols).fill(ROOT_GAP);
+  const cols = Math.max(1, blocks.length);   // one column per top-level sibling — no wrapping
 
   // Lay a node's whole subtree as an indented vertical list anchored at column x `colX`,
   // starting at `y`. Returns the y just past the last placed node.
@@ -41,13 +40,10 @@ export function gridLayout(
     return cursor;
   };
 
-  blocks.forEach((b, i) => {
-    const col = i % cols;
-    const bottom = layoutBlock(b, col * colW, colCursor[col], 0);
-    colCursor[col] = bottom + BLOCK_GAP;
-  });
+  // every top-level sibling on the same horizontal line (one row), its subtree below it
+  blocks.forEach((b, i) => layoutBlock(b, i * colW, ROOT_GAP, 0));
 
-  // Root sits centered above the grid.
+  // Root sits centered above the row.
   pos[board.rootId] = { x: (cols * colW) / 2 - cw / 2, y: 0 };
   return pos;
 }

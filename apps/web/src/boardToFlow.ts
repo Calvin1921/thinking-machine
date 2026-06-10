@@ -35,8 +35,8 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
   const nodeSection = new Map(board.nodes.map((n) => [n.id, n.sectionId]));
   const handlesFor = (fromId: string) => {
     const layout = board.sections?.length ? sectionLayout.get(nodeSection.get(fromId) ?? "") : board.layout;
-    const funnel = layout === "funnel";
-    return { sourceHandle: funnel ? "b" : "r", targetHandle: funnel ? "t" : "l" };
+    const vertical = layout === "funnel" || layout === "grid"; // both flow top→bottom
+    return { sourceHandle: vertical ? "b" : "r", targetHandle: vertical ? "t" : "l" };
   };
   const childCount: Record<string, number> = {};
   for (const n of board.nodes) childCount[n.id] = 0;

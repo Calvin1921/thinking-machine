@@ -6,6 +6,7 @@ import type { Board } from "@tm/core/schema";
 import { boardToFlow } from "./boardToFlow.js";
 import { tidyLayout } from "./tidyLayout.js";
 import { funnelLayout } from "./funnelLayout.js";
+import { gridLayout } from "./gridLayout.js";
 import { sectionedLayout, HEADER_H } from "./sectionedLayout.js";
 import { ThinkNode } from "./ThinkNode.js";
 import { SectionBox } from "./SectionNodes.js";
@@ -157,10 +158,10 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
 
   // Re-arrange the FULL tree with the given layout (tree boards), or re-seed section
   // positions (section boards) — a "reset layout" that undoes manual dragging.
-  const arrange = useCallback((b: Board, kind: "tree" | "funnel") => {
+  const arrange = useCallback((b: Board, kind: "tree" | "funnel" | "grid") => {
     const heights: Record<string, number> = {};
     for (const n of flowNodes) { const hh = n.measured?.height; if (hh) heights[n.id] = hh; }
-    const pos = kind === "funnel" ? funnelLayout(b, heights) : tidyLayout(b, heights);
+    const pos = kind === "funnel" ? funnelLayout(b, heights) : kind === "grid" ? gridLayout(b, heights) : tidyLayout(b, heights);
     setFlowNodes((ns) => ns.map((n) => (pos[n.id] ? { ...n, position: pos[n.id] } : n)));
     Object.entries(pos).forEach(([id, p]) => moveNode(boardId, id, p.x, p.y));
   }, [boardId, flowNodes]);
@@ -173,13 +174,13 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
       for (const n of board.nodes) { if (n.sectionId && sl.nodes[n.id]) moveNode(boardId, n.id, sl.nodes[n.id].x + SEC_PAD_X, sl.nodes[n.id].y); }
       return;
     }
-    arrange(board, board.layout === "funnel" ? "funnel" : "tree");
+    arrange(board, board.layout ?? "tree");
   }, [board, boardId, arrange]);
 
-  // Toggle the board between tree and funnel: persist the choice, flip handles, re-arrange.
-  const switchLayout = useCallback((kind: "tree" | "funnel") => {
+  // Cycle the board layout tree → funnel → grid: persist, flip handles, re-arrange.
+  const switchLayout = useCallback((kind: "tree" | "funnel" | "grid") => {
     if (!board) return;
-    const next = { ...board, layout: kind === "funnel" ? ("funnel" as const) : undefined };
+    const next = { ...board, layout: kind === "tree" ? undefined : kind };
     setBoard(next);             // re-renders edges with the right handles immediately
     arrange(next, kind);
     setLayout(boardId, kind);   // persist (SSE refresh will reconcile)
@@ -210,8 +211,11 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         <button className="back" onClick={collapsed.size ? expandAll : collapseAll}
           title="Toggle overview">{collapsed.size ? "⊞ Expand all" : "⊟ Collapse all"}</button>
         <button className="back" onClick={tidy} title={sectioned ? "Reset section layout" : "Auto-arrange"}>⤢ Tidy</button>
-        {!sectioned && <button className="back" onClick={() => switchLayout(board.layout === "funnel" ? "tree" : "funnel")}
-          title="Switch representation">{board.layout === "funnel" ? "🌳 Tree" : "▽ Funnel"}</button>}
+        {!sectioned && (() => {
+          const next = board.layout === "funnel" ? "grid" : board.layout === "grid" ? "tree" : "funnel";
+          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid" } as const;
+          return <button className="back" onClick={() => switchLayout(next)} title="Switch representation">{label[next]}</button>;
+        })()}
       </div>
       <ReactFlow
         nodes={flowNodes}

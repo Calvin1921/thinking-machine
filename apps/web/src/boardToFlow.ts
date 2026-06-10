@@ -2,6 +2,7 @@
 import type { Board, Node as BNode } from "@tm/core/schema";
 import { SEED_FACETS } from "@tm/core/schema";
 import { MarkerType, type Node as FlowNode, type Edge as FlowEdge } from "@xyflow/react";
+import { radialEdgeRewires } from "./radialLayout.js";
 
 export interface ThinkNodeData {
   label: string;
@@ -63,7 +64,8 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
   // The layout already encodes the relationship, so edges follow it:
   //   tree → hierarchy (parent→child) · funnel → sequence between stages ·
   //   timeline → sequence left→right within each lane · grid → none (position says it all) ·
-  //   radial → hierarchy with handles picked by geometry (the side facing the other node).
+  //   radial → hierarchy with handles picked by geometry (the side facing the other node),
+  //   with band-packed children drawn from their nearest neighbor (see rewiresFor below).
   const TEAL = "#5ce0c6", AMBER = "#f0a868";
   const npos = new Map(board.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
   // Handle pair for an edge whose endpoints can be anywhere around each other (radial):
@@ -92,6 +94,25 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
     ? board.sections.filter((s) => s.kind === "graph" && s.rootId).map((s) => ({ root: s.rootId!, layout: s.layout }))
     : [{ root: board.rootId, layout: board.layout }];
 
+  // Radial band-packed nodes keep ALL their hierarchy edges, but a straight parent→child
+  // line into a band would pierce the rows in between — so each band child draws from its
+  // nearest geometric neighbor instead (row arcs, outward fans, staircase steps, chain
+  // threads — see radialEdgeRewires). Ring-mode levels are untouched (no map entry).
+  // The plan is recomputed structurally on the (sub-)board, with the uniform cell recovered
+  // from stored node sizes when every member shares one size.
+  const rewiresFor = (root: string): Map<string, string> => {
+    let sub = board;
+    if (board.sections?.length) {
+      const sec = board.sections.find((s) => s.rootId === root);
+      const members = board.nodes.filter((n) => n.sectionId === sec?.id);
+      const ids = new Set(members.map((n) => n.id));
+      sub = { ...board, rootId: root, nodes: members, edges: board.edges.filter((e) => ids.has(e.from) && ids.has(e.to)) };
+    }
+    const first = sub.nodes[0];
+    const uniform = first?.w != null && first?.h != null && sub.nodes.every((n) => n.w === first.w && n.h === first.h);
+    return radialEdgeRewires(sub, uniform ? { w: first.w!, h: first.h! } : undefined);
+  };
+
   const V = { s: "b", t: "t" }, H = { s: "r", t: "l" };   // the classic down / right pairs
   for (const { root, layout } of roots) {
     if (layout === "grid") continue;                                    // none — spatial only
@@ -105,10 +126,15 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
       }
     } else {                                                            // tree/radial: full hierarchy
       const radial = layout === "radial";
+      const rewire = radial ? rewiresFor(root) : new Map<string, string>();
       const stack = [root];
       while (stack.length) {
         const p = stack.pop()!;
-        for (const c of kids[p] ?? []) { push(p, c, radial ? geoHandles(p, c) : H, "hierarchy"); stack.push(c); }
+        for (const c of kids[p] ?? []) {
+          const from = rewire.get(c) ?? p;
+          push(from, c, radial ? geoHandles(from, c) : H, "hierarchy");
+          stack.push(c);
+        }
       }
     }
   }

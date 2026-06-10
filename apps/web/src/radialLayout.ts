@@ -5,7 +5,7 @@ const DEFAULT_H = 120;
 const R0 = 430;                    // radius of the first ring (depth 1)
 const DR = 360;                    // radius added per further ring
 const RING_GAP = 60;               // min chord clearance between adjacent cards on a ring
-const ROW_GAP = 40;                // radial gap between rows of an arc band
+const ROW_GAP = 40;                // radial gap between rows of an arc band (also the bump margin)
 const MIN_SECTOR = Math.PI / 12;   // 15° — a tiny subtree still gets a readable wedge
 const START = -Math.PI / 2;        // 12 o'clock; angles grow clockwise (screen y points down)
 const ORPHAN_GAP = 40;
@@ -29,26 +29,35 @@ const EPS = 1e-6;
  * ARC BANDS (dense wheels, HK-AI-ecosystem style): TRIGGER — when the chord rule would push
  * the shared ring more than BAND_EXTRA (= 2·DR, two ring-widths) beyond its natural radius,
  * the depth switches to bands (depth 1 always stays a ring — the sectors ARE the wheel hub).
- * Each parent packs its depth-d children inside its own angular wedge across multiple
- * concentric rows: row k sits at bandBase + k*(hypot(cardW, maxH) + ROW_GAP); per-row capacity is
- * floor(span·R_row / pitch) with pitch = cardW + RING_GAP, rows centered angularly on the
- * wedge and filled outward. The band base is shared by the whole depth (so depth still reads
- * radially) and grows just enough that every parent with ≥3 children fits one card per row
- * inside its wedge (capped at BAND_GROW_CAP× natural). MIXED children: branch children pack into the
- * earliest rows (they keep their assigned angular sub-spans for their own subtrees), leaf
- * children fill the rows under/after them — cards never leave the parent's wedge, so
- * neighboring wedges can never collide no matter how their bands overlap radially.
- * TINY wedges (span·base < pitch even after growth — only parents with few children, since
- * span ∝ leaf count): their children stack as a single radial column on the wedge midline,
- * lifted just above any tier-A band within a card's reach of the column; angularly adjacent
- * tiny columns chain one after another radially (incl. wraparound) so their span-overflowing
- * cards never touch.
+ * Each parent packs its depth-d LEAF children inside its own angular wedge across multiple
+ * concentric rows: row k sits at bandBase + k*(hypot(cardW, maxH) + ROW_GAP); per-row capacity
+ * is floor(span·R_row / pitch) with pitch = cardW + RING_GAP, and the row's cards are spread
+ * EVENLY across the whole wedge (angular step = span/m, never below pitch/R thanks to the
+ * capacity cap) so bands read as uniformly filled annular blocks with no leftover clumps.
+ * The band base is shared by the whole depth (so depth still reads radially) and grows just
+ * enough that every parent with ≥3 children fits one card per row inside its wedge (capped at
+ * BAND_GROW_CAP× natural). Leaf cards never leave the parent's wedge, so neighboring wedges
+ * can never collide no matter how their bands overlap radially.
  *
- * No-overlap guarantee: ring mode via the chord rule; band mode because row spacing is exactly
- * one pitch (cards spaced ≥ cardW + RING_GAP center-to-center, which exceeds the
- * hypot(cardW, cardH) axis-aligned overlap threshold) and rows step by that same hypot; every
- * card stays within its parent's wedge and tiny columns sit radially clear of everything else
- * at their depth. Each depth starts ≥ hypot outside the previous depth. Deterministic — no
+ * BRANCH children of a band parent (companies that themselves have product atoms) sit on the
+ * OUTER edge of their parent's band — a one-card radial column on their OWN span midline,
+ * starting just outside the last leaf row and bumped outward in rowStep increments until the
+ * card clears every already-placed rect. Their subtrees keep the assigned angular sub-spans.
+ * Putting branches outside (not inside) the leaf rows means the radial chain to their own
+ * children continues outward without ever piercing the leaf rows.
+ *
+ * TINY wedges (span·base < pitch even after growth — only parents with few children, since
+ * span ∝ leaf count): all children stack as a single radial chain on the wedge midline,
+ * starting at the band base (just outside the parent's level) and bump-lifted per card only
+ * past rects it would actually touch — never escaping the sector's angular range and never
+ * chained above unrelated bands.
+ *
+ * No-overlap guarantee: ring mode via the chord rule; band leaf rows because the even angular
+ * step is ≥ pitch/R (cards ≥ cardW + RING_GAP apart in-row, exceeding the hypot(cardW, cardH)
+ * axis-aligned threshold), rows across all wedges share one radius grid stepping by
+ * hypot + ROW_GAP, and edge cards stay ≥ half a pitch inside their wedge; branch columns and
+ * tiny chains are placed with an explicit rect-clearance check against everything already
+ * placed. Each depth starts ≥ hypot outside the previous depth. Deterministic — no
  * measurement loops. Returns top-left {x,y} per node id, centered on the root at (0,0).
  */
 export function radialLayout(
@@ -56,6 +65,33 @@ export function radialLayout(
   heights: Record<string, number> = {},
   cell?: { w: number; h: number },   // uniform cell → equal cards, even rings
 ): Record<string, { x: number; y: number }> {
+  return compute(board, heights, cell).pos;
+}
+
+/**
+ * Edge re-routing plan, exported for the renderer (boardToFlow). EVERY decomposition child
+ * keeps exactly one drawn hierarchy edge, but inside arc bands a straight parent→child line
+ * would often pierce the rows or columns in between. So band children are wired by GEOMETRIC
+ * VALIDATION, in placement order per brood: a child draws straight from its parent whenever
+ * that line passes no other card; otherwise it threads from the nearest already-wired
+ * sibling whose line is unobstructed. The result is a spanning tree of short, local,
+ * crossing-free segments — inner rows fan from the parent, outer rows fan from the row
+ * below, chains and staircases thread card to card.
+ *
+ * The map holds child → drawn-from substitute; children absent from the map draw straight
+ * from their parent (all ring-mode levels — small wheels are untouched). Recomputed
+ * structurally from the board so the renderer needs no layout handshake; pass the same
+ * uniform cell the board was arranged with.
+ */
+export function radialEdgeRewires(board: Board, cell?: { w: number; h: number }): Map<string, string> {
+  return compute(board, {}, cell).rewire;
+}
+
+function compute(
+  board: Board,
+  heights: Record<string, number>,
+  cell?: { w: number; h: number },
+): { pos: Record<string, { x: number; y: number }>; rewire: Map<string, string> } {
   const kids: Record<string, string[]> = {};
   for (const n of board.nodes) kids[n.id] = [];
   for (const e of board.edges) if (e.type === "decomposition") kids[e.from]?.push(e.to);
@@ -64,6 +100,7 @@ export function radialLayout(
   const h = (id: string) => (cell ? cell.h : heights[id] || DEFAULT_H);
   const maxH = cell ? cell.h : Math.max(DEFAULT_H, ...Object.values(heights).map((v) => v || 0));
   const pos: Record<string, { x: number; y: number }> = {};
+  const rewire = new Map<string, string>();
 
   // Leaf count per subtree (memoized single DFS, cycle-safe).
   const leafCount: Record<string, number> = {};
@@ -130,12 +167,9 @@ export function radialLayout(
   const place = (id: string, r: number, at: number): void => {
     pos[id] = { x: r * Math.cos(at) - cw / 2, y: r * Math.sin(at) - h(id) / 2 };
   };
-  // Children of `p` at depth `d`, branches first (each class keeps its original order):
-  // branches land in the earliest band rows, leaves fill under them.
-  const bandChildren = (p: string, d: number): string[] => {
-    const cs = (kids[p] ?? []).filter((c) => depthOf[c] === d && parentOf[c] === p);
-    return [...cs.filter((c) => (kids[c] ?? []).length > 0), ...cs.filter((c) => (kids[c] ?? []).length === 0)];
-  };
+  // Children of `p` at depth `d` in their original order.
+  const childrenAt = (p: string, d: number): string[] =>
+    (kids[p] ?? []).filter((c) => depthOf[c] === d && parentOf[c] === p);
 
   const need = cw + RING_GAP;                       // min center-to-center pitch (chord or arc)
   // Cards are AXIS-ALIGNED rects: two centers ≥ hypot(w,h) apart can never overlap regardless
@@ -143,6 +177,43 @@ export function radialLayout(
   // not just the card height — a radial stack near 3 o'clock separates cards horizontally.
   const safe = Math.hypot(cw, maxH);
   const rowStep = safe + ROW_GAP;
+
+  // Would a card for `id` centered at (r, at) come within ROW_GAP of any placed rect?
+  const blocked = (id: string, r: number, at: number): boolean => {
+    const x = r * Math.cos(at) - cw / 2, y = r * Math.sin(at) - h(id) / 2, hh = h(id);
+    for (const q of Object.keys(pos)) {
+      const p = pos[q], qh = h(q);
+      if (x < p.x + cw + ROW_GAP && p.x < x + cw + ROW_GAP && y < p.y + qh + ROW_GAP && p.y < y + hh + ROW_GAP) return true;
+    }
+    return false;
+  };
+
+  const center = (id: string) => ({ x: pos[id].x + cw / 2, y: pos[id].y + h(id) / 2 });
+  const dist2 = (a: string, b: string): number => {
+    const A = center(a), B = center(b);
+    return (A.x - B.x) ** 2 + (A.y - B.y) ** 2;
+  };
+  // Straight segment a→b (center to center) vs every other placed rect (Liang–Barsky,
+  // rects shrunk by ½px so shared borders don't count). True when nothing is pierced.
+  const lineClear = (a: string, b: string): boolean => {
+    const A = center(a), B = center(b);
+    const dx = B.x - A.x, dy = B.y - A.y;
+    for (const q of Object.keys(pos)) {
+      if (q === a || q === b) continue;
+      const r = pos[q];
+      const x0 = r.x + 0.5, y0 = r.y + 0.5, x1 = r.x + cw - 0.5, y1 = r.y + h(q) - 0.5;
+      let t0 = 0, t1 = 1, hit = true;
+      for (const [pp, qq] of [[-dx, A.x - x0], [dx, x1 - A.x], [-dy, A.y - y0], [dy, y1 - A.y]] as const) {
+        if (Math.abs(pp) < 1e-12) { if (qq < 0) { hit = false; break; } continue; }
+        const t = qq / pp;
+        if (pp < 0) { if (t > t1) { hit = false; break; } if (t > t0) t0 = t; }
+        else { if (t < t0) { hit = false; break; } if (t < t1) t1 = t; }
+      }
+      if (hit) return false;
+    }
+    return true;
+  };
+
   let prevMax = 0;                                  // outermost row/ring center radius so far
   for (let d = 1; d <= maxDepth; d++) {
     const ids = byDepth.get(d) ?? [];
@@ -169,75 +240,88 @@ export function radialLayout(
       for (const id of ids) { const p = parentOf[id]; if (!seen.has(p)) { seen.add(p); parents.push(p); } }
       const widthOf = (p: string) => span1[p] - span0[p];
 
-      // Shared band base: grow so every ≥3-child wedge fits one card per row (capped 3× natural).
+      // Shared band base: grow so every ≥3-child wedge fits one card per row (capped 3×
+      // natural) — but only ACCEPT the growth if some wedge then fits ≥2 cards per row.
+      // Growth that buys nothing but 1-wide columns is pointless: a tucked chain gives the
+      // same column without inflating the whole wheel (the depth-4 product-atom case).
       let r0 = natural;
       for (const p of parents) {
-        if (bandChildren(p, d).length < BAND_GROW_MIN_KIDS) continue;
+        if (childrenAt(p, d).length < BAND_GROW_MIN_KIDS) continue;
         const req = need / widthOf(p);
         if (req <= BAND_GROW_CAP * natural) r0 = Math.max(r0, req);
       }
+      if (!parents.some((p) => Math.floor((widthOf(p) * r0) / need + EPS) >= 2)) r0 = natural;
       depthMax = r0;
 
-      const tiny: string[] = [];
-      const bands: { s0: number; s1: number; end: number }[] = [];
+      // PASS 1 — tier-A leaf rows, evenly spread across each wedge. Analytic, no checks
+      // needed: even step ≥ pitch/R within a row, all wedges share one radius grid, and
+      // edge cards stay ≥ half a pitch inside the wedge boundary.
+      // PASS 2 (collected here, placed after) — radial columns with rect-clearance bumps:
+      // branch children on their own span midline just outside the leaf rows, and whole
+      // chains on the wedge midline for tiny wedges.
+      const cols: { at: number; ids: string[]; start: number }[] = [];
+      const broodOrder: Record<string, string[]> = {};  // children in placement order, for wiring
       for (const p of parents) {
         const w = widthOf(p);
-        if (w * r0 + EPS < need) { tiny.push(p); continue; }
-        // Tier A: rows of floor(span·r / pitch) cards, pitch-spaced, centered on the wedge.
-        const ordered = bandChildren(p, d);
+        const cs = childrenAt(p, d);
         const mid = (span0[p] + span1[p]) / 2;
-        let end = r0;
-        for (let i = 0, k = 0; i < ordered.length; k++) {
+        if (w * r0 + EPS < need) {
+          // TINY wedge → one chain anchored on the PARENT's placed angle (= its span midline
+          // for ring/column parents; for parents that themselves live in a chain, the same
+          // thread), branches LAST so a branch's own next-depth chain continues straight up
+          // without the connecting edge piercing stacked siblings.
+          const pc = pos[p];
+          const at = pc ? Math.atan2(pc.y + h(p) / 2, pc.x + cw / 2) : mid;
+          const ordered = [...cs.filter((c) => (kids[c] ?? []).length === 0), ...cs.filter((c) => (kids[c] ?? []).length > 0)];
+          cols.push({ at, ids: ordered, start: r0 });
+          broodOrder[p] = ordered;
+          continue;
+        }
+        const leaves = cs.filter((c) => (kids[c] ?? []).length === 0);
+        const branches = cs.filter((c) => (kids[c] ?? []).length > 0);
+        let end = r0 - rowStep;                     // last leaf row (none yet)
+        for (let i = 0, k = 0; i < leaves.length; k++) {
           const r = r0 + k * rowStep;
           const cap = Math.max(1, Math.floor((w * r) / need + EPS));
-          const m = Math.min(cap, ordered.length - i);
-          const step = need / r;                    // pitch as an angle on this row
-          for (let j = 0; j < m; j++) place(ordered[i + j], r, mid + (j - (m - 1) / 2) * step);
+          const m = Math.min(cap, leaves.length - i);
+          const step = w / m;                       // EVEN spread (≥ need/r since m ≤ w·r/need)
+          for (let j = 0; j < m; j++) place(leaves[i + j], r, mid + (j - (m - 1) / 2) * step);
           end = r;
           i += m;
         }
-        bands.push({ s0: span0[p], s1: span1[p], end });
-        depthMax = Math.max(depthMax, end);
+        if (leaves.length) depthMax = Math.max(depthMax, end);
+        for (const c of branches) cols.push({ at: (span0[c] + span1[c]) / 2, ids: [c], start: end + rowStep });
+        broodOrder[p] = [...leaves, ...branches];   // rows inner→outer, then band-edge columns
       }
-
-      // Tiny wedges: single radial column on the wedge midline, lifted just above any tier-A
-      // band within a card's reach of the column; angularly adjacent columns chain radially
-      // (incl. wraparound) so their span-overflowing cards never touch.
-      if (tiny.length) {
-        tiny.sort((p, q) => (span0[p] + span1[p]) / 2 - (span0[q] + span1[q]) / 2);
-        const mids = tiny.map((p) => (span0[p] + span1[p]) / 2);
-        const close = (x: number, y: number): boolean => {
-          let g = Math.abs(x - y);
-          g = Math.min(g, 2 * Math.PI - g);
-          return g < Math.PI && 2 * r0 * Math.sin(g / 2) < need;
-        };
-        const clusters: number[][] = [];
-        for (let i = 0; i < tiny.length; i++) {
-          if (i > 0 && close(mids[i], mids[i - 1])) clusters[clusters.length - 1].push(i);
-          else clusters.push([i]);
+      for (const col of cols) {
+        let r = Math.max(col.start, r0);
+        for (const c of col.ids) {
+          while (blocked(c, r, col.at)) r += rowStep;
+          place(c, r, col.at);
+          depthMax = Math.max(depthMax, r);
+          r += rowStep;
         }
-        if (clusters.length > 1 && close(mids[0], mids[mids.length - 1])) {
-          const last = clusters.pop()!;
-          clusters[0] = [...last, ...clusters[0]];  // wraparound: merge into one radial chain
-        }
-        // wrap-aware angular distance from a point to a wedge interval
-        const distTo = (mid: number, s0: number, s1: number): number => {
-          const dd = ((mid - s0) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-          return dd <= s1 - s0 ? 0 : Math.min(dd - (s1 - s0), 2 * Math.PI - dd);
-        };
-        for (const cl of clusters) {
-          let base = r0;
-          for (const idx of cl)
-            for (const b of bands)
-              if (distTo(mids[idx], b.s0, b.s1) * r0 < need) base = Math.max(base, b.end + rowStep);
-          let r = base;
-          for (const idx of cl) {
-            for (const c of bandChildren(tiny[idx], d)) {
-              place(c, r, mids[idx]);
-              depthMax = Math.max(depthMax, r);
-              r += rowStep;
+      }
+      // WIRING (after the whole depth is placed — see radialEdgeRewires): each child keeps
+      // one drawn edge; prefer the straight line from the parent, else thread from the
+      // nearest already-wired sibling whose line is unobstructed, else from the nearest
+      // placed card anywhere with a clear line (tight clusters of near-coincident columns).
+      // Deeper depths always sit ≥ hypot beyond this one, so later placement can never
+      // invalidate these segments.
+      for (const p of parents) {
+        const wired: string[] = [];
+        for (const c of broodOrder[p]) {
+          if (!(pos[p] && lineClear(p, c))) {
+            const near = [...wired].sort((a, b2) => dist2(a, c) - dist2(b2, c));
+            let src = near.find((s) => lineClear(s, c));
+            if (!src) {
+              const all = Object.keys(pos).filter((q) => q !== c && q !== p)
+                .sort((a, b2) => dist2(a, c) - dist2(b2, c));
+              src = all.find((s) => lineClear(s, c)) ?? near[0] ?? all[0];
             }
+            if (src) rewire.set(c, src);
           }
+          wired.push(c);
         }
       }
     }
@@ -254,5 +338,5 @@ export function radialLayout(
   for (const n of board.nodes) {
     if (!pos[n.id] && !hasParent.has(n.id)) { pos[n.id] = { x: -cw / 2, y: cursor }; cursor += h(n.id) + ORPHAN_GAP; }
   }
-  return pos;
+  return { pos, rewire };
 }

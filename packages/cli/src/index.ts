@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
   newBoard, loadBoard, saveBoard, mutate,
   addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout,
@@ -9,7 +9,11 @@ import {
 } from "@tm/core";
 
 const program = new Command();
+// Positional options let `note`/`facet` pass through text starting with "-"
+// (e.g. "- bullet"). Side effect: program options (-f/--dir) must come BEFORE
+// the subcommand name (tm -f board.json note …).
 program.name("tm").description("Thinking Machine board CLI")
+  .enablePositionalOptions()
   .option("-f, --file <path>", "board file", "board.json")
   .option("--dir <path>", "boards directory (for ls/new)", "boards");
 
@@ -64,7 +68,8 @@ program.command("link <from> <to>")
   .action((from, to, opts) => { mutate(file(), (b) => linkNodes(b, from, to, opts.type)); });
 
 program.command("facet <id> <facet> <mode> [items...]")
-  .description("mode = set|add")
+  .description("mode = set|add. Items may start with '-' (e.g. \"- bullet\"); they pass through as text.")
+  .passThroughOptions()
   .action((id, facet, mode, items) => { mutate(file(), (b) => setFacet(b, id, facet, items, mode)); });
 
 program.command("image <id> <url>")
@@ -89,8 +94,10 @@ program.command("section <title>")
   });
 
 program.command("note <sectionId> <text...>")
-  .description("set the text body of a note section")
-  .action((sectionId, text) => { mutate(file(), (b) => setSectionNote(b, sectionId, (text as string[]).join(" "))); });
+  .description("set (or append) the text body of a note section. Text may start with '-' (e.g. \"- bullet\"). --mode must come BEFORE <sectionId>: tm note --mode add s1 \"more\"")
+  .option("--mode <mode>", "set|add (add appends with a newline)", "set")
+  .passThroughOptions()
+  .action((sectionId, text, opts) => { mutate(file(), (b) => setSectionNote(b, sectionId, (text as string[]).join(" "), opts.mode)); });
 
 program.command("section-layout <sectionId> <type>")
   .description("set a graph section's layout: tree|funnel")
@@ -99,14 +106,31 @@ program.command("section-layout <sectionId> <type>")
 program.command("promote <id> <facet> <index>")
   .action((id, facet, index) => { mutate(file(), (b) => promoteFacetItem(b, id, facet, Number(index))); });
 
+/** Read a proposal from --json or --json-file (exactly one must be given). */
+const proposalOf = (opts: { json?: string; jsonFile?: string }): unknown => {
+  if (opts.json && opts.jsonFile) throw new Error("--json and --json-file are mutually exclusive");
+  if (!opts.json && !opts.jsonFile) throw new Error("one of --json or --json-file is required");
+  return JSON.parse(opts.json ?? readFileSync(opts.jsonFile!, "utf8"));
+};
+
 program.command("decompose <id>")
-  .requiredOption("--json <proposal>", "JSON {decomposition, edges?, facets?}")
-  .action((id, opts) => { mutate(file(), (b) => decompose(b, id, JSON.parse(opts.json))); });
+  .option("--json <proposal>", "JSON {decomposition, edges?, facets?}")
+  .option("--json-file <path>", "read the proposal JSON from a file instead of --json")
+  .action((id, opts) => { mutate(file(), (b) => decompose(b, id, proposalOf(opts) as Parameters<typeof decompose>[2])); });
 
 program.command("grow <id>")
   .description("grow a whole nested subtree under <id> in one shot")
-  .requiredOption("--json <input>", "JSON GrowInput {nodes:[{label,kind,facets?,children?}], edges?}")
-  .action((id, opts) => { mutate(file(), (b) => growSubtree(b, id, JSON.parse(opts.json))); });
+  .option("--json <input>", "JSON GrowInput {nodes:[{label,kind,facets?,children?}], edges?}")
+  .option("--json-file <path>", "read the GrowInput JSON from a file instead of --json")
+  .action((id, opts) => { mutate(file(), (b) => growSubtree(b, id, proposalOf(opts) as Parameters<typeof growSubtree>[2])); });
+
+program.command("logo <id> <domain>")
+  .description("set a node's image to a site favicon (Google s2). Accepts a bare domain or a pasted URL; 'none' clears.")
+  .action((id, domain) => {
+    if (domain === "none") { mutate(file(), (b) => setNodeImage(b, id, "")); return; }
+    const host = domain.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").split(/[/?#]/)[0];
+    mutate(file(), (b) => setNodeImage(b, id, `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(host)}`));
+  });
 
 try { program.parse(); }
 catch (err) { process.stderr.write(`Error: ${(err as Error).message}\n`); process.exit(1); }

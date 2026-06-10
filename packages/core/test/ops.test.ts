@@ -110,6 +110,25 @@ describe("ops", () => {
     expect([sized.w, sized.h]).toEqual([480, 360]);
   });
 
+  it("setSectionNote appends with a newline in add mode, and still overwrites by default", () => {
+    let b = newBoard("Workspace", "concept");
+    b = addSection(b, { title: "Notes", kind: "note" });
+    const ns = b.sections!.at(-1)!;
+    b = setSectionNote(b, ns.id, "first line", "add"); // add to empty note: no leading newline
+    expect(b.sections!.find((s) => s.id === ns.id)!.note).toBe("first line");
+    b = setSectionNote(b, ns.id, "second line", "add");
+    expect(b.sections!.find((s) => s.id === ns.id)!.note).toBe("first line\nsecond line");
+    b = setSectionNote(b, ns.id, "fresh"); // default mode = set
+    expect(b.sections!.find((s) => s.id === ns.id)!.note).toBe("fresh");
+  });
+
+  it("section root ids survive long titles intact (slug cap covers <slug>-root)", () => {
+    let b = newBoard("Workspace", "concept");
+    b = addSection(b, { title: "Tech Stack Decisions For The New Platform", kind: "graph" });
+    const gs = b.sections!.at(-1)!;
+    expect(gs.rootId).toBe("tech-stack-decisions-for-the-new-platform-root");
+  });
+
   it("setNodeSize stores an explicit node size", () => {
     let b = newBoard("App", "objective");
     b = setNodeSize(b, "root", 300, 180);

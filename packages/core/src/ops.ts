@@ -7,7 +7,7 @@ import { placeChildren } from "./layout.js";
 let counter = 0;
 /** Deterministic-enough id without Date.now/Math.random (unavailable in some runtimes). */
 function genId(board: Board, label: string): string {
-  const base = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 24) || "node";
+  const base = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 64) || "node";
   let id = base;
   while (board.nodes.some((n) => n.id === id)) id = `${base}-${++counter}`;
   return id;
@@ -89,7 +89,7 @@ export function setBoardLayout(board: Board, layout: BoardLayout | ""): Board {
 }
 
 function genSectionId(board: Board, title: string): string {
-  const base = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 24) || "section";
+  const base = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 64) || "section";
   const existing = board.sections ?? [];
   let id = base;
   while (existing.some((s) => s.id === id)) id = `${base}-${++counter}`;
@@ -121,11 +121,12 @@ function requireSection(board: Board, sectionId: string): Section {
   return s;
 }
 
-/** Set the text body of a note section. */
-export function setSectionNote(board: Board, sectionId: string, note: string): Board {
+/** Set or append the text body of a note section. `add` appends with a newline. */
+export function setSectionNote(board: Board, sectionId: string, note: string, mode: "set" | "add" = "set"): Board {
   const s = requireSection(board, sectionId);
   if (s.kind !== "note") throw new Error(`Section "${sectionId}" is not a note`);
-  return { ...board, sections: (board.sections ?? []).map((x) => (x.id === sectionId ? { ...x, note } : x)) };
+  const next = mode === "add" && s.note ? `${s.note}\n${note}` : note;
+  return { ...board, sections: (board.sections ?? []).map((x) => (x.id === sectionId ? { ...x, note: next } : x)) };
 }
 
 /** Move a section's origin on the surface (drag-to-reposition). */

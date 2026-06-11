@@ -149,10 +149,15 @@ export function setSectionLayout(board: Board, sectionId: string, layout: BoardL
   return { ...board, sections: (board.sections ?? []).map((x) => (x.id === sectionId ? { ...x, layout: next } : x)) };
 }
 
-export function linkNodes(board: Board, from: string, to: string, type: EdgeType): Board {
+export function linkNodes(board: Board, from: string, to: string, type: EdgeType, label?: string): Board {
   requireNode(board, from); requireNode(board, to);
-  if (board.edges.some((e) => e.from === from && e.to === to && e.type === type)) return board;
-  return { ...board, edges: [...board.edges, { from, to, type }] };
+  const existing = board.edges.find((e) => e.from === from && e.to === to && e.type === type);
+  if (existing) {
+    // re-linking with a label updates the verb on the existing edge; without one it's a no-op
+    if (label === undefined || existing.label === label) return board;
+    return { ...board, edges: board.edges.map((e) => (e === existing ? { ...e, label } : e)) };
+  }
+  return { ...board, edges: [...board.edges, { from, to, type, ...(label ? { label } : {}) }] };
 }
 
 export function setFacet(board: Board, nodeId: string, facet: string, items: string[], mode: "set" | "add"): Board {
@@ -175,7 +180,7 @@ export function promoteFacetItem(board: Board, nodeId: string, facet: string, in
 
 export interface DecomposeInput {
   decomposition: { label: string; kind: "branch" | "atom" }[];
-  edges?: { fromLabel: string; toLabel: string; type: EdgeType }[];
+  edges?: { fromLabel: string; toLabel: string; type: EdgeType; label?: string }[];
   facets?: Record<string, string[]>;
 }
 
@@ -197,7 +202,7 @@ export function decompose(board: Board, nodeId: string, input: DecomposeInput): 
   for (const e of input.edges ?? []) {
     const from = labelToId[e.fromLabel], to = labelToId[e.toLabel];
     if (!from || !to) throw new Error(`decompose edge references unknown child label`);
-    b = linkNodes(b, from, to, e.type);
+    b = linkNodes(b, from, to, e.type, e.label);
   }
   for (const [facet, items] of Object.entries(input.facets ?? {})) {
     b = setFacet(b, nodeId, facet, items, "add");
@@ -213,7 +218,7 @@ export interface GrowNode {
 }
 export interface GrowInput {
   nodes: GrowNode[];
-  edges?: { fromLabel: string; toLabel: string; type: EdgeType }[];  // cross-links by label
+  edges?: { fromLabel: string; toLabel: string; type: EdgeType; label?: string }[];  // cross-links by label, with an optional relationship verb
 }
 
 const GROW_MAX_NODES = 300;
@@ -264,7 +269,7 @@ export function growSubtree(board: Board, parentId: string, input: GrowInput): B
     if (!from || !to) {
       throw new Error(`growSubtree edge references unknown label "${from ? e.toLabel : e.fromLabel}"`);
     }
-    b = linkNodes(b, from, to, e.type);
+    b = linkNodes(b, from, to, e.type, e.label);
   }
   return b;
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ReactFlow, Background, Controls, applyNodeChanges, type Node as FlowNode, type NodeChange } from "@xyflow/react";
+import { ReactFlow, Background, Controls, applyNodeChanges, type Node as FlowNode, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import type { Board } from "@tm/core/schema";
@@ -52,6 +52,33 @@ function computeHidden(board: Board, collapsed: Set<string>): Set<string> {
   return hidden;
 }
 
+// A board bigger than working memory loads as an overview: root + two levels visible,
+// everything deeper folded behind its parent's +n toggle (expand follows the user's focus).
+const OVERVIEW_MIN_NODES = 60;
+
+/** Collapse set for the overview cut: every node at depth ≥ 2 that has children. */
+function overviewCollapsed(board: Board): Set<string> {
+  const kids: Record<string, string[]> = {};
+  for (const n of board.nodes) kids[n.id] = [];
+  for (const e of board.edges) if (e.type === "decomposition") kids[e.from]?.push(e.to);
+  const out = new Set<string>();
+  const seen = new Set<string>();
+  const queue: [string, number][] = [board.rootId, ...(board.sections ?? []).map((s) => s.rootId).filter(Boolean) as string[]]
+    .map((r) => [r, 0] as [string, number]);
+  while (queue.length) {
+    const [id, d] = queue.shift()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    if (d >= 2 && (kids[id]?.length ?? 0) > 0) { out.add(id); continue; }  // fold; skip descendants
+    for (const c of kids[id] ?? []) queue.push([c, d + 1]);
+  }
+  return out;
+}
+
+// Below this zoom a card's body text is sub-perceptual — strip detail, keep title + status
+// (the tldraw rule: simplify ornament, never meaning).
+const LOD_ZOOM = 0.35;
+
 /** Active board id from the URL hash, or null for the collection. `#/board/:id`. */
 function boardIdFromHash(): string | null {
   const m = window.location.hash.match(/^#\/board\/(.+)$/);
@@ -79,7 +106,10 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const [flowNodes, setFlowNodes] = useState<FlowNode[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [far, setFar] = useState(false);            // zoomed out past the LOD threshold
   const seededRef = useRef<string | null>(null);   // boardId whose sections we've already seeded
+  const overviewRef = useRef<string | null>(null); // boardId whose default collapse we've applied
+  const rfRef = useRef<ReactFlowInstance | null>(null);
   const fnRef = useRef<FlowNode[]>([]);             // latest flow nodes, for reading post-change positions
 
   const toggleCollapse = useCallback((id: string) => {
@@ -131,6 +161,19 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const refresh = useCallback(async () => {
     const b = await getBoard(boardId);
     setBoard(b);
+    // First open of a board: big boards start as an overview (root + two levels), small
+    // ones fully expanded. Once per board — afterwards the user's fold state rules. Done
+    // here (not in an effect) because the closure knows which boardId this fetch was FOR;
+    // board.id is unreliable (legacy files carry ids that don't match their filename slug).
+    if (overviewRef.current !== boardId) {
+      overviewRef.current = boardId;
+      setCollapsed(b.nodes.length > OVERVIEW_MIN_NODES ? overviewCollapsed(b) : new Set<string>());
+      // re-frame once the (possibly folded) list has rendered: the initial fitView saw the
+      // fully-expanded extent, and a hash-switch keeps the previous board's viewport.
+      // Twice — unsized cards have no bounds until ReactFlow measures them.
+      setTimeout(() => rfRef.current?.fitView({ padding: 0.08 }), 150);
+      setTimeout(() => rfRef.current?.fitView({ padding: 0.08 }), 700);
+    }
     // One-time seed: give unplaced sections + their nodes concrete persisted positions so
     // they can then be dragged. After this the board carries section.x/y and relative node x/y.
     if (b.sections?.some((s) => s.x == null) && seededRef.current !== boardId) {
@@ -233,7 +276,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const selectedNode = board.nodes.find((n) => n.id === selected) ?? null;
 
   return (
-    <div className="app">
+    <div className={far ? "app lod-far" : "app"}>
       <div className="topbar">
         <button className="back" onClick={onBack}>← Canvases</button>
         <span className="topbar-title">{board.title}</span>
@@ -253,6 +296,8 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onNodeClick={(_, n) => setSelected(n.id)}
+        onViewportChange={(vp) => setFar(vp.zoom < LOD_ZOOM)}
+        onInit={(inst) => { rfRef.current = inst; }}
         fitView
         minZoom={0.02}
       >

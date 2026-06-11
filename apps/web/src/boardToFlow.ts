@@ -77,9 +77,13 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
     if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? { s: "r", t: "l" } : { s: "ls", t: "rt" };
     return dy >= 0 ? { s: "b", t: "t" } : { s: "ts", t: "bt" };
   };
+  // Relationship verbs stored on board edges, looked up by endpoint pair. A labeled edge
+  // reads as a proposition (A —blocks→ B) — the measured active ingredient of concept maps.
+  const edgeLabel = new Map<string, string>();
+  for (const e of board.edges) if (e.label) edgeLabel.set(`${e.from}→${e.to}`, e.label);
   const edges: FlowEdge[] = [];
   let ei = 0;
-  const push = (from: string, to: string, handles: { s: string; t: string }, kind: "hierarchy" | "sequence" | "dependency") => {
+  const push = (from: string, to: string, handles: { s: string; t: string }, kind: "hierarchy" | "sequence" | "dependency", label?: string) => {
     edges.push({
       id: `e${ei++}`, source: from, target: to,
       sourceHandle: handles.s, targetHandle: handles.t,
@@ -87,6 +91,7 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
       markerEnd: kind === "sequence" ? { type: MarkerType.ArrowClosed, color: TEAL, width: 16, height: 16 } : undefined,
       style: kind === "dependency" ? { stroke: AMBER, strokeDasharray: "5 5" } : { stroke: TEAL },
       data: { type: kind },
+      ...(label ? { label } : {}),
     });
   };
 
@@ -118,11 +123,11 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
     if (layout === "grid") continue;                                    // none — spatial only
     if (layout === "funnel") {                                          // sequence: root→stage→stage
       const seq = [root, ...(kids[root] ?? [])];
-      for (let i = 0; i + 1 < seq.length; i++) push(seq[i], seq[i + 1], V, "sequence");
+      for (let i = 0; i + 1 < seq.length; i++) push(seq[i], seq[i + 1], V, "sequence", edgeLabel.get(`${seq[i]}→${seq[i + 1]}`));
     } else if (layout === "timeline") {                                 // sequence per lane, left→right
       for (const lane of kids[root] ?? []) {
         const cells = kids[lane] ?? [];
-        for (let j = 0; j + 1 < cells.length; j++) push(cells[j], cells[j + 1], H, "sequence");
+        for (let j = 0; j + 1 < cells.length; j++) push(cells[j], cells[j + 1], H, "sequence", edgeLabel.get(`${cells[j]}→${cells[j + 1]}`));
       }
     } else {                                                            // tree/radial: full hierarchy
       const radial = layout === "radial";
@@ -132,7 +137,8 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
         const p = stack.pop()!;
         for (const c of kids[p] ?? []) {
           const from = rewire.get(c) ?? p;
-          push(from, c, radial ? geoHandles(from, c) : H, "hierarchy");
+          // a rewired band edge no longer connects parent→child, so its verb would mislead
+          push(from, c, radial ? geoHandles(from, c) : H, "hierarchy", from === p ? edgeLabel.get(`${p}→${c}`) : undefined);
           stack.push(c);
         }
       }
@@ -143,7 +149,7 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
     if (e.type !== "dependency") continue;
     const lay = board.sections?.length ? sectionLayout.get(nodeSection.get(e.from) ?? "") : board.layout;
     if (lay === "grid") continue;
-    push(e.from, e.to, lay === "radial" ? geoHandles(e.from, e.to) : lay === "funnel" ? V : H, "dependency");
+    push(e.from, e.to, lay === "radial" ? geoHandles(e.from, e.to) : lay === "funnel" ? V : H, "dependency", e.label);
   }
 
   return { nodes, edges };

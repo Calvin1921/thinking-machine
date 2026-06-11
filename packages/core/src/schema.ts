@@ -49,6 +49,9 @@ export const EdgeSchema = z.object({
   from: z.string().min(1),
   to: z.string().min(1),
   type: EdgeType,
+  // Relationship verb rendered on the edge ("blocks", "feeds", "causes"). A labeled link
+  // is a readable proposition (A —blocks→ B); an unlabeled one is just a line. Optional.
+  label: z.string().optional(),
 });
 
 export const BoardSchema = z.object({

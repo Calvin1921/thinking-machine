@@ -65,7 +65,8 @@ program.command("add <label>")
 
 program.command("link <from> <to>")
   .option("--type <type>", "decomposition|dependency", "dependency")
-  .action((from, to, opts) => { mutate(file(), (b) => linkNodes(b, from, to, opts.type)); });
+  .option("--label <verb>", "relationship verb shown on the edge, e.g. 'blocks', 'feeds'")
+  .action((from, to, opts) => { mutate(file(), (b) => linkNodes(b, from, to, opts.type, opts.label)); });
 
 program.command("facet <id> <facet> <mode> [items...]")
   .description("mode = set|add. Items may start with '-' (e.g. \"- bullet\"); they pass through as text.")

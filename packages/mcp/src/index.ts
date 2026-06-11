@@ -53,10 +53,10 @@ export function buildServer(dir: string): McpServer {
     async ({ board, label, parentId, kind }) =>
       ok(mutate(resolveBoard(board), (b) => addNode(b, { label, parentId, kind }))));
 
-  server.tool("tm_link", "Add an edge between two nodes on a board",
-    { board: z.string().describe(BOARD_DESC), from: z.string(), to: z.string(), type: z.enum(["decomposition", "dependency"]) },
-    async ({ board, from, to, type }) =>
-      ok(mutate(resolveBoard(board), (b) => linkNodes(b, from, to, type))));
+  server.tool("tm_link", "Add an edge between two nodes on a board. Give dependency edges a label verb — a labeled link reads as a proposition (A —blocks→ B)",
+    { board: z.string().describe(BOARD_DESC), from: z.string(), to: z.string(), type: z.enum(["decomposition", "dependency"]), label: z.string().optional().describe("relationship verb shown on the edge, e.g. 'blocks', 'feeds', 'causes'") },
+    async ({ board, from, to, type, label }) =>
+      ok(mutate(resolveBoard(board), (b) => linkNodes(b, from, to, type, label))));
 
   server.tool("tm_set_facet", "Set or add items to a node facet on a board",
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(), facet: z.string(), items: z.array(z.string()), mode: z.enum(["set", "add"]) },
@@ -113,7 +113,7 @@ export function buildServer(dir: string): McpServer {
       board: z.string().describe(BOARD_DESC),
       nodeId: z.string(),
       decomposition: z.array(z.object({ label: z.string(), kind: z.enum(["branch", "atom"]) })),
-      edges: z.array(z.object({ fromLabel: z.string(), toLabel: z.string(), type: z.enum(["decomposition", "dependency"]) })).optional(),
+      edges: z.array(z.object({ fromLabel: z.string(), toLabel: z.string(), type: z.enum(["decomposition", "dependency"]), label: z.string().optional().describe("relationship verb shown on the edge") })).optional(),
       facets: z.record(z.string(), z.array(z.string())).optional(),
     },
     async ({ board, nodeId, decomposition, edges, facets }) =>
@@ -132,7 +132,7 @@ export function buildServer(dir: string): McpServer {
       board: z.string().describe(BOARD_DESC),
       parentId: z.string().describe("id of the node the new subtree hangs under (e.g. \"root\")"),
       nodes: z.array(growNode).describe("forest of GrowNodes {label,kind,facets?,children?}; children recurse to any depth"),
-      edges: z.array(z.object({ fromLabel: z.string(), toLabel: z.string(), type: z.enum(["decomposition", "dependency"]) })).optional(),
+      edges: z.array(z.object({ fromLabel: z.string(), toLabel: z.string(), type: z.enum(["decomposition", "dependency"]), label: z.string().optional().describe("relationship verb shown on the edge") })).optional(),
     },
     async ({ board, parentId, nodes, edges }) =>
       ok(mutate(resolveBoard(board), (b) => growSubtree(b, parentId, { nodes, edges }))));

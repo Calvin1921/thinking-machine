@@ -24,6 +24,21 @@ describe("ops", () => {
     expect(b.edges).toContainEqual({ from: fe, to: api, type: "dependency" });
   });
 
+  it("linkNodes stores a relationship verb, and re-linking updates it", () => {
+    let b = newBoard("App", "objective");
+    b = addNode(b, { label: "FE", parentId: "root", kind: "branch" });
+    b = addNode(b, { label: "API", parentId: "root", kind: "atom" });
+    const fe = b.nodes.find((n) => n.label === "FE")!.id;
+    const api = b.nodes.find((n) => n.label === "API")!.id;
+    b = linkNodes(b, fe, api, "dependency", "calls");
+    expect(b.edges).toContainEqual({ from: fe, to: api, type: "dependency", label: "calls" });
+    b = linkNodes(b, fe, api, "dependency", "queries");   // same edge → label updates, no duplicate
+    expect(b.edges.filter((e) => e.from === fe && e.to === api)).toHaveLength(1);
+    expect(b.edges).toContainEqual({ from: fe, to: api, type: "dependency", label: "queries" });
+    b = linkNodes(b, fe, api, "dependency");              // unlabeled re-link keeps the verb
+    expect(b.edges).toContainEqual({ from: fe, to: api, type: "dependency", label: "queries" });
+  });
+
   it("setFacet replaces a facet's items", () => {
     let b = newBoard("App", "objective");
     b = setFacet(b, "root", "essentials", ["one", "two"], "set");

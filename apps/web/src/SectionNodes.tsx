@@ -1,5 +1,10 @@
-import { NodeResizer, type NodeProps } from "@xyflow/react";
+import { NodeResizer, useStore, type NodeProps } from "@xyflow/react";
 import { RefText } from "./refLinks.js";
+
+// Section titles are the board's landmarks: they stay readable at any zoom by inverse-
+// scaling against the viewport (the Figma/Miro frame-label pattern), capped so a fully
+// zoomed-out canvas reads as a map of named regions instead of unbounded text.
+const HEADER_SCALE_CAP = 14;
 
 export interface SectionBoxData {
   title: string;
@@ -17,10 +22,12 @@ export interface SectionBoxData {
  * the box moves the whole section; its child nodes drag independently on top.
  */
 export function SectionBox({ data, selected }: NodeProps & { data: SectionBoxData }) {
+  const zoom = useStore((s) => s.transform[2]);
+  const k = Math.min(Math.max(1 / zoom, 1), HEADER_SCALE_CAP);
   return (
     <div className={`sec-box ${data.kind}`} style={{ width: "100%", height: "100%" }}>
       <NodeResizer isVisible={selected} minWidth={240} minHeight={120} lineClassName="nr-line" handleClassName="nr-handle" />
-      <div className="sec-header">
+      <div className="sec-header" style={k > 1 ? { transform: `scale(${k})`, transformOrigin: "0 0" } : undefined}>
         <span className="sec-title">{data.title}</span>
         <span className="sec-purpose">{data.purpose}</span>
       </div>

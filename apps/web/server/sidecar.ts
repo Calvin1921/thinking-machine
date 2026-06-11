@@ -67,8 +67,8 @@ export function createSidecar(dir: string): Sidecar {
   app.post("/api/boards/:id/link", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);
     if (!file) return;
-    const { from, to, type } = req.body;
-    res.json(mutate(file, (b) => linkNodes(b, from, to, type)));
+    const { from, to, type, label } = req.body;
+    res.json(mutate(file, (b) => linkNodes(b, from, to, type, label)));
   });
   app.post("/api/boards/:id/facet", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);

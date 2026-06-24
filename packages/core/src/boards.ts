@@ -19,7 +19,7 @@ export function boardPath(dir: string, id: string): string {
 }
 
 /** A URL-safe slug of a title (no Date.now/Math.random — uniqueness handled by caller). */
-function slug(title: string): string {
+export function slug(title: string): string {
   return (
     title
       .toLowerCase()

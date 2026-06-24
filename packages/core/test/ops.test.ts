@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -329,5 +329,31 @@ describe("ops", () => {
     });
     const n = b.nodes.find((x) => x.id === "root")!;
     expect(n.sources).toEqual([]); // should be empty, not the old array
+  });
+
+  it("computeStale flags a verified node past its volatility TTL, not a fresh one", () => {
+    let b = newBoard("App", "objective");
+    b = addNode(b, { label: "Old", parentId: "root", kind: "branch" });
+    b = addNode(b, { label: "New", parentId: "root", kind: "branch" });
+    const oldId = b.nodes.find((n) => n.label === "Old")!.id;
+    const newId = b.nodes.find((n) => n.label === "New")!.id;
+    // volatile TTL = 7 days
+    b = setVerification(b, oldId, { provenance: "verified", verifiedAt: "2026-06-01T00:00:00.000Z", volatility: "volatile" });
+    b = setVerification(b, newId, { provenance: "verified", verifiedAt: "2026-06-23T00:00:00.000Z", volatility: "volatile" });
+    const stale = computeStale(b, "2026-06-24T00:00:00.000Z");
+    expect(stale).toEqual([oldId]);
+    expect(TTL_DAYS.volatile).toBe(7);
+  });
+
+  it("markStale downgrades only verified-and-expired nodes to stale", () => {
+    let b = newBoard("App", "objective");
+    b = addNode(b, { label: "Opinion", parentId: "root", kind: "branch" });
+    const opId = b.nodes.find((n) => n.label === "Opinion")!.id;
+    // an old informed-opinion must NOT be staled
+    b = setVerification(b, opId, { provenance: "informed-opinion", verifiedAt: "2020-01-01T00:00:00.000Z", volatility: "volatile" });
+    b = setVerification(b, "root", { provenance: "verified", verifiedAt: "2020-01-01T00:00:00.000Z", volatility: "volatile" });
+    const after = markStale(b, "2026-06-24T00:00:00.000Z");
+    expect(after.nodes.find((n) => n.id === "root")!.provenance).toBe("stale");
+    expect(after.nodes.find((n) => n.id === opId)!.provenance).toBe("informed-opinion");
   });
 });

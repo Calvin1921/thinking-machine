@@ -123,6 +123,29 @@ export function setVerification(board: Board, nodeId: string, input: Verificatio
   };
 }
 
+export const TTL_DAYS: Record<Volatility, number> = { static: 3650, weeks: 30, volatile: 7 };
+const DAY_MS = 86_400_000;
+
+/**
+ * Ids of `verified` nodes whose verifiedAt + TTL(volatility) is earlier than `now`.
+ * Pure: parses the supplied ISO strings; never reads the clock. `now` comes from the
+ * CLI/MCP boundary. Nodes with no volatility use the `weeks` bucket.
+ */
+export function computeStale(board: Board, now: string, ttlDays: Record<Volatility, number> = TTL_DAYS): string[] {
+  const nowMs = Date.parse(now);
+  return board.nodes
+    .filter((n) => n.provenance === "verified" && n.verifiedAt)
+    .filter((n) => Date.parse(n.verifiedAt!) + ttlDays[n.volatility ?? "weeks"] * DAY_MS < nowMs)
+    .map((n) => n.id);
+}
+
+/** Downgrade every expired `verified` node (see computeStale) to `stale`. */
+export function markStale(board: Board, now: string, ttlDays: Record<Volatility, number> = TTL_DAYS): Board {
+  const ids = new Set(computeStale(board, now, ttlDays));
+  if (ids.size === 0) return board;
+  return { ...board, nodes: board.nodes.map((n) => (ids.has(n.id) ? { ...n, provenance: "stale" } : n)) };
+}
+
 /** Turn the Guide posture on/off for the board. Off omits the flag (Explore is the default). */
 export function setGuideMode(board: Board, on: boolean): Board {
   return { ...board, guideMode: on ? true : undefined };

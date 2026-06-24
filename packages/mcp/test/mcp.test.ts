@@ -171,4 +171,16 @@ describe("mcp tools", () => {
     const res: any = await c.callTool({ name: "tm_cache_get", arguments: { board: "no-such-board", topic: "test" } });
     expect(res.isError).toBe(true);
   });
+
+  it("tm_set_rationale + tm_cache_entry surface rationale and context", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({ name: "tm_create_board", arguments: { title: "App", rootType: "objective" } }));
+    await c.callTool({ name: "tm_set_rationale", arguments: { board: id, nodeId: "root", text: "pick this if low budget" } });
+    const root = payload(await c.callTool({ name: "tm_show", arguments: { board: id, nodeId: "root" } }));
+    expect(root.rationale).toBe("pick this if low budget");
+
+    await c.callTool({ name: "tm_cache_put", arguments: { board: id, topic: "Hosting", payload: { a: 1 }, context: "static blog" } });
+    const entry = payload(await c.callTool({ name: "tm_cache_entry", arguments: { board: id, topic: "Hosting" } }));
+    expect(entry).toEqual({ context: "static blog", payload: { a: 1 } });
+  });
 });

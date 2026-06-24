@@ -9,7 +9,7 @@ import {
   addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout,
   addSection, setSectionNote, setSectionLayout, growSubtree,
   setNodeProvenance, setGuideMode, detectCollisions,
-  setVerification, markStale, cacheSubtree, lookupCache,
+  setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -176,12 +176,21 @@ export function buildServer(dir: string): McpServer {
       ok(mutate(resolveBoard(board), (b) => markStale(b, at ?? new Date().toISOString()))));
 
   server.tool("tm_cache_put", "Store a verified subtree payload in the library under a topic",
-    { board: z.string().describe(BOARD_DESC), topic: z.string(), payload: z.unknown() },
-    async ({ board, topic, payload }) => { resolveBoard(board); cacheSubtree(libDir, topic, payload); return ok({ cached: topic }); });
+    { board: z.string().describe(BOARD_DESC), topic: z.string(), payload: z.unknown(), context: z.string().optional() },
+    async ({ board, topic, payload, context }) => { resolveBoard(board); cacheSubtree(libDir, topic, payload, context); return ok({ cached: topic }); });
 
   server.tool("tm_cache_get", "Read the cached payload for a topic (or null)",
     { board: z.string().describe(BOARD_DESC), topic: z.string() },
     async ({ board, topic }) => { resolveBoard(board); return ok(lookupCache(libDir, topic)); });
+
+  server.tool("tm_set_rationale", "Set a node's 'pick this if X' rationale (empty string clears)",
+    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), text: z.string() },
+    async ({ board, nodeId, text }) =>
+      ok(mutate(resolveBoard(board), (b) => setNodeRationale(b, nodeId, text))));
+
+  server.tool("tm_cache_entry", "Read the cached entry {context, payload} for a topic (or null)",
+    { board: z.string().describe(BOARD_DESC), topic: z.string() },
+    async ({ board, topic }) => { resolveBoard(board); return ok(lookupCacheEntry(libDir, topic)); });
 
   return server;
 }

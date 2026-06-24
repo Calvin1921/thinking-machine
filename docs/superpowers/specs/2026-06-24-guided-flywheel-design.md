@@ -25,8 +25,10 @@ This is the **Guide** posture (opinionated, options-at-each-node) layered on TM'
    MOTION    flywheel: Locate → Frame → Decompose → Analyze → Prioritize → Advance, recursing
    SHAPE     widen (map territory, cheap) ⟂ deepen (gain expertise, on a chosen center)
    INTEGRITY same label twice → force [link / rename / make-facet] → DAG, never dupe
-   CONTENT   hybrid C′: factual → verify vs sources; subjective → label "informed opinion".
-             Verify is ASYNC + non-blocking; cached items carry TTL + re-verify. Never block flow.
+   CONTENT   hybrid C′: factual → verify vs sources; subjective → SHOW THE TRADEOFF (competing
+             takes), not a single verdict. Verify is ASYNC + non-blocking; TTL + re-verify.
+   DIVISION  machine does the OBJECTIVE work; human supplies the SUBJECTIVE judgment. Fake
+             neither (§2.5). This is the root principle — it resolves the fog & trust cracks.
 ```
 
 ### 2.0 Locate (the fog entry — front-end of the flywheel)
@@ -45,6 +47,12 @@ machine has nowhere to begin. **Locate** converts fog into a sharp center before
 Iron rule (from the `/unfog` method): converge to **one** center, never hand back a menu or
 "go reflect". If signals are too thin to select, the next move is a probe, not more reflection.
 Locate runs DRAFT-only (no verification — it's orientation, not answers).
+
+**Locate is interactive, not auto-run** (§2.5): the machine cannot read the user's unease, so it
+*proposes* candidate signals/questions and the **user reacts** — picks which itches, owns the
+CHARGE rating (how much each matters to them). The machine owns TRACTABILITY and the structure;
+the human owns which one matters. Auto-selecting the center would be the machine faking a
+subjective judgment it doesn't have access to.
 
 ### 2.1 The flywheel (motion)
 
@@ -133,20 +141,47 @@ let verification block flow:
 
 **What changed vs C, and why:**
 
-- **Factual vs subjective split** (defect 1): only checkable claims earn `verified`; judgment
-  earns `informed-opinion`. The badge stops lying on exactly the taste-heavy topics that are
-  TM's home turf (the website test).
+- **Factual vs subjective split** (defect 1): only checkable claims earn `verified`. For
+  *subjective* nodes a single "informed-opinion" verdict still reads as authority to a beginner,
+  so the substantive fix is to **show the tradeoff** — 2–3 competing credible takes with "pick
+  this if X" — making the judgment-call nature visible. The user (not the badge) decides.
 - **TTL + re-verify** (defect 2): `verifiedAt` + a TTL turns silent rot into an explicit
   `stale` state. Trusted-wrong becomes visibly-aging.
-- **Async, render-first** (defect 4): the board commits `drafted` instantly and content
-  *upgrades in place* as verification returns (SSE). Flow/momentum is preserved; trust arrives
-  without making the user wait. Verification is also *optional* per node.
+- **Async, render-first** (defect 4): the board commits `drafted` instantly and verification
+  *annotates/confirms* as it returns (SSE) — it must **not silently rewrite** content the user
+  has already read or acted on (that would be a new trust break). A material correction surfaces
+  as a visible diff/flag ("this changed since you saw it"), never a silent swap.
+- **TTL is per-claim volatility, not per-kind** (defect 2, refined): "what is HTTP" never goes
+  stale; "current pricing" does in weeks. TTL is keyed to a volatility hint on the claim, not a
+  blanket per-`contentKind` value.
 - **Compounding is a bonus, not the thesis** (defect 3): the cache still helps on *revisits*
   and shared/recurring topics, but for a solo tool the primary win is the non-blocking draft +
   honest provenance, not corpus growth. We no longer claim C′ "becomes a curated KB for free".
 
 Net: WIDEN stays DRAFT-only (orientation). DEEPEN renders instantly as `drafted`, then
-self-upgrades to `verified` / `informed-opinion` / `stale` in the background.
+self-upgrades to `verified` / `informed-opinion` / `stale` in the background, never silently
+overwriting what the user already consumed.
+
+### 2.5 Cross-cutting principle — machine=objective, human=subjective, fake neither
+
+Two review rounds surfaced the same root cause: **the machine has no access to the user's
+internal state** (taste, unease, what matters to them). Every trust/fog crack came from the
+machine *guessing* a subjective judgment instead of *eliciting* it. The governing principle:
+
+```
+   MACHINE owns the OBJECTIVE / structural work        HUMAN owns the SUBJECTIVE judgment
+   ────────────────────────────────────────────       ──────────────────────────────────
+   decompose · retrieve · fact-check · lay out         which signal itches (charge)
+   detect duplicates · classify · propose options      which option fits ME
+   show competing takes + "pick this if X"             is this taste / direction right
+                                                        when to stop / what to act on
+   ── never fake a fact ──                             ── never fake a preference ──
+```
+
+Consequences already wired into the spec: LOCATE is interactive (§2.0); subjective DEEPEN shows
+tradeoffs not verdicts (§2.4); duplicate-resolution asks the user link/rename/facet (§2.3);
+PRIORITIZE/status is the user's call. The machine's job is to make the subjective junctures
+*cheap to decide*, not to decide them.
 
 ## 3. Architecture — deltas on the existing engine
 
@@ -242,5 +277,8 @@ Phase 1 is the subject of the first implementation plan.
   single cached subtree may not serve both).
 - TTL values per `contentKind`, and verification depth budget (sources / judge passes) before
   marking `verified`.
-- CLASSIFY heuristic: how reliably can factual-vs-subjective be auto-detected, and what's the
-  fallback when a node is mixed (some factual options, some taste)?
+- CLASSIFY heuristic: how reliably can factual-vs-subjective be auto-detected? Working answer:
+  classify **per option/claim, not per node** — a mixed "hosting" node verifies its factual
+  options and shows its taste options as a tradeoff. Open: cost/latency of per-claim classify.
+- Render-first correction UX: how to surface "this changed since you saw it" without nagging
+  (diff badge vs inline marker vs change log).

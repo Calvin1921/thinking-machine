@@ -199,8 +199,11 @@ above (`tm show`) does not surface it directly; use `tm show --json` and check `
 Render first, verify after; never block the flow (spec §2.4–§2.5). The machine drafts and
 classifies; you (Claude) do the source work and write results back. Steps:
 
-1. CACHE CHECK. `tm cache-get "<topic>"`. On a hit, graft the cached subtree (via `tm grow`)
-   instead of re-verifying. On a miss, continue.
+1. CACHE CHECK (cross-board, context-aware): `tm cache-entry "<topic>"`. On a HIT, read its
+   `context`. If the cached context MATCHES this board's context, graft it (instant reuse via
+   `tm grow`). If it DIFFERS (e.g. cached from "static blog", now on a "video platform"),
+   SURFACE it to the user — "cached from <context>; reuse or re-verify for <this context>?" —
+   and let them choose. Never silently reuse across a different context. On a MISS, continue.
 2. DRAFT + RENDER. `tm grow <nodeId> --json '{...}'`, then `tm provenance <id> drafted` on
    new nodes. The user sees options immediately.
 3. CLASSIFY per option (factual vs subjective) — do NOT classify the whole node; a "hosting"
@@ -212,8 +215,12 @@ classifies; you (Claude) do the source work and write results back. Steps:
    - SUBJECTIVE → present 2–3 competing credible takes ("pick this if X"), then
      `tm verify <id> --provenance informed-opinion --kind subjective`. Never fake `verified`.
    - If sources are thin/uncertain → leave it `drafted` (honest), don't upgrade.
-5. CACHE the verified subtree: `tm cache-put "<topic>" --json '{...}'` so a later visit is instant.
-6. STALENESS. Run `tm refresh-stale` when revisiting a board; `stale` nodes should be
+5. CACHE WITH CONTEXT: `tm cache-put "<topic>" --json '{...}' --context "<this board's context>"`
+   so a later visit on the same context is instant and a cross-context hit is surfaced honestly.
+6. RATIONALE WRITEBACK. For each option node, write its "pick this if X" rationale:
+   `tm rationale <id> "pick this if …"`. This renders in the node drawer alongside provenance
+   and sources, so the user sees the decision logic without re-reading the thread.
+7. STALENESS. Run `tm refresh-stale` when revisiting a board; `stale` nodes should be
    re-verified before you rely on them.
 
 Never silently overwrite content the user already acted on — if verification changes a

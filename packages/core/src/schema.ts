@@ -8,6 +8,10 @@ export const RootType = z.enum(["objective", "cause", "decision", "concept"]);
 export const EdgeType = z.enum(["decomposition", "dependency"]);
 // Probe/work status for a node. Drives the canvas "scoreboard" colors. Absent = untracked.
 export const NodeStatus = z.enum(["todo", "running", "passed", "failed", "blocked"]);
+// Content provenance / trust level (spec §2.4). `verified` is reserved for factual content
+// that passed a source-check; subjective content tops out at `informed-opinion`; past-TTL
+// content downgrades to `stale`. Phase 1 only ever sets `drafted`. Absent = untracked.
+export const NodeProvenance = z.enum(["drafted", "verified", "informed-opinion", "stale"]);
 // How the canvas lays the graph out. The neutral foundation defaults to "tree"; a
 // methodology can pick another representation (FR-2). Absent = tree.
 export const BoardLayout = z.enum(["tree", "funnel", "grid", "timeline", "radial"]);
@@ -36,6 +40,7 @@ export const NodeSchema = z.object({
   rootType: RootType.optional(),
   image: z.string().optional(),
   status: NodeStatus.optional(),
+  provenance: NodeProvenance.optional(),
   sectionId: z.string().optional(),  // which section this node belongs to (graph sections)
   x: z.number(),
   y: z.number(),
@@ -61,6 +66,7 @@ export const BoardSchema = z.object({
   domainHint: z.string().optional(),
   layout: BoardLayout.optional(),
   sections: z.array(SectionSchema).optional(),
+  guideMode: z.boolean().optional(),   // Guide posture ON gates interactive prompts (spec §1)
   rootId: z.string().min(1),
   nodes: z.array(NodeSchema),
   edges: z.array(EdgeSchema),
@@ -73,6 +79,7 @@ export type Board = z.infer<typeof BoardSchema>;
 // A value and a type may share a name in TS, so expose the inferred union here.
 export type EdgeType = z.infer<typeof EdgeType>;
 export type NodeStatus = z.infer<typeof NodeStatus>;
+export type NodeProvenance = z.infer<typeof NodeProvenance>;
 export type BoardLayout = z.infer<typeof BoardLayout>;
 export type SectionKind = z.infer<typeof SectionKind>;
 export type Section = z.infer<typeof SectionSchema>;

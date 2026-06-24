@@ -6,6 +6,7 @@ import {
   addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout,
   addSection, setSectionNote, setSectionLayout, growSubtree,
   listBoards, createBoard,
+  setNodeProvenance, setGuideMode, detectCollisions,
 } from "@tm/core";
 
 const program = new Command();
@@ -80,6 +81,22 @@ program.command("image <id> <url>")
 program.command("status <id> <status>")
   .description("set node status: todo|running|passed|failed|blocked (use 'none' to clear)")
   .action((id, status) => { mutate(file(), (b) => setNodeStatus(b, id, status === "none" ? "" : status)); });
+
+program.command("provenance <id> <value>")
+  .description("set node provenance: drafted|verified|informed-opinion|stale (use 'none' to clear)")
+  .action((id, value) => { mutate(file(), (b) => setNodeProvenance(b, id, value === "none" ? "" : value)); });
+
+program.command("guide <state>")
+  .description("turn Guide posture on|off for this board")
+  .action((state) => { mutate(file(), (b) => setGuideMode(b, state === "on")); });
+
+program.command("collisions")
+  .description("print proposed labels that collide with existing nodes: --labels \"A,B,C\"")
+  .requiredOption("--labels <csv>", "comma-separated proposed labels")
+  .action((opts) => {
+    const labels = (opts.labels as string).split(",").map((s) => s.trim()).filter(Boolean);
+    out(detectCollisions(loadBoard(file()), labels));
+  });
 
 program.command("layout <type>")
   .description("set board layout: tree|funnel")

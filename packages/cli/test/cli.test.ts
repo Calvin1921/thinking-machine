@@ -87,4 +87,26 @@ describe("tm cli", () => {
     expect(id2).toBe("research-plan-2");
     expect(JSON.parse(runDir(["ls", "--json"]))).toHaveLength(2);
   });
+
+  it("provenance sets a node's badge shown by show --node", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    run(["provenance", "root", "drafted"]);
+    const node = JSON.parse(run(["show", "--node", "root"]));
+    expect(node.provenance).toBe("drafted");
+  });
+
+  it("guide on sets the board flag", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    run(["guide", "on"]);
+    const b = JSON.parse(readFileSync(board, "utf8"));
+    expect(b.guideMode).toBe(true);
+  });
+
+  it("collisions reports proposed labels matching existing nodes", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    run(["add", "Frontend", "--parent", "root", "--kind", "branch"]);
+    const hits = JSON.parse(run(["collisions", "--labels", "frontend,Backend"]));
+    expect(hits).toHaveLength(1);
+    expect(hits[0].label).toBe("frontend");
+  });
 });

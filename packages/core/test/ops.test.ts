@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -256,5 +256,19 @@ describe("ops", () => {
     expect(b.guideMode).toBe(true);
     b = setGuideMode(b, false);
     expect(b.guideMode).toBeUndefined();
+  });
+
+  it("detectCollisions reports proposed labels that match existing nodes (case-insensitive)", () => {
+    let b = newBoard("Web App", "objective");
+    b = decompose(b, "root", { decomposition: [{ label: "Frontend", kind: "branch" }] });
+    const hits = detectCollisions(b, ["frontend", "Backend"]);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].label).toBe("frontend");
+    expect(b.nodes.find((n) => n.id === hits[0].existingId)!.label).toBe("Frontend");
+  });
+
+  it("detectCollisions returns empty when nothing matches", () => {
+    const b = newBoard("Web App", "objective");
+    expect(detectCollisions(b, ["Backend", "Data"])).toEqual([]);
   });
 });

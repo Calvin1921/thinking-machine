@@ -172,6 +172,21 @@ export function linkNodes(board: Board, from: string, to: string, type: EdgeType
   return { ...board, edges: [...board.edges, { from, to, type, ...(label ? { label } : {}) }] };
 }
 
+/**
+ * Find proposed child labels that collide with an existing node label (case-insensitive).
+ * The Guide layer uses this to force a [link / rename / make-facet] choice instead of
+ * silently creating a duplicate node — TM is a DAG, not a tree (spec §2.3).
+ */
+export function detectCollisions(board: Board, labels: string[]): { label: string; existingId: string }[] {
+  const byLower = new Map(board.nodes.map((n) => [n.label.toLowerCase(), n.id]));
+  const hits: { label: string; existingId: string }[] = [];
+  for (const label of labels) {
+    const existingId = byLower.get(label.toLowerCase());
+    if (existingId) hits.push({ label, existingId });
+  }
+  return hits;
+}
+
 export function setFacet(board: Board, nodeId: string, facet: string, items: string[], mode: "set" | "add"): Board {
   const node = requireNode(board, nodeId);
   const current = node.facets[facet] ?? [];

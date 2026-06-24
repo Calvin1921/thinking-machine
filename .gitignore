@@ -9,3 +9,5 @@ apps/web/boards/
 boards/
 board.json
 docs/smoke-*.png
+
+.DS_Store

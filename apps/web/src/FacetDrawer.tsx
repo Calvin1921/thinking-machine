@@ -3,6 +3,7 @@ import type { Node as BNode } from "@tm/core/schema";
 import { SEED_FACETS } from "@tm/core/schema";
 import { setFacet, setImage, setStatus } from "./api.js";
 import { RefText } from "./refLinks.js";
+import { safeHttpUrl } from "./safeUrl.js";
 
 const STATUSES = ["todo", "running", "passed", "failed", "blocked"] as const;
 
@@ -45,9 +46,10 @@ export function FacetDrawer({ boardId, node, onClose, onSaved }: { boardId: stri
           {node.rationale && <div className="verif-rationale">{node.rationale}</div>}
           {node.sources?.length ? (
             <ul className="verif-sources">
-              {node.sources.map((s) => (
-                <li key={s}><a href={s} target="_blank" rel="noreferrer">{s}</a></li>
-              ))}
+              {node.sources.map((s) => {
+                const href = safeHttpUrl(s);
+                return <li key={s}>{href ? <a href={href} target="_blank" rel="noreferrer">{s}</a> : <span>{s}</span>}</li>;
+              })}
             </ul>
           ) : null}
         </div>

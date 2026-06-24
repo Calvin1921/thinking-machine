@@ -12,6 +12,11 @@ export const NodeStatus = z.enum(["todo", "running", "passed", "failed", "blocke
 // that passed a source-check; subjective content tops out at `informed-opinion`; past-TTL
 // content downgrades to `stale`. Phase 1 only ever sets `drafted`. Absent = untracked.
 export const NodeProvenance = z.enum(["drafted", "verified", "informed-opinion", "stale"]);
+// Whether a node's content is checkable against sources (factual) or a judgment call
+// (subjective). Drives whether background verification runs at all (spec §2.4).
+export const ContentKind = z.enum(["factual", "subjective"]);
+// How fast a factual claim goes stale — drives the TTL bucket for the `stale` downgrade.
+export const Volatility = z.enum(["static", "weeks", "volatile"]);
 // How the canvas lays the graph out. The neutral foundation defaults to "tree"; a
 // methodology can pick another representation (FR-2). Absent = tree.
 export const BoardLayout = z.enum(["tree", "funnel", "grid", "timeline", "radial"]);
@@ -41,6 +46,10 @@ export const NodeSchema = z.object({
   image: z.string().optional(),
   status: NodeStatus.optional(),
   provenance: NodeProvenance.optional(),
+  contentKind: ContentKind.optional(),
+  verifiedAt: z.string().optional(),   // ISO-8601, stamped at the CLI/MCP boundary
+  sources: z.array(z.string()).optional(),
+  volatility: Volatility.optional(),
   sectionId: z.string().optional(),  // which section this node belongs to (graph sections)
   x: z.number(),
   y: z.number(),
@@ -80,6 +89,8 @@ export type Board = z.infer<typeof BoardSchema>;
 export type EdgeType = z.infer<typeof EdgeType>;
 export type NodeStatus = z.infer<typeof NodeStatus>;
 export type NodeProvenance = z.infer<typeof NodeProvenance>;
+export type ContentKind = z.infer<typeof ContentKind>;
+export type Volatility = z.infer<typeof Volatility>;
 export type BoardLayout = z.infer<typeof BoardLayout>;
 export type SectionKind = z.infer<typeof SectionKind>;
 export type Section = z.infer<typeof SectionSchema>;

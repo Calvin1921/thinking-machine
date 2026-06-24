@@ -1,6 +1,6 @@
 // packages/core/test/schema.test.ts
 import { describe, it, expect } from "vitest";
-import { BoardSchema, NodeProvenance, migrate, CURRENT_VERSION } from "../src/schema.js";
+import { BoardSchema, NodeProvenance, ContentKind, Volatility, migrate, CURRENT_VERSION } from "../src/schema.js";
 
 describe("schema", () => {
   it("parses a minimal valid board", () => {
@@ -41,6 +41,31 @@ describe("schema", () => {
     const bad = {
       version: CURRENT_VERSION, id: "b1", title: "T", rootId: "app",
       nodes: [{ id: "app", label: "App", kind: "root", x: 0, y: 0, facets: {}, provenance: "bogus" }],
+      edges: [],
+    };
+    expect(() => BoardSchema.parse(bad)).toThrow();
+  });
+
+  it("accepts the C-prime verification fields on a node", () => {
+    const board = {
+      version: CURRENT_VERSION, id: "b1", title: "T", rootId: "app",
+      nodes: [{
+        id: "app", label: "App", kind: "root", x: 0, y: 0, facets: {},
+        provenance: "verified", contentKind: "factual",
+        verifiedAt: "2026-06-24T00:00:00.000Z", sources: ["https://example.com"],
+        volatility: "weeks",
+      }],
+      edges: [],
+    };
+    expect(() => BoardSchema.parse(board)).not.toThrow();
+    expect(ContentKind.options).toEqual(["factual", "subjective"]);
+    expect(Volatility.options).toEqual(["static", "weeks", "volatile"]);
+  });
+
+  it("rejects an unknown contentKind", () => {
+    const bad = {
+      version: CURRENT_VERSION, id: "b1", title: "T", rootId: "app",
+      nodes: [{ id: "app", label: "App", kind: "root", x: 0, y: 0, facets: {}, contentKind: "vibes" }],
       edges: [],
     };
     expect(() => BoardSchema.parse(bad)).toThrow();

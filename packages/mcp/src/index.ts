@@ -177,11 +177,11 @@ export function buildServer(dir: string): McpServer {
 
   server.tool("tm_cache_put", "Store a verified subtree payload in the library under a topic",
     { board: z.string().describe(BOARD_DESC), topic: z.string(), payload: z.unknown() },
-    async ({ topic, payload }) => { cacheSubtree(libDir, topic, payload); return ok({ cached: topic }); });
+    async ({ board, topic, payload }) => { resolveBoard(board); cacheSubtree(libDir, topic, payload); return ok({ cached: topic }); });
 
   server.tool("tm_cache_get", "Read the cached payload for a topic (or null)",
     { board: z.string().describe(BOARD_DESC), topic: z.string() },
-    async ({ topic }) => ok(lookupCache(libDir, topic)));
+    async ({ board, topic }) => { resolveBoard(board); return ok(lookupCache(libDir, topic)); });
 
   return server;
 }

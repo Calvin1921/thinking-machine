@@ -154,4 +154,21 @@ describe("mcp tools", () => {
     const root = payload(await c.callTool({ name: "tm_show", arguments: { board: id, nodeId: "root" } }));
     expect(root.provenance).toBe("stale");
   });
+
+  it("tm_verify records verifiedAt timestamp matching the passed 'at' parameter", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({ name: "tm_create_board", arguments: { title: "App", rootType: "objective" } }));
+    await c.callTool({ name: "tm_verify", arguments: {
+      board: id, nodeId: "root", provenance: "verified", contentKind: "factual",
+      sources: ["https://a.com"], volatility: "weeks", at: "2026-06-24T00:00:00.000Z",
+    } });
+    const root = payload(await c.callTool({ name: "tm_show", arguments: { board: id, nodeId: "root" } }));
+    expect(root.verifiedAt).toBe("2026-06-24T00:00:00.000Z");
+  });
+
+  it("tm_cache_get with a nonexistent board id rejects with isError", async () => {
+    const c = await connect();
+    const res: any = await c.callTool({ name: "tm_cache_get", arguments: { board: "no-such-board", topic: "test" } });
+    expect(res.isError).toBe(true);
+  });
 });

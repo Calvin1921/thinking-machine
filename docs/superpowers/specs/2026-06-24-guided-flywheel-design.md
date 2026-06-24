@@ -20,18 +20,38 @@ This is the **Guide** posture (opinionated, options-at-each-node) layered on TM'
 ## 2. The model (what we agreed)
 
 ```
+   ENTRY     fog (no question yet): Locate → signals → candidate questions → pick → center
    PURPOSE   holistic view + offload cognition → clarity, priority, focus
-   MOTION    flywheel: Frame → Decompose → Analyze → Prioritize → Advance, recursing
+   MOTION    flywheel: Locate → Frame → Decompose → Analyze → Prioritize → Advance, recursing
    SHAPE     widen (map territory, cheap) ⟂ deepen (gain expertise, on a chosen center)
    INTEGRITY same label twice → force [link / rename / make-facet] → DAG, never dupe
-   CONTENT   hybrid: LLM draft → verify vs sources → cache → corpus compounds into a KB
+   CONTENT   hybrid C′: factual → verify vs sources; subjective → label "informed opinion".
+             Verify is ASYNC + non-blocking; cached items carry TTL + re-verify. Never block flow.
 ```
+
+### 2.0 Locate (the fog entry — front-end of the flywheel)
+
+The flywheel below starts at a *center*. But often the user has no question — only fog
+("review this", "something's off", "I don't know what to ask"). Without a front-end the
+machine has nowhere to begin. **Locate** converts fog into a sharp center before FRAME runs:
+
+```
+   FOG → 1. LOCATE SIGNALS   where does it itch? (don't name the problem yet)
+         2. QUESTION BURST   turn each itch into a candidate question (cheap, many)
+         3. SELECT  by CHARGE (how much it matters) × TRACTABILITY (answerable now)
+         → ONE sharp question becomes the center → enter FRAME
+```
+
+Iron rule (from the `/unfog` method): converge to **one** center, never hand back a menu or
+"go reflect". If signals are too thin to select, the next move is a probe, not more reflection.
+Locate runs DRAFT-only (no verification — it's orientation, not answers).
 
 ### 2.1 The flywheel (motion)
 
 Each node is a "center." One turn of the wheel:
 
 ```
+   0. LOCATE     fog → sharp center      →  (only when no question exists; §2.0)
    1. FRAME      what is it / why care   →  node + `definition` facet
    2. DECOMPOSE  break into primitives   →  child nodes (DAG)        [exists: decompose]
    3. ANALYZE    lenses on the node      →  facets                   [exists: facet]
@@ -80,29 +100,53 @@ never silently place a duplicate. It forces a choice:
 
 Every time this fires the user learns something true about the topic. It's a feature.
 
-### 2.4 Content provenance — Option C (hybrid verified + cached)
+### 2.4 Content provenance — Option C′ (hybrid, taste-aware, non-blocking)
 
 The promise "guide a beginner through *anything*, with trustworthy options" rules out pure
 live-LLM (unvetted — a beginner can't tell confident-wrong from right) and pure curated-KB
-(can't cover "anything"). Chosen path **C**:
+(can't cover "anything"). We chose hybrid C, then a review (2026-06-24) found four defects that
+forced the **C′** amendment. The original C and the defects:
+
+> **C (original):** on DEEPEN → DRAFT → VERIFY vs sources → CACHE → RENDER; cache "compounds
+> into a KB". **Defects found:** (1) "verify vs sources" is meaningless for *taste/judgment*
+> topics (typography, art direction) — the judge is just another LLM opinion wearing a
+> `verified` badge; (2) cached `verified` content **rots** into trusted-wrong, the worst
+> failure mode for a beginner; (3) "compounds into a KB" assumes *many visitors* — for a
+> **solo** tool you are usually the only visitor, so you pay first-visit cost forever with
+> little compounding payoff; (4) blocking verification latency **kills the flywheel's
+> momentum**, which is the actual product.
+
+**C′ — the amended rule.** Split content by *kind*, verify only what's verifiable, and never
+let verification block flow:
 
 ```
    on DEEPEN(node):
-     1. DRAFT     Claude proposes children + facet options (covers anything)
-     2. VERIFY    retrieve sources + LLM-judge: real? current? ranked right?
-                  (reuses deep-research / decide / LLM-judge machinery)
-     3. CACHE     store the verified subtree in a library keyed by topic
-     4. RENDER    commit to board (decompose proposal + facets)
-
-   WIDEN(node): DRAFT only, fast & unverified — it's just the map/overview.
-                Verification is paid only when the user commits to DEEPEN.
+     1. CLASSIFY   is this node FACTUAL (checkable) or SUBJECTIVE (taste/judgment)?
+     2. DRAFT      Claude proposes children + options + "pick this if X" rationale
+     3. RENDER     commit to board IMMEDIATELY as `drafted` — flow never blocks
+     4. VERIFY     ASYNC, in the background:
+                     FACTUAL    → retrieve sources + judge → upgrade to `verified` (+sources)
+                     SUBJECTIVE → label `informed-opinion` (NOT "verified"); skip fake-verify
+     5. CACHE      store with a `verifiedAt` timestamp + TTL; serve from cache on revisit,
+                   but re-verify (or mark `stale`) once past TTL
 ```
 
-**Why C compounds:** the verified cache *becomes* a curated KB over time without hand-authoring
-— first visitor pays generation+verification, every later visit is served instantly from the
-library. Same flywheel shape, one level up (the corpus itself gains momentum). Honest cost:
-first deepen on a node is slow and burns tokens; mitigated by cheap-WIDEN / expensive-DEEPEN
-split. Verified options carry a **"pick this if X"** rationale, not a flat list.
+**What changed vs C, and why:**
+
+- **Factual vs subjective split** (defect 1): only checkable claims earn `verified`; judgment
+  earns `informed-opinion`. The badge stops lying on exactly the taste-heavy topics that are
+  TM's home turf (the website test).
+- **TTL + re-verify** (defect 2): `verifiedAt` + a TTL turns silent rot into an explicit
+  `stale` state. Trusted-wrong becomes visibly-aging.
+- **Async, render-first** (defect 4): the board commits `drafted` instantly and content
+  *upgrades in place* as verification returns (SSE). Flow/momentum is preserved; trust arrives
+  without making the user wait. Verification is also *optional* per node.
+- **Compounding is a bonus, not the thesis** (defect 3): the cache still helps on *revisits*
+  and shared/recurring topics, but for a solo tool the primary win is the non-blocking draft +
+  honest provenance, not corpus growth. We no longer claim C′ "becomes a curated KB for free".
+
+Net: WIDEN stays DRAFT-only (orientation). DEEPEN renders instantly as `drafted`, then
+self-upgrades to `verified` / `informed-opinion` / `stale` in the background.
 
 ## 3. Architecture — deltas on the existing engine
 
@@ -124,37 +168,52 @@ Existing (keep): `BoardSchema` (nodes/edges/sections), node `kind` root/branch/a
 
 ### 3.1 Schema additions (additive, back-compat via existing migration in `schema.ts`)
 
-- `Node.provenance?`: `"drafted" | "verified" | "curated"` — drives a canvas badge so the user
-  can see which content is vetted (a trust signal; directly serves the beginner-safety goal).
-- `Node.sources?`: `string[]` — citations attached to verified content.
+- `Node.provenance?`: `"drafted" | "verified" | "informed-opinion" | "stale"` — drives a canvas
+  badge so the user sees the trust level (beginner-safety goal). `verified` is reserved for
+  *factual* content that passed source-check; *subjective* content tops out at
+  `informed-opinion` (never fake-`verified`); past-TTL content downgrades to `stale`.
+- `Node.contentKind?`: `"factual" | "subjective"` — set by the CLASSIFY step; decides whether
+  background verification runs at all.
+- `Node.verifiedAt?`: ISO timestamp; with a per-`contentKind` TTL drives the `stale` downgrade.
+- `Node.sources?`: `string[]` — citations attached to `verified` content.
 - `Node.rationale?` / facet item rationale — the "pick this if X". (v1 may inline into the
   facet string; a structured field is a later refinement — flagged, not built now.)
-- Cache/library: a `library/` of verified subtrees keyed by a normalized topic slug, separate
-  from any single `board.json`. Read on DEEPEN before drafting.
+- Cache/library: a `library/` of subtrees keyed by a normalized topic slug, separate from any
+  single `board.json`. Read on DEEPEN before drafting; entries past TTL trigger re-verify.
 
 ### 3.2 New ops / verbs
 
-- `widen <id>` — shallow breadth (draft-only, unverified). May be `decompose` with a
-  `--shallow/--no-verify` flag rather than a new verb (decide in plan).
-- `deepen <id>` — drill one center: cache-lookup → draft → verify → commit. The costly path.
+- `locate <fog...>` — fog entry (§2.0): signals → candidate questions → pick → seed a center.
+  DRAFT-only. May live in the skill rather than core in v1 (decide in plan).
+- `widen <id>` — shallow breadth (draft-only). May be `decompose` with a `--shallow` flag
+  rather than a new verb (decide in plan).
+- `deepen <id>` — drill one center: cache-lookup → CLASSIFY → draft → render `drafted` now →
+  background verify → upgrade provenance in place. Verification is async + optional.
+- `verify <id>` — explicit (re)verification trigger for a node (also fired by TTL/`stale`).
 - duplicate-resolution: `commitProposal` gains collision detection against existing node
   labels and returns conflicts for the caller (CLI/MCP/skill) to resolve via
   `[link | rename | facet]` instead of blindly adding nodes.
 
 ### 3.3 Skill changes
 
-`skill/thinking-machine/SKILL.md` teaches the **Guide** method: open WIDE shallow → present the
-territory → user picks a center → DEEPEN (draft→verify→cache) → resolve any duplicate →
-prioritize (status) → advance. Encodes the "vibes → specifiable decisions" reframe and the
-"pick this if X" option style demonstrated in the website test.
+`skill/thinking-machine/SKILL.md` teaches the **Guide** method: (fog?) LOCATE → open WIDE
+shallow → present the territory → user picks a center → DEEPEN (classify → draft → render →
+async verify) → resolve any duplicate → prioritize (status) → advance. Encodes the "vibes →
+specifiable decisions" reframe and the "pick this if X" option style from the website test.
 
 ## 4. States (per quality standard — every surface gets empty/loading/error)
 
-- **WIDEN/DEEPEN loading** — node shows a working indicator; canvas not blocked (verification
-  is async; SSE streams children in as they commit).
-- **Verification failed / sources thin** — node renders as `drafted` (badge = "unverified"),
-  never silently presented as fact. Explicit, honest.
-- **Cache empty (first visit)** — falls through to draft→verify; user told first deepen is slower.
+- **Fog / empty input** — LOCATE runs; if signals too thin to pick one center, surface a probe,
+  never a menu or "go reflect" (Iron rule, §2.0).
+- **DEEPEN in progress** — content renders `drafted` immediately; a quiet "verifying…" badge
+  upgrades in place via SSE. Canvas never blocks on verification.
+- **Verification failed / sources thin** — node stays `drafted` (badge = "unverified"), never
+  silently presented as fact.
+- **Subjective content** — labeled `informed-opinion`, not `verified`. Honest about what it is.
+- **Stale (past TTL)** — badge downgrades to `stale`; a `verify` re-run refreshes it. Prevents
+  trusted-wrong (defect 2).
+- **Cache hit** — served instantly from `library/`; if past TTL, served but flagged `stale` +
+  re-verify queued.
 - **Duplicate detected** — the `[link / rename / facet]` prompt is the resolution UI, not an error.
 - **Atom reached** — node marked leaf; no widen/deepen offered, only act.
 
@@ -162,18 +221,26 @@ prioritize (status) → advance. Encodes the "vibes → specifiable decisions" r
 
 This spec defines the whole model but is **too large for one implementation plan**. Sequence:
 
-1. **Phase 1 — Guided motion + widen/deepen + duplicate-resolution** (on existing core; no
-   verification yet, DRAFT-only). Ships the holistic-map + steer + recurse experience and the
-   integrity prompt. Smallest end-to-end slice that delivers the cognitive-offload value.
-2. **Phase 2 — Option C verification + cache/library** (the trust + compounding layer). Heaviest;
-   reuses deep-research/judge machinery. Depends on Phase 1's deepen hook.
-3. **Phase 3 — Provenance UI + "pick this if X" rationale rendering + library reuse across boards.**
+1. **Phase 1 — LOCATE + guided motion + widen/deepen + duplicate-resolution** (on existing core;
+   DRAFT-only, no verification). Ships fog-entry + holistic-map + steer + recurse + the integrity
+   prompt. Smallest end-to-end slice that delivers the cognitive-offload value. Provenance field
+   exists and renders, but everything is `drafted` until Phase 2.
+2. **Phase 2 — C′ verification: classify + async source-check + TTL/stale + cache** (the trust
+   layer). Reuses deep-research/judge machinery. Render-first / non-blocking; depends on Phase 1's
+   deepen hook. Note: compounding is a bonus here, not the justification (solo-user economics).
+3. **Phase 3 — Provenance UI polish + "pick this if X" rationale rendering + cross-board library
+   reuse.**
 
 Phase 1 is the subject of the first implementation plan.
 
 ## 6. Open questions (resolve during Phase 1 planning)
 
-- `widen` as a new verb vs a `--shallow` flag on `decompose`.
+- `widen`/`locate` as new verbs vs flags/skill-only behavior.
 - Where rationale lives in v1 (inline facet string vs structured field).
-- Library key normalization (how aggressively to dedupe "Hosting" vs "Web Hosting").
-- Verification depth budget (how many sources / judge passes before marking `verified`).
+- Library key normalization (how aggressively to dedupe "Hosting" vs "Web Hosting") — and how
+  to handle **context-dependence** (Hosting for a static blog vs a video platform differ; a
+  single cached subtree may not serve both).
+- TTL values per `contentKind`, and verification depth budget (sources / judge passes) before
+  marking `verified`.
+- CLASSIFY heuristic: how reliably can factual-vs-subjective be auto-detected, and what's the
+  fallback when a node is mixed (some factual options, some taste)?

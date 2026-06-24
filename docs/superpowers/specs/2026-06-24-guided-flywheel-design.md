@@ -17,6 +17,14 @@ just-in-time instead of requiring years of prior knowledge.
 This is the **Guide** posture (opinionated, options-at-each-node) layered on TM's existing
 **Explore** posture (free decomposition). Same board, same engine — a verb layer on top.
 
+**One product, two postures via an explicit mode — not two products.** Guide and Explore share
+one board and engine but want opposite *defaults* (Guide proposes/asks/shows-tradeoffs and is
+interactive at every subjective juncture; Explore does what the expert says with minimal
+interruption). They are reconciled by a per-board (overridable per-node) **mode toggle**, not by
+forking the model: Guide ON makes LOCATE/tradeoff-prompts/duplicate-resolution active; Guide OFF
+is today's raw Explore. The flywheel, schema, and ops are identical in both — only prompting
+verbosity and which interactive gates fire change.
+
 ## 2. The model (what we agreed)
 
 ```

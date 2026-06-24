@@ -47,8 +47,9 @@ export const NodeSchema = z.object({
   status: NodeStatus.optional(),
   provenance: NodeProvenance.optional(),
   contentKind: ContentKind.optional(),
-  verifiedAt: z.string().optional(),   // ISO-8601, stamped at the CLI/MCP boundary
+  verifiedAt: z.string().datetime().optional(),   // ISO-8601; tightened in Phase 3 (cached payloads cross the trust boundary)
   sources: z.array(z.string()).optional(),
+  rationale: z.string().optional(),   // "pick this if X" — why you'd choose this option
   volatility: Volatility.optional(),
   sectionId: z.string().optional(),  // which section this node belongs to (graph sections)
   x: z.number(),

@@ -70,4 +70,15 @@ describe("schema", () => {
     };
     expect(() => BoardSchema.parse(bad)).toThrow();
   });
+
+  it("accepts a rationale and an ISO verifiedAt; rejects a non-ISO verifiedAt", () => {
+    const base = (verifiedAt: string, rationale?: string) => ({
+      version: CURRENT_VERSION, id: "b1", title: "T", rootId: "app",
+      nodes: [{ id: "app", label: "App", kind: "root", x: 0, y: 0, facets: {},
+        provenance: "verified", verifiedAt, ...(rationale ? { rationale } : {}) }],
+      edges: [],
+    });
+    expect(() => BoardSchema.parse(base("2026-06-24T00:00:00.000Z", "pick this if you want zero-config"))).not.toThrow();
+    expect(() => BoardSchema.parse(base("banana"))).toThrow();
+  });
 });

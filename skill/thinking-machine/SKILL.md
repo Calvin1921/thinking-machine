@@ -152,3 +152,44 @@ Present the proposed **tree** (indented outline + each level's crux + any probe)
 rationale, get one yes, then **`tm grow`** the whole thing in a single call (use `tm decompose`
 only in co-build mode). The canvas live-updates; tell the user to **⤢ Tidy** to lay it out and
 **⊟ Collapse all** for the overview, then expand the crux branch to walk the depth.
+
+## Guide method (the flywheel)
+
+Turn on with `tm guide on`. In Guide mode, follow this loop. The machine does the OBJECTIVE
+work (decompose, lay out, detect duplicates, draft options); the HUMAN owns the SUBJECTIVE
+judgment (which itch matters, which option fits, when to stop). Never fake either (spec §2.5).
+
+0. **LOCATE** (only when the user has no question — fog). Propose 3–6 candidate signals/questions
+   about the topic and ask the user which itches most (they own the CHARGE). Converge to ONE
+   center — never hand back a menu. Seed it with `tm init "<center>"` (or `tm new`).
+1. **WIDEN** (default first move). Propose a SHALLOW breadth map — the major parts, ~5–9 peers,
+   one level, no recursion. Before committing, run `tm collisions --labels "A,B,C"` and resolve
+   each hit (see Duplicate resolution below). Commit with `tm decompose <center> --json '{...}'`,
+   then `tm provenance <id> drafted` on new nodes.
+2. **STEER**. Present the territory; ask the user to pick ONE center to go deeper.
+3. **DEEPEN** (vertical). On the chosen node, propose options with a "pick this if X" rationale,
+   then `tm grow <id> --json '{...}'` along that spine toward atoms. Collapse siblings. Mark
+   new nodes `drafted` (Phase 1 does no verification).
+4. **PRIORITISE**. Use `tm status <id> <todo|running|...>` to mark what matters; this is the
+   user's call.
+5. **ADVANCE / recurse**: pop back, pick the next center, repeat. Stop at atoms (kind `atom`).
+
+### Duplicate resolution (never create a silent duplicate)
+
+When `tm collisions` reports a proposed label already on the board, ask the user which it is:
+
+- **Same thing** → `tm link <parentId> <existingId> --type dependency --label needs`
+  (DAG, one node — do not create a second)
+- **Different** → rename the proposed label, then decompose with the new label
+- **A concern** → `tm facet <parentId> considerations add "<label>"`
+  (cross-cutting, not a child)
+
+### Mode toggle
+
+| State | Command | Effect |
+|---|---|---|
+| Enter Guide mode | `tm guide on` | Sets `guideMode: true` on the board |
+| Exit Guide mode | `tm guide off` | Clears flag; reverts to deep-dive default |
+
+Guide mode is a board-level flag — it persists across sessions until turned off. The CLI table
+above (`tm show`) does not surface it directly; use `tm show --json` and check `guideMode`.

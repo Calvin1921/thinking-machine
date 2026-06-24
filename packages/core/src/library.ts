@@ -14,18 +14,25 @@ function entryPath(libDir: string, topic: string): string {
   return join(libDir, `${cacheKey(topic)}.json`);
 }
 
-/** Write a verified subtree payload under the topic's key (creates libDir). */
-export function cacheSubtree(libDir: string, topic: string, payload: unknown): void {
+/** Write a verified subtree payload (and its originating context) under the topic's key. */
+export function cacheSubtree(libDir: string, topic: string, payload: unknown, context?: string): void {
   mkdirSync(libDir, { recursive: true });
-  writeFileSync(entryPath(libDir, topic), JSON.stringify({ topic, payload }, null, 2));
+  writeFileSync(entryPath(libDir, topic), JSON.stringify({ topic, context, payload }, null, 2));
 }
 
 /** Read the cached payload for a topic, or null on a miss / unreadable entry. */
 export function lookupCache(libDir: string, topic: string): unknown | null {
+  const entry = lookupCacheEntry(libDir, topic);
+  return entry ? entry.payload : null;
+}
+
+/** Read the full cache entry (context + payload) for a topic, or null on miss/unreadable. */
+export function lookupCacheEntry(libDir: string, topic: string): { context?: string; payload: unknown } | null {
   const file = entryPath(libDir, topic);
   if (!existsSync(file)) return null;
   try {
-    return (JSON.parse(readFileSync(file, "utf8")) as { payload: unknown }).payload;
+    const { context, payload } = JSON.parse(readFileSync(file, "utf8")) as { context?: string; payload: unknown };
+    return { context, payload };
   } catch {
     return null;
   }

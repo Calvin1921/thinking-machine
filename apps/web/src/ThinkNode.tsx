@@ -33,6 +33,9 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
         {data.status && (
           <div className="t-status" style={{ color: statusColor, borderColor: statusColor }}>{data.status}</div>
         )}
+        {data.provenance && (
+          <div className={`t-prov prov-${data.provenance}`}>{data.provenance}</div>
+        )}
         {data.kind === "root" && data.rootType && <div className="t-sub">{data.rootType}</div>}
         {data.preview
           ? <div className="t-preview">{data.preview}</div>

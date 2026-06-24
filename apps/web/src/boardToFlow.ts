@@ -9,6 +9,7 @@ export interface ThinkNodeData {
   kind: BNode["kind"];
   rootType?: string;
   status?: BNode["status"]; // probe/work status — colors the card
+  provenance?: string;     // epistemic origin badge — drafted/verified/informed-opinion/stale
   image?: string;         // optional image URL rendered atop the card
   preview: string;        // the node's own content (full, untruncated) — shown on the card
   filledFacets: string[]; // names of the lenses that have content
@@ -51,6 +52,7 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
         kind: n.kind,
         rootType: n.rootType,
         status: n.status,
+        provenance: n.provenance,
         image: n.image,
         preview: firstContent(n.facets),
         filledFacets: SEED_FACETS.filter((f) => (n.facets[f]?.length ?? 0) > 0),

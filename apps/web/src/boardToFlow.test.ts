@@ -1,7 +1,7 @@
 // apps/web/src/boardToFlow.test.ts
 import { describe, it, expect } from "vitest";
 import { boardToFlow } from "./boardToFlow.js";
-import { newBoard, addNode, linkNodes } from "@tm/core";
+import { newBoard, addNode, linkNodes, setNodeProvenance } from "@tm/core";
 
 describe("boardToFlow", () => {
   it("maps nodes and typed edges", () => {
@@ -18,5 +18,16 @@ describe("boardToFlow", () => {
     const dep = edges.find((e) => e.source === fe && e.target === api)!;
     expect(dep.data?.type).toBe("dependency");
     expect(dep.animated).toBe(true);
+  });
+
+  it("carries provenance into flow node data", () => {
+    let b = newBoard("App", "objective");
+    b = addNode(b, { label: "Idea", parentId: "root", kind: "atom" });
+    const ideaId = b.nodes.find((n) => n.label === "Idea")!.id;
+    b = setNodeProvenance(b, ideaId, "drafted");
+
+    const { nodes } = boardToFlow(b);
+    const idea = nodes.find((n) => n.id === ideaId)!;
+    expect(idea.data.provenance).toBe("drafted");
   });
 });

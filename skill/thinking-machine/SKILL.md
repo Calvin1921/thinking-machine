@@ -193,3 +193,28 @@ When `tm collisions` reports a proposed label already on the board, ask the user
 
 Guide mode is a board-level flag — it persists across sessions until turned off. The CLI table
 above (`tm show`) does not surface it directly; use `tm show --json` and check `guideMode`.
+
+### C′ verification — what happens on DEEPEN (the trust layer)
+
+Render first, verify after; never block the flow (spec §2.4–§2.5). The machine drafts and
+classifies; you (Claude) do the source work and write results back. Steps:
+
+1. CACHE CHECK. `tm cache-get "<topic>"`. On a hit, graft the cached subtree (via `tm grow`)
+   instead of re-verifying. On a miss, continue.
+2. DRAFT + RENDER. `tm grow <nodeId> --json '{...}'`, then `tm provenance <id> drafted` on
+   new nodes. The user sees options immediately.
+3. CLASSIFY per option (factual vs subjective) — do NOT classify the whole node; a "hosting"
+   node mixes factual options (providers) with a subjective "which fits me".
+4. VERIFY in the background, upgrading in place:
+   - FACTUAL → WebSearch the claim, judge it, then
+     `tm verify <id> --provenance verified --kind factual --sources <url1,url2> --volatility <static|weeks|volatile>`.
+     Pick volatility by how fast it rots (pricing → volatile; "what is HTTP" → static).
+   - SUBJECTIVE → present 2–3 competing credible takes ("pick this if X"), then
+     `tm verify <id> --provenance informed-opinion --kind subjective`. Never fake `verified`.
+   - If sources are thin/uncertain → leave it `drafted` (honest), don't upgrade.
+5. CACHE the verified subtree: `tm cache-put "<topic>" --json '{...}'` so a later visit is instant.
+6. STALENESS. Run `tm refresh-stale` when revisiting a board; `stale` nodes should be
+   re-verified before you rely on them.
+
+Never silently overwrite content the user already acted on — if verification changes a
+material answer, say so ("this changed since you saw it"), don't swap it quietly.

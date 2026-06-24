@@ -26,7 +26,9 @@ export function lookupCache(libDir: string, topic: string): unknown | null {
   return entry ? entry.payload : null;
 }
 
-/** Read the full cache entry (context + payload) for a topic, or null on miss/unreadable. */
+/** Read the full cache entry (context + payload) for a topic, or null on miss/unreadable.
+ *  Note: an entry written without a context omits the key on disk (JSON drops `undefined`),
+ *  so it reads back as `{ context: undefined, payload }`. */
 export function lookupCacheEntry(libDir: string, topic: string): { context?: string; payload: unknown } | null {
   const file = entryPath(libDir, topic);
   if (!existsSync(file)) return null;

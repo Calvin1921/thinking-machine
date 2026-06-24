@@ -46,9 +46,9 @@ export function FacetDrawer({ boardId, node, onClose, onSaved }: { boardId: stri
           {node.rationale && <div className="verif-rationale">{node.rationale}</div>}
           {node.sources?.length ? (
             <ul className="verif-sources">
-              {node.sources.map((s) => {
+              {node.sources.map((s, i) => {
                 const href = safeHttpUrl(s);
-                return <li key={s}>{href ? <a href={href} target="_blank" rel="noreferrer">{s}</a> : <span>{s}</span>}</li>;
+                return <li key={`${i}-${s}`}>{href ? <a href={href} target="_blank" rel="noreferrer">{s}</a> : <span>{s}</span>}</li>;
               })}
             </ul>
           ) : null}

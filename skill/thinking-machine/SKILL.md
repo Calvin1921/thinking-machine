@@ -217,8 +217,8 @@ classifies; you (Claude) do the source work and write results back. Steps:
    - If sources are thin/uncertain → leave it `drafted` (honest), don't upgrade.
 5. CACHE WITH CONTEXT: `tm cache-put "<topic>" --json '{...}' --context "<this board's context>"`
    so a later visit on the same context is instant and a cross-context hit is surfaced honestly.
-6. RATIONALE WRITEBACK. For each option node, write its "pick this if X" rationale:
-   `tm rationale <id> "pick this if …"`. This renders in the node drawer alongside provenance
+6. RATIONALE WRITEBACK. For each option node you verified in step 4 (and any grafted from cache),
+   write its "pick this if X" rationale: `tm rationale <id> "pick this if …"`. This renders in the node drawer alongside provenance
    and sources, so the user sees the decision logic without re-reading the thread.
 7. STALENESS. Run `tm refresh-stale` when revisiting a board; `stale` nodes should be
    re-verified before you rely on them.

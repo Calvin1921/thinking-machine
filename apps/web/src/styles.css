@@ -121,9 +121,9 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, 
 .back:hover { border-color: var(--accent); }
 
 /* --- verification panel (FacetDrawer) --- */
-.verif { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 8px 0 12px; padding: 8px; background: #14161b; border-radius: 6px; }
-.verif-kind, .verif-at, .verif-vol { font-size: 11px; color: #9aa3b2; }
-.verif-rationale { flex-basis: 100%; font-size: 13px; color: #cdd3dc; font-style: italic; }
+.verif { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 8px 0 12px; padding: 8px; background: var(--bg); border-radius: 6px; }
+.verif-kind, .verif-at, .verif-vol { font-size: 11px; color: var(--dim); }
+.verif-rationale { flex-basis: 100%; font-size: 13px; color: var(--ink); font-style: italic; }
 .verif-sources { flex-basis: 100%; margin: 0; padding-left: 16px; font-size: 12px; }
-.verif-sources a { color: #6aa3ff; word-break: break-all; }
+.verif-sources a { color: var(--accent); word-break: break-all; }
 .topbar-title { font-size: 14px; font-weight: 600; color: var(--ink); }

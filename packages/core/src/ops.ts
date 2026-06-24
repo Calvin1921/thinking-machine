@@ -1,5 +1,5 @@
 // packages/core/src/ops.ts
-import { Board, Node, EdgeType, NodeStatus, NodeProvenance, BoardLayout, Section, SectionKind } from "./schema.js";
+import { Board, Node, EdgeType, NodeStatus, NodeProvenance, ContentKind, Volatility, BoardLayout, Section, SectionKind } from "./schema.js";
 import { placeChildren } from "./layout.js";
 
 // Resets to 0 on every process restart; uniqueness is guaranteed by the live-board
@@ -88,6 +88,39 @@ export function setNodeProvenance(board: Board, nodeId: string, prov: NodeProven
   requireNode(board, nodeId);
   const next = prov === "" ? undefined : NodeProvenance.parse(prov);
   return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, provenance: next } : n)) };
+}
+
+export interface VerificationInput {
+  provenance: NodeProvenance;
+  contentKind?: ContentKind;
+  sources?: string[];
+  verifiedAt?: string;   // ISO-8601, supplied by the CLI/MCP boundary
+  volatility?: Volatility;
+}
+
+/**
+ * Record a Claude-in-the-loop verification result on a node (spec §2.4). Sets provenance
+ * and merges any provided metadata; leaves unprovided fields untouched. Time is supplied
+ * by the caller (core never reads the clock).
+ */
+export function setVerification(board: Board, nodeId: string, input: VerificationInput): Board {
+  requireNode(board, nodeId);
+  const provenance = NodeProvenance.parse(input.provenance);
+  return {
+    ...board,
+    nodes: board.nodes.map((n) =>
+      n.id === nodeId
+        ? {
+            ...n,
+            provenance,
+            ...(input.contentKind ? { contentKind: ContentKind.parse(input.contentKind) } : {}),
+            ...(input.sources ? { sources: input.sources } : {}),
+            ...(input.verifiedAt ? { verifiedAt: input.verifiedAt } : {}),
+            ...(input.volatility ? { volatility: Volatility.parse(input.volatility) } : {}),
+          }
+        : n,
+    ),
+  };
 }
 
 /** Turn the Guide posture on/off for the board. Off omits the flag (Explore is the default). */

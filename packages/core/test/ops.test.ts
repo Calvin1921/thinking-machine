@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -270,5 +270,25 @@ describe("ops", () => {
   it("detectCollisions returns empty when nothing matches", () => {
     const b = newBoard("Web App", "objective");
     expect(detectCollisions(b, ["Backend", "Data"])).toEqual([]);
+  });
+
+  it("setVerification writes provenance + sources + verifiedAt onto a node", () => {
+    let b = newBoard("App", "objective");
+    b = setVerification(b, "root", {
+      provenance: "verified", contentKind: "factual",
+      sources: ["https://a.com", "https://b.com"],
+      verifiedAt: "2026-06-24T10:00:00.000Z", volatility: "weeks",
+    });
+    const n = b.nodes.find((x) => x.id === "root")!;
+    expect(n.provenance).toBe("verified");
+    expect(n.contentKind).toBe("factual");
+    expect(n.sources).toEqual(["https://a.com", "https://b.com"]);
+    expect(n.verifiedAt).toBe("2026-06-24T10:00:00.000Z");
+    expect(n.volatility).toBe("weeks");
+  });
+
+  it("setVerification rejects an invalid provenance", () => {
+    const b = newBoard("App", "objective");
+    expect(() => setVerification(b, "root", { provenance: "bogus" as any })).toThrow();
   });
 });

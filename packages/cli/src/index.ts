@@ -7,6 +7,7 @@ import {
   addSection, setSectionNote, setSectionLayout, growSubtree,
   listBoards, createBoard,
   setNodeProvenance, setGuideMode, detectCollisions,
+  setVerification, markStale, cacheSubtree, lookupCache,
 } from "@tm/core";
 
 const program = new Command();
@@ -16,11 +17,14 @@ const program = new Command();
 program.name("tm").description("Thinking Machine board CLI")
   .enablePositionalOptions()
   .option("-f, --file <path>", "board file", "board.json")
-  .option("--dir <path>", "boards directory (for ls/new)", "boards");
+  .option("--dir <path>", "boards directory (for ls/new)", "boards")
+  .option("--lib <path>", "library directory (for cache-put/cache-get)", "library");
 
 const file = () => program.opts().file as string;
 const dir = () => program.opts().dir as string;
+const lib = () => program.opts().lib as string;
 const out = (obj: unknown) => process.stdout.write(JSON.stringify(obj, null, 2) + "\n");
+const nowIso = () => new Date().toISOString();
 
 program.command("init <title>")
   .option("--root-type <type>", "objective|cause|decision|concept", "objective")
@@ -149,6 +153,35 @@ program.command("logo <id> <domain>")
     const host = domain.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").split(/[/?#]/)[0];
     mutate(file(), (b) => setNodeImage(b, id, `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(host)}`));
   });
+
+program.command("verify <id>")
+  .description("record a verification result on a node")
+  .requiredOption("--provenance <v>", "drafted|verified|informed-opinion|stale")
+  .option("--kind <kind>", "factual|subjective")
+  .option("--sources <csv>", "comma-separated source URLs")
+  .option("--volatility <v>", "static|weeks|volatile")
+  .option("--at <iso>", "verification timestamp (defaults to now)")
+  .action((id, opts) => {
+    const sources = opts.sources ? (opts.sources as string).split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+    mutate(file(), (b) => setVerification(b, id, {
+      provenance: opts.provenance, contentKind: opts.kind, sources,
+      verifiedAt: opts.at ?? nowIso(), volatility: opts.volatility,
+    }));
+  });
+
+program.command("refresh-stale")
+  .description("downgrade verified nodes past their TTL to 'stale'")
+  .option("--at <iso>", "current time (defaults to now)")
+  .action((opts) => { mutate(file(), (b) => markStale(b, opts.at ?? nowIso())); });
+
+program.command("cache-put <topic>")
+  .description("store a verified subtree payload in the library under <topic>")
+  .requiredOption("--json <payload>", "JSON payload to cache")
+  .action((topic, opts) => { cacheSubtree(lib(), topic, JSON.parse(opts.json)); });
+
+program.command("cache-get <topic>")
+  .description("print the cached payload for <topic> (or null)")
+  .action((topic) => { out(lookupCache(lib(), topic)); });
 
 try { program.parse(); }
 catch (err) { process.stderr.write(`Error: ${(err as Error).message}\n`); process.exit(1); }

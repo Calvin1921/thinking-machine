@@ -109,4 +109,30 @@ describe("tm cli", () => {
     expect(hits).toHaveLength(1);
     expect(hits[0].label).toBe("frontend");
   });
+
+  it("verify writes provenance + sources shown by show --node", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    run(["verify", "root", "--provenance", "verified", "--kind", "factual",
+         "--sources", "https://a.com,https://b.com", "--volatility", "weeks",
+         "--at", "2026-06-24T00:00:00.000Z"]);
+    const n = JSON.parse(run(["show", "--node", "root"]));
+    expect(n.provenance).toBe("verified");
+    expect(n.sources).toEqual(["https://a.com", "https://b.com"]);
+    expect(n.verifiedAt).toBe("2026-06-24T00:00:00.000Z");
+  });
+
+  it("refresh-stale downgrades an expired verified node", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    run(["verify", "root", "--provenance", "verified", "--volatility", "volatile", "--at", "2026-01-01T00:00:00.000Z"]);
+    run(["refresh-stale", "--at", "2026-06-24T00:00:00.000Z"]);
+    expect(JSON.parse(run(["show", "--node", "root"])).provenance).toBe("stale");
+  });
+
+  it("cache-put then cache-get round-trips a payload", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    const payload = JSON.stringify({ nodes: [{ label: "Vercel", kind: "atom" }] });
+    run(["--lib", join(dir, "library"), "cache-put", "Hosting", "--json", payload]);
+    const got = JSON.parse(run(["--lib", join(dir, "library"), "cache-get", "Hosting"]));
+    expect(got).toEqual({ nodes: [{ label: "Vercel", kind: "atom" }] });
+  });
 });

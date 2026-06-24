@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -82,6 +82,14 @@ describe("ops", () => {
   it("setNodeImage throws on an unknown node", () => {
     const b = newBoard("App", "objective");
     expect(() => setNodeImage(b, "nope", "x")).toThrow();
+  });
+
+  it("setNodeRationale sets and clears a node's rationale", () => {
+    let b = newBoard("App", "objective");
+    b = setNodeRationale(b, "root", "pick this if you want zero-config deploys");
+    expect(b.nodes.find((n) => n.id === "root")!.rationale).toBe("pick this if you want zero-config deploys");
+    b = setNodeRationale(b, "root", "");
+    expect(b.nodes.find((n) => n.id === "root")!.rationale).toBeUndefined();
   });
 
   it("setNodeStatus sets a valid status, clears on empty, and rejects garbage", () => {

@@ -76,6 +76,12 @@ export function setNodeImage(board: Board, nodeId: string, image: string): Board
   return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, image: image || undefined } : n)) };
 }
 
+/** Set (or clear) a node's "pick this if X" rationale. Empty string clears it. */
+export function setNodeRationale(board: Board, nodeId: string, text: string): Board {
+  requireNode(board, nodeId);
+  return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, rationale: text || undefined } : n)) };
+}
+
 /** Set (or clear) a node's probe/work status. Empty string clears it; any other value is validated. */
 export function setNodeStatus(board: Board, nodeId: string, status: NodeStatus | ""): Board {
   requireNode(board, nodeId);

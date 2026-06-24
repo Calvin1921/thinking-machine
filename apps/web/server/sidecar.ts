@@ -4,6 +4,7 @@ import chokidar from "chokidar";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
   addNode, linkNodes, setFacet, updateNodePosition, setNodeImage, setNodeStatus, setBoardLayout,
@@ -175,6 +176,15 @@ export function createSidecar(dir: string): Sidecar {
     req.on("close", () => clients.delete(res));
   });
 
+  // Serve the built web app (production `tmind ui`): static assets + SPA fallback.
+  // Registered AFTER all /api routes so the API always wins; the fallback excludes /api,
+  // so unknown /api/* paths still 404 normally instead of returning index.html.
+  const distDir = process.env.TM_WEB_DIST;
+  if (distDir && existsSync(distDir)) {
+    app.use(express.static(distDir));
+    app.get(/^(?!\/api).*/, (_req, res) => res.sendFile(join(distDir, "index.html")));
+  }
+
   // Watch the whole boards dir for *.json adds/changes/unlinks (CLI/MCP/other-tab
   // writes). Ignore our own atomic temp/lock files so we don't echo our own writes.
   const watcher = chokidar.watch(dir, {
@@ -215,5 +225,8 @@ export function createSidecar(dir: string): Sidecar {
 // Stdio entrypoint: `node --import tsx server/sidecar.ts` boots the sidecar on :8787.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dir = process.env.TM_BOARDS_DIR ?? "boards";
-  createSidecar(dir).listen(8787).then(() => console.log("sidecar on :8787"));
+  const port = Number(process.env.TM_UI_PORT ?? 8787);
+  createSidecar(dir)
+    .listen(port)
+    .then((addr) => console.log(`Thinking Machine UI → http://localhost:${addr.port}`));
 }

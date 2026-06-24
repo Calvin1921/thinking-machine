@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { existsSync, readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { dirname, join, resolve } from "node:path";
 import {
   newBoard, loadBoard, saveBoard, mutate,
   addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout,
@@ -195,6 +198,40 @@ program.command("rationale <id> <text...>")
 program.command("cache-entry <topic>")
   .description("print the cached entry {context, payload} for <topic> (or null)")
   .action((topic) => { out(lookupCacheEntry(lib(), topic)); });
+
+program.command("ui")
+  .description("start the web canvas (serves boards in --dir) and open it in the browser")
+  .option("--dir <path>", "boards directory to serve (defaults to the current directory)", ".")
+  .option("--port <port>", "port to serve on", "8787")
+  .option("--no-open", "do not open the browser")
+  .action((opts) => {
+    // This file runs from <repo>/packages/cli/dist/index.js; the web app is a sibling package.
+    const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const webDir = join(repoRoot, "apps", "web");
+    const dist = join(webDir, "dist");
+    if (!existsSync(dist)) {
+      process.stderr.write(`UI bundle not found at ${dist}\nBuild it once with:  pnpm --filter @tm/web build\n`);
+      process.exit(1);
+    }
+    const boardsDir = resolve(opts.dir);
+    const child = spawn("node", ["--import", "tsx", join(webDir, "server", "sidecar.ts")], {
+      cwd: webDir,
+      env: { ...process.env, TM_BOARDS_DIR: boardsDir, TM_WEB_DIST: dist, TM_UI_PORT: String(opts.port) },
+      stdio: ["inherit", "pipe", "inherit"],
+    });
+    const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+    let opened = false;
+    child.stdout.on("data", (buf: Buffer) => {
+      process.stdout.write(buf);
+      const m = buf.toString().match(/http:\/\/localhost:\d+/);
+      if (!opened && m) {
+        opened = true;
+        process.stdout.write(`Serving boards from ${boardsDir}  (Ctrl-C to stop)\n`);
+        if (opts.open) spawn(opener, [m[0]], { stdio: "ignore", detached: true }).unref();
+      }
+    });
+    child.on("exit", (code) => process.exit(code ?? 0));
+  });
 
 try { program.parse(); }
 catch (err) { process.stderr.write(`Error: ${(err as Error).message}\n`); process.exit(1); }

@@ -57,6 +57,7 @@ atomically. Add `--json` to `show` for machine-readable output you can read back
 |---|---|
 | `tmind --file <path> init "<title>" --root-type objective\|cause\|decision\|concept` | create a board with one root |
 | `tmind show [--node <id>] [--json]` | read the whole board, or one node + its facets |
+| `tmind ui [--dir <path>] [--port <n>] [--no-open]` | open the live web canvas for boards in the dir (defaults to CWD) in the browser |
 | `tmind add "<label>" --parent <id> --kind branch\|atom` | add one child (decomposition edge to parent) |
 | `tmind link <from> <to> --type decomposition\|dependency` | add an edge (use `dependency` for cross-links) |
 | `tmind facet <id> <facet> set\|add <items...>` | set/append items on a lens |

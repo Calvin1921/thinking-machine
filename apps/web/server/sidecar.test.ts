@@ -27,6 +27,30 @@ describe("sidecar", () => {
     expect(list[0].title).toBe("App");
   });
 
+  it("serves the built web app from TM_WEB_DIST (static + SPA fallback, API still wins)", async () => {
+    const distDir = mkdtempSync(join(tmpdir(), "tm-dist-"));
+    writeFileSync(join(distDir, "index.html"), "<!doctype html><title>TM</title>");
+    const prev = process.env.TM_WEB_DIST;
+    process.env.TM_WEB_DIST = distDir;
+    const boardsDir = mkdtempSync(join(tmpdir(), "tm-side2-"));
+    const s = createSidecar(boardsDir);
+    const addr = await s.listen(0);
+    const b = `http://127.0.0.1:${addr.port}`;
+    try {
+      // SPA fallback returns index.html for a non-API client route
+      expect(await (await fetch(`${b}/some/client/route`)).text()).toContain("<title>TM</title>");
+      // API still resolves (registered before the static fallback)
+      expect((await fetch(`${b}/api/boards`)).status).toBe(200);
+      // unknown /api path still 404s — the fallback excludes /api
+      expect((await fetch(`${b}/api/nope`)).status).toBe(404);
+    } finally {
+      await s.close();
+      rmSync(distDir, { recursive: true, force: true });
+      rmSync(boardsDir, { recursive: true, force: true });
+      if (prev === undefined) delete process.env.TM_WEB_DIST; else process.env.TM_WEB_DIST = prev;
+    }
+  });
+
   it("POST /api/boards creates a board file and returns its id", async () => {
     const { id } = await (await json("/api/boards", { title: "New Idea", rootType: "decision" })).json();
     expect(id).toBe("new-idea");

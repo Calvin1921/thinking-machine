@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -240,5 +240,21 @@ describe("ops", () => {
   it("addNode throws on an unknown parent", () => {
     const b = newBoard("App", "objective");
     expect(() => addNode(b, { label: "x", parentId: "nope", kind: "atom" })).toThrow();
+  });
+
+  it("setNodeProvenance sets and clears a node's provenance", () => {
+    let b = newBoard("App", "objective");
+    b = setNodeProvenance(b, "root", "drafted");
+    expect(b.nodes.find((n) => n.id === "root")!.provenance).toBe("drafted");
+    b = setNodeProvenance(b, "root", "");
+    expect(b.nodes.find((n) => n.id === "root")!.provenance).toBeUndefined();
+  });
+
+  it("setGuideMode toggles the board flag, omitting it when off", () => {
+    let b = newBoard("App", "objective");
+    b = setGuideMode(b, true);
+    expect(b.guideMode).toBe(true);
+    b = setGuideMode(b, false);
+    expect(b.guideMode).toBeUndefined();
   });
 });

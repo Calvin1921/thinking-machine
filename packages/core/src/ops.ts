@@ -1,5 +1,5 @@
 // packages/core/src/ops.ts
-import { Board, Node, EdgeType, NodeStatus, BoardLayout, Section, SectionKind } from "./schema.js";
+import { Board, Node, EdgeType, NodeStatus, NodeProvenance, BoardLayout, Section, SectionKind } from "./schema.js";
 import { placeChildren } from "./layout.js";
 
 // Resets to 0 on every process restart; uniqueness is guaranteed by the live-board
@@ -81,6 +81,18 @@ export function setNodeStatus(board: Board, nodeId: string, status: NodeStatus |
   requireNode(board, nodeId);
   const next = status === "" ? undefined : NodeStatus.parse(status);
   return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, status: next } : n)) };
+}
+
+/** Set (or clear) a node's content provenance/trust badge. Empty string clears it. */
+export function setNodeProvenance(board: Board, nodeId: string, prov: NodeProvenance | ""): Board {
+  requireNode(board, nodeId);
+  const next = prov === "" ? undefined : NodeProvenance.parse(prov);
+  return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, provenance: next } : n)) };
+}
+
+/** Turn the Guide posture on/off for the board. Off omits the flag (Explore is the default). */
+export function setGuideMode(board: Board, on: boolean): Board {
+  return { ...board, guideMode: on ? true : undefined };
 }
 
 /** Set the board's canvas layout. Empty string resets to the default (tree). */

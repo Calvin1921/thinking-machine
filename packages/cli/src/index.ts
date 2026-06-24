@@ -7,7 +7,7 @@ import {
   addSection, setSectionNote, setSectionLayout, growSubtree,
   listBoards, createBoard,
   setNodeProvenance, setGuideMode, detectCollisions,
-  setVerification, markStale, cacheSubtree, lookupCache,
+  setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
 } from "@tm/core";
 
 const program = new Command();
@@ -177,11 +177,24 @@ program.command("refresh-stale")
 program.command("cache-put <topic>")
   .description("store a verified subtree payload in the library under <topic>")
   .requiredOption("--json <payload>", "JSON payload to cache")
-  .action((topic, opts) => { cacheSubtree(lib(), topic, JSON.parse(opts.json)); });
+  .option("--context <text>", "originating context for this cache entry")
+  .action((topic, opts) => { cacheSubtree(lib(), topic, JSON.parse(opts.json), opts.context); });
 
 program.command("cache-get <topic>")
   .description("print the cached payload for <topic> (or null)")
   .action((topic) => { out(lookupCache(lib(), topic)); });
+
+program.command("rationale <id> <text...>")
+  .description("set a node's 'pick this if X' rationale (use 'none' to clear). Text may start with '-'.")
+  .passThroughOptions()
+  .action((id, text) => {
+    const joined = (text as string[]).join(" ");
+    mutate(file(), (b) => setNodeRationale(b, id, joined === "none" ? "" : joined));
+  });
+
+program.command("cache-entry <topic>")
+  .description("print the cached entry {context, payload} for <topic> (or null)")
+  .action((topic) => { out(lookupCacheEntry(lib(), topic)); });
 
 try { program.parse(); }
 catch (err) { process.stderr.write(`Error: ${(err as Error).message}\n`); process.exit(1); }

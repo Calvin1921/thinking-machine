@@ -135,4 +135,18 @@ describe("tm cli", () => {
     const got = JSON.parse(run(["--lib", join(dir, "library"), "cache-get", "Hosting"]));
     expect(got).toEqual({ nodes: [{ label: "Vercel", kind: "atom" }] });
   });
+
+  it("rationale sets the pick-this-if text shown by show --node", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    run(["rationale", "root", "pick", "this", "if", "you", "want", "zero-config"]);
+    expect(JSON.parse(run(["show", "--node", "root"])).rationale).toBe("pick this if you want zero-config");
+  });
+
+  it("cache-put --context is surfaced by cache-entry", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    const payload = JSON.stringify({ nodes: [{ label: "Vercel" }] });
+    run(["--lib", join(dir, "library"), "cache-put", "Hosting", "--json", payload, "--context", "static blog"]);
+    const entry = JSON.parse(run(["--lib", join(dir, "library"), "cache-entry", "Hosting"]));
+    expect(entry).toEqual({ context: "static blog", payload: { nodes: [{ label: "Vercel" }] } });
+  });
 });

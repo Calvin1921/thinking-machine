@@ -7,6 +7,7 @@ import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
   addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout,
   addSection, setSectionNote, setSectionLayout, growSubtree,
+  setNodeProvenance, setGuideMode, detectCollisions,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -136,6 +137,23 @@ export function buildServer(dir: string): McpServer {
     },
     async ({ board, parentId, nodes, edges }) =>
       ok(mutate(resolveBoard(board), (b) => growSubtree(b, parentId, { nodes, edges }))));
+
+  server.tool("tm_set_provenance", "Set a node's content provenance/trust badge (empty clears)",
+    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), provenance: z.enum(["drafted", "verified", "informed-opinion", "stale", ""]).describe("one of drafted|verified|informed-opinion|stale, or empty to clear") },
+    async ({ board, nodeId, provenance }) =>
+      ok(mutate(resolveBoard(board), (b) => setNodeProvenance(b, nodeId, provenance))));
+
+  server.tool("tm_set_guide", "Turn the Guide posture on/off for the board",
+    { board: z.string().describe(BOARD_DESC), on: z.boolean() },
+    async ({ board, on }) =>
+      ok(mutate(resolveBoard(board), (b) => setGuideMode(b, on))));
+
+  server.tool("tm_collisions", "List proposed labels that collide with existing node labels (drives duplicate-resolution)",
+    { board: z.string().describe(BOARD_DESC), labels: z.array(z.string()) },
+    async ({ board, labels }) => {
+      const b = loadBoard(resolveBoard(board));
+      return ok(detectCollisions(b, labels));
+    });
 
   return server;
 }

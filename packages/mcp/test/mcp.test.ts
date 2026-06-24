@@ -98,4 +98,39 @@ describe("mcp tools", () => {
     const res: any = await c.callTool({ name: "tm_show", arguments: { board: "../etc" } });
     expect(res.isError).toBe(true);
   });
+
+  it("tm_set_provenance sets provenance on root, tm_show reads it back", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({
+      name: "tm_create_board", arguments: { title: "App", rootType: "objective" },
+    }));
+    await c.callTool({ name: "tm_set_provenance", arguments: { board: id, nodeId: "root", provenance: "drafted" } });
+    const node = payload(await c.callTool({ name: "tm_show", arguments: { board: id, nodeId: "root" } }));
+    expect(node.provenance).toBe("drafted");
+  });
+
+  it("tm_set_guide {on:true} writes guideMode:true to the board file", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({
+      name: "tm_create_board", arguments: { title: "App", rootType: "objective" },
+    }));
+    await c.callTool({ name: "tm_set_guide", arguments: { board: id, on: true } });
+    const b = JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8"));
+    expect(b.guideMode).toBe(true);
+  });
+
+  it("tm_collisions reports a label already on the board after tm_decompose", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({
+      name: "tm_create_board", arguments: { title: "App", rootType: "objective" },
+    }));
+    await c.callTool({ name: "tm_decompose", arguments: {
+      board: id,
+      nodeId: "root",
+      decomposition: [{ label: "Frontend", kind: "branch" }],
+    }});
+    const hits = payload(await c.callTool({ name: "tm_collisions", arguments: { board: id, labels: ["Frontend", "NewThing"] } }));
+    expect(hits).toHaveLength(1);
+    expect(hits[0].label).toBe("Frontend");
+  });
 });

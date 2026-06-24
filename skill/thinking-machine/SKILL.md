@@ -164,11 +164,11 @@ judgment (which itch matters, which option fits, when to stop). Never fake eithe
    center — never hand back a menu. Seed it with `tm init "<center>"` (or `tm new`).
 1. **WIDEN** (default first move). Propose a SHALLOW breadth map — the major parts, ~5–9 peers,
    one level, no recursion. Before committing, run `tm collisions --labels "A,B,C"` and resolve
-   each hit (see Duplicate resolution below). Commit with `tm decompose <center> --json '{...}'`,
+   each hit (see Duplicate resolution below). Commit with `tm decompose <nodeId> --json '{...}'`,
    then `tm provenance <id> drafted` on new nodes.
 2. **STEER**. Present the territory; ask the user to pick ONE center to go deeper.
 3. **DEEPEN** (vertical). On the chosen node, propose options with a "pick this if X" rationale,
-   then `tm grow <id> --json '{...}'` along that spine toward atoms. Collapse siblings. Mark
+   then `tm grow <nodeId> --json '{...}'` along that spine toward atoms. Collapse siblings. Mark
    new nodes `drafted` (Phase 1 does no verification).
 4. **PRIORITISE**. Use `tm status <id> <todo|running|...>` to mark what matters; this is the
    user's call.

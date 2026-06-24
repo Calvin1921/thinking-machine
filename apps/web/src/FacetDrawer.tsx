@@ -34,6 +34,24 @@ export function FacetDrawer({ boardId, node, onClose, onSaved }: { boardId: stri
       <button className="drawer-close" onClick={onClose}>×</button>
       <h2>{node.label}</h2>
       <div className="dsub">{node.kind === "root" ? node.rootType : node.kind}</div>
+      {(node.provenance || node.rationale || node.sources?.length) && (
+        <div className="verif">
+          {node.provenance && (
+            <span className={`t-prov prov-${node.provenance}`}>{node.provenance}</span>
+          )}
+          {node.contentKind && <span className="verif-kind">{node.contentKind}</span>}
+          {node.verifiedAt && <span className="verif-at">checked {node.verifiedAt.slice(0, 10)}</span>}
+          {node.volatility && <span className="verif-vol">TTL: {node.volatility}</span>}
+          {node.rationale && <div className="verif-rationale">{node.rationale}</div>}
+          {node.sources?.length ? (
+            <ul className="verif-sources">
+              {node.sources.map((s) => (
+                <li key={s}><a href={s} target="_blank" rel="noreferrer">{s}</a></li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      )}
       <div className="facet">
         <label>status</label>
         <select

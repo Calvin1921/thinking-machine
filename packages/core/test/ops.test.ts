@@ -291,4 +291,43 @@ describe("ops", () => {
     const b = newBoard("App", "objective");
     expect(() => setVerification(b, "root", { provenance: "bogus" as any })).toThrow();
   });
+
+  it("partial merge preserves prior fields when only some optional fields are updated", () => {
+    let b = newBoard("App", "objective");
+    // First call: set multiple fields
+    b = setVerification(b, "root", {
+      provenance: "verified",
+      sources: ["https://a.com"],
+      verifiedAt: "2026-06-24T00:00:00.000Z",
+    });
+    const n1 = b.nodes.find((x) => x.id === "root")!;
+    expect(n1.provenance).toBe("verified");
+    expect(n1.sources).toEqual(["https://a.com"]);
+    expect(n1.verifiedAt).toBe("2026-06-24T00:00:00.000Z");
+
+    // Second call: update only provenance, should preserve sources and verifiedAt
+    b = setVerification(b, "root", { provenance: "stale" });
+    const n2 = b.nodes.find((x) => x.id === "root")!;
+    expect(n2.provenance).toBe("stale");
+    expect(n2.sources).toEqual(["https://a.com"]); // preserved
+    expect(n2.verifiedAt).toBe("2026-06-24T00:00:00.000Z"); // preserved
+  });
+
+  it("empty sources array replaces prior sources, not drops them", () => {
+    let b = newBoard("App", "objective");
+    // First call: set sources
+    b = setVerification(b, "root", {
+      provenance: "verified",
+      sources: ["https://a.com"],
+    });
+    expect(b.nodes.find((x) => x.id === "root")!.sources).toEqual(["https://a.com"]);
+
+    // Second call: explicitly set sources to empty array
+    b = setVerification(b, "root", {
+      provenance: "verified",
+      sources: [],
+    });
+    const n = b.nodes.find((x) => x.id === "root")!;
+    expect(n.sources).toEqual([]); // should be empty, not the old array
+  });
 });

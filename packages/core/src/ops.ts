@@ -113,10 +113,10 @@ export function setVerification(board: Board, nodeId: string, input: Verificatio
         ? {
             ...n,
             provenance,
-            ...(input.contentKind ? { contentKind: ContentKind.parse(input.contentKind) } : {}),
-            ...(input.sources ? { sources: input.sources } : {}),
-            ...(input.verifiedAt ? { verifiedAt: input.verifiedAt } : {}),
-            ...(input.volatility ? { volatility: Volatility.parse(input.volatility) } : {}),
+            ...(input.contentKind !== undefined ? { contentKind: ContentKind.parse(input.contentKind) } : {}),
+            ...(input.sources !== undefined ? { sources: input.sources } : {}),
+            ...(input.verifiedAt !== undefined ? { verifiedAt: input.verifiedAt } : {}),
+            ...(input.volatility !== undefined ? { volatility: Volatility.parse(input.volatility) } : {}),
           }
         : n,
     ),

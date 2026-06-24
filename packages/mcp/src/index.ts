@@ -2,12 +2,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { z } from "zod";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
   addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout,
   addSection, setSectionNote, setSectionLayout, growSubtree,
   setNodeProvenance, setGuideMode, detectCollisions,
+  setVerification, markStale, cacheSubtree, lookupCache,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -21,6 +23,7 @@ const BOARD_DESC = "the board id from tm_list_boards / tm_create_board";
 
 export function buildServer(dir: string): McpServer {
   const server = new McpServer({ name: "thinking-machine", version: "0.1.0" });
+  const libDir = join(dir, "library");
 
   // Validate `board` and confirm it exists on disk. Throws on failure; the MCP SDK
   // wraps a thrown Error into an `isError` tool result for the agent to read.
@@ -154,6 +157,31 @@ export function buildServer(dir: string): McpServer {
       const b = loadBoard(resolveBoard(board));
       return ok(detectCollisions(b, labels));
     });
+
+  server.tool("tm_verify", "Record a verification result on a node (provenance + optional sources/contentKind/volatility). Omit 'at' to stamp now.",
+    { board: z.string().describe(BOARD_DESC), nodeId: z.string(),
+      provenance: z.enum(["drafted", "verified", "informed-opinion", "stale"]),
+      contentKind: z.enum(["factual", "subjective"]).optional(),
+      sources: z.array(z.string()).optional(),
+      volatility: z.enum(["static", "weeks", "volatile"]).optional(),
+      at: z.string().optional().describe("ISO timestamp; defaults to now") },
+    async ({ board, nodeId, provenance, contentKind, sources, volatility, at }) =>
+      ok(mutate(resolveBoard(board), (b) => setVerification(b, nodeId, {
+        provenance, contentKind, sources, volatility, verifiedAt: at ?? new Date().toISOString(),
+      }))));
+
+  server.tool("tm_refresh_stale", "Downgrade verified nodes past their TTL to 'stale'. Omit 'at' for now.",
+    { board: z.string().describe(BOARD_DESC), at: z.string().optional() },
+    async ({ board, at }) =>
+      ok(mutate(resolveBoard(board), (b) => markStale(b, at ?? new Date().toISOString()))));
+
+  server.tool("tm_cache_put", "Store a verified subtree payload in the library under a topic",
+    { board: z.string().describe(BOARD_DESC), topic: z.string(), payload: z.unknown() },
+    async ({ topic, payload }) => { cacheSubtree(libDir, topic, payload); return ok({ cached: topic }); });
+
+  server.tool("tm_cache_get", "Read the cached payload for a topic (or null)",
+    { board: z.string().describe(BOARD_DESC), topic: z.string() },
+    async ({ topic }) => ok(lookupCache(libDir, topic)));
 
   return server;
 }

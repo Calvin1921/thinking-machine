@@ -133,4 +133,25 @@ describe("mcp tools", () => {
     expect(hits).toHaveLength(1);
     expect(hits[0].label).toBe("Frontend");
   });
+
+  it("tm_verify records provenance + sources, readable via tm_show", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({ name: "tm_create_board", arguments: { title: "App", rootType: "objective" } }));
+    await c.callTool({ name: "tm_verify", arguments: {
+      board: id, nodeId: "root", provenance: "verified", contentKind: "factual",
+      sources: ["https://a.com"], volatility: "weeks", at: "2026-06-24T00:00:00.000Z",
+    } });
+    const root = payload(await c.callTool({ name: "tm_show", arguments: { board: id, nodeId: "root" } }));
+    expect(root.provenance).toBe("verified");
+    expect(root.sources).toEqual(["https://a.com"]);
+  });
+
+  it("tm_refresh_stale downgrades an expired verified node", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({ name: "tm_create_board", arguments: { title: "App", rootType: "objective" } }));
+    await c.callTool({ name: "tm_verify", arguments: { board: id, nodeId: "root", provenance: "verified", volatility: "volatile", at: "2026-01-01T00:00:00.000Z" } });
+    await c.callTool({ name: "tm_refresh_stale", arguments: { board: id, at: "2026-06-24T00:00:00.000Z" } });
+    const root = payload(await c.callTool({ name: "tm_show", arguments: { board: id, nodeId: "root" } }));
+    expect(root.provenance).toBe("stale");
+  });
 });

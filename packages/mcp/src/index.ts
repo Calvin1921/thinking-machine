@@ -15,10 +15,11 @@ import {
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
 
-// Board ids are slugs (see core's slug()): a leading [a-z0-9] then up to 63 more
-// [a-z0-9-]. Guards `board` before it reaches boardPath()/join(), so a value like
-// "../secret" can never escape the boards dir. Mirrors the web sidecar's ID_RE.
-const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+// Board ids are slugs / filename stems: a leading [a-z0-9] then up to 127 more
+// [a-z0-9_-] (underscore included for central-store names like `petopia__topic`). Guards
+// `board` before it reaches boardPath()/join(), so a value like "../secret" can never escape
+// the boards dir (still no `.` / `/` / `\`). Mirrors the web sidecar's ID_RE.
+const ID_RE = /^[a-z0-9][a-z0-9_-]{0,127}$/;
 
 const BOARD_DESC = "the board id from tm_list_boards / tm_create_board";
 

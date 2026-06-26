@@ -9,7 +9,7 @@ export interface ThinkNodeData {
   kind: BNode["kind"];
   rootType?: string;
   status?: BNode["status"]; // probe/work status — colors the card
-  provenance?: BNode["provenance"]; // epistemic origin badge — drafted/verified/informed-opinion/stale
+  provenance?: BNode["provenance"]; // epistemic origin badge — drafted/verified/refuted/informed-opinion/stale
   image?: string;         // optional image URL rendered atop the card
   preview: string;        // the node's own content (full, untruncated) — shown on the card
   filledFacets: string[]; // names of the lenses that have content

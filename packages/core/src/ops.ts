@@ -1,13 +1,21 @@
 // packages/core/src/ops.ts
-import { Board, Node, EdgeType, NodeStatus, NodeProvenance, ContentKind, Volatility, BoardLayout, Section, SectionKind } from "./schema.js";
+import { Board, Node, EdgeType, NodeStatus, NodeProvenance, ContentKind, Volatility, BoardLayout, Section, SectionKind, AltFraming, AltFramingSchema } from "./schema.js";
 import { placeChildren } from "./layout.js";
 
 // Resets to 0 on every process restart; uniqueness is guaranteed by the live-board
 // collision check (board.nodes.some(...)) below, not by this counter.
 let counter = 0;
+/** Slugify text to an id base, truncating on a word boundary so ids never cut mid-word
+ *  (a hard mid-word slice made generated ids unpredictable for callers). */
+function slugify(text: string, fallback: string): string {
+  const full = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  if (full.length <= 64) return full || fallback;
+  return full.slice(0, 64).replace(/-[^-]*$/, "") || fallback;
+}
+
 /** Deterministic-enough id without Date.now/Math.random (unavailable in some runtimes). */
 function genId(board: Board, label: string): string {
-  const base = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 64) || "node";
+  const base = slugify(label, "node");
   let id = base;
   while (board.nodes.some((n) => n.id === id)) id = `${base}-${++counter}`;
   return id;
@@ -162,8 +170,26 @@ export function setBoardLayout(board: Board, layout: BoardLayout | ""): Board {
   return { ...board, layout: layout === "" || layout === "tree" ? undefined : BoardLayout.parse(layout) };
 }
 
+// Pathfinder: only surface the alternative framing once its message diverges enough from the
+// current view — below this, the alt is a near-duplicate and would just nag (Build-1b finding).
+export const SUGGEST_DIVERGENCE = 0.35;
+
+/** Set (or clear, with null) the Pathfinder alternative framing — the "road not taken". */
+export function setAltFraming(board: Board, input: AltFraming | null): Board {
+  if (!input) { const { altFraming, ...rest } = board; return rest; }
+  return { ...board, altFraming: AltFramingSchema.parse(input) };
+}
+
+/** Whether the canvas should offer the alternative framing: present, divergent enough, and
+ *  actually different from the current layout. */
+export function shouldSuggestAlt(board: Board): boolean {
+  const a = board.altFraming;
+  if (!a) return false;
+  return a.divergence >= SUGGEST_DIVERGENCE && a.layout !== (board.layout ?? "tree");
+}
+
 function genSectionId(board: Board, title: string): string {
-  const base = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 64) || "section";
+  const base = slugify(title, "section");
   const existing = board.sections ?? [];
   let id = base;
   while (existing.some((s) => s.id === id)) id = `${base}-${++counter}`;

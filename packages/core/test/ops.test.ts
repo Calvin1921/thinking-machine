@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale } from "../src/ops.js";
+import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale, setAltFraming, shouldSuggestAlt } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -363,5 +363,44 @@ describe("ops", () => {
     const after = markStale(b, "2026-06-24T00:00:00.000Z");
     expect(after.nodes.find((n) => n.id === "root")!.provenance).toBe("stale");
     expect(after.nodes.find((n) => n.id === opId)!.provenance).toBe("informed-opinion");
+  });
+
+  it("Pathfinder alt framing: set/clear + suggest only above the divergence threshold", () => {
+    let b = newBoard("App", "objective");           // default layout = tree
+    expect(shouldSuggestAlt(b)).toBe(false);         // nothing set
+    b = setAltFraming(b, { layout: "radial", intent: "show the hub & spokes", divergence: 0.7 });
+    expect(b.altFraming!.layout).toBe("radial");
+    expect(shouldSuggestAlt(b)).toBe(true);          // divergent + different from tree
+    b = setAltFraming(b, { layout: "radial", intent: "x", divergence: 0.2 });
+    expect(shouldSuggestAlt(b)).toBe(false);         // below threshold -> suppressed (no nag)
+    b = setAltFraming(b, { layout: "tree", intent: "x", divergence: 0.9 });
+    expect(shouldSuggestAlt(b)).toBe(false);         // same as current layout -> suppressed
+    b = setAltFraming(b, null);
+    expect(b.altFraming).toBeUndefined();            // cleared
+  });
+
+  it("truncates long ids on a word boundary, never mid-word", () => {
+    let b = newBoard("App", "objective");
+    const long = "resolved freelance ai work now sequenced to the product over the next quarter";
+    b = addNode(b, { label: long, parentId: "root", kind: "atom" });
+    const id = b.nodes.find((n) => n.label === long)!.id;
+    expect(id.length).toBeLessThanOrEqual(64);
+    const fullSlug = long.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    expect(fullSlug.startsWith(id)).toBe(true);     // id is a clean prefix
+    expect(fullSlug[id.length]).toBe("-");          // cut fell on a word boundary, not mid-word
+  });
+
+  it("records a refuted verdict and never auto-stales it", () => {
+    let b = newBoard("App", "objective");
+    // a checked-and-FALSE factual claim -> refuted, with the disproving sources
+    b = setVerification(b, "root", {
+      provenance: "refuted", contentKind: "factual",
+      sources: ["https://example.com/correction"],
+      verifiedAt: "2020-01-01T00:00:00.000Z", volatility: "volatile",
+    });
+    expect(b.nodes.find((n) => n.id === "root")!.provenance).toBe("refuted");
+    // refuted is a terminal verdict: staleness only downgrades `verified`
+    const after = markStale(b, "2026-06-24T00:00:00.000Z");
+    expect(after.nodes.find((n) => n.id === "root")!.provenance).toBe("refuted");
   });
 });

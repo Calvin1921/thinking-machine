@@ -10,6 +10,7 @@ import {
   addSection, setSectionNote, setSectionLayout, growSubtree,
   setNodeProvenance, setGuideMode, detectCollisions,
   setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
+  setAltFraming,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -142,9 +143,19 @@ export function buildServer(dir: string): McpServer {
       ok(mutate(resolveBoard(board), (b) => growSubtree(b, parentId, { nodes, edges }))));
 
   server.tool("tm_set_provenance", "Set a node's content provenance/trust badge (empty clears)",
-    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), provenance: z.enum(["drafted", "verified", "informed-opinion", "stale", ""]).describe("one of drafted|verified|informed-opinion|stale, or empty to clear") },
+    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), provenance: z.enum(["drafted", "verified", "refuted", "informed-opinion", "stale", ""]).describe("one of drafted|verified|refuted|informed-opinion|stale, or empty to clear") },
     async ({ board, nodeId, provenance }) =>
       ok(mutate(resolveBoard(board), (b) => setNodeProvenance(b, nodeId, provenance))));
+
+  server.tool("tm_set_alt_framing", "Pathfinder: set the alternative framing (the road not taken). Empty layout clears. divergence 0..1; the canvas surfaces it only when >= 0.35.",
+    { board: z.string().describe(BOARD_DESC),
+      layout: z.enum(["tree", "funnel", "grid", "timeline", "radial", ""]).describe("alternative representation, or empty to clear"),
+      intent: z.string().optional().describe("the main idea that would justify this alternative"),
+      divergence: z.number().min(0).max(1).optional() },
+    async ({ board, layout, intent, divergence }) =>
+      ok(mutate(resolveBoard(board), (b) => layout === ""
+        ? setAltFraming(b, null)
+        : setAltFraming(b, { layout, intent: intent ?? "", divergence: divergence ?? 0.5 }))));
 
   server.tool("tm_set_guide", "Turn the Guide posture on/off for the board",
     { board: z.string().describe(BOARD_DESC), on: z.boolean() },
@@ -160,7 +171,7 @@ export function buildServer(dir: string): McpServer {
 
   server.tool("tm_verify", "Record a verification result on a node (provenance + optional sources/contentKind/volatility). Omit 'at' to stamp now.",
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(),
-      provenance: z.enum(["drafted", "verified", "informed-opinion", "stale"]),
+      provenance: z.enum(["drafted", "verified", "refuted", "informed-opinion", "stale"]),
       contentKind: z.enum(["factual", "subjective"]).optional(),
       sources: z.array(z.string()).optional(),
       volatility: z.enum(["static", "weeks", "volatile"]).optional(),

@@ -11,17 +11,25 @@ import {
   listBoards, createBoard,
   setNodeProvenance, setGuideMode, detectCollisions,
   setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
+  setAltFraming,
 } from "@tm/core";
 
 const program = new Command();
+// Single-source-of-truth defaults: when TM_BOARDS_DIR is set (globally or per
+// project), `ls`/`new`/cache resolve to that ONE central store regardless of CWD,
+// so thinking accumulates in one place. Library mirrors the MCP convention
+// (<boards>/library) unless TM_LIB_DIR overrides. Env unset => legacy CWD-relative.
+const ENV_BOARDS = process.env.TM_BOARDS_DIR;
+const DEFAULT_DIR = ENV_BOARDS ?? "boards";
+const DEFAULT_LIB = process.env.TM_LIB_DIR ?? (ENV_BOARDS ? join(ENV_BOARDS, "library") : "library");
 // Positional options let `note`/`facet` pass through text starting with "-"
 // (e.g. "- bullet"). Side effect: program options (-f/--dir) must come BEFORE
 // the subcommand name (tm -f board.json note …).
 program.name("tm").description("Thinking Machine board CLI")
   .enablePositionalOptions()
   .option("-f, --file <path>", "board file", "board.json")
-  .option("--dir <path>", "boards directory (for ls/new)", "boards")
-  .option("--lib <path>", "library directory (for cache-put/cache-get)", "library");
+  .option("--dir <path>", "boards directory (for ls/new)", DEFAULT_DIR)
+  .option("--lib <path>", "library directory (for cache-put/cache-get)", DEFAULT_LIB);
 
 const file = () => program.opts().file as string;
 const dir = () => program.opts().dir as string;
@@ -69,7 +77,16 @@ program.command("show")
 program.command("add <label>")
   .requiredOption("--parent <id>", "parent node id")
   .option("--kind <kind>", "branch|atom", "branch")
-  .action((label, opts) => { mutate(file(), (b) => addNode(b, { label, parentId: opts.parent, kind: opts.kind })); });
+  .action((label, opts) => {
+    let id = "";
+    mutate(file(), (b) => {
+      const before = new Set(b.nodes.map((n) => n.id));
+      const nb = addNode(b, { label, parentId: opts.parent, kind: opts.kind });
+      id = nb.nodes.find((n) => !before.has(n.id))!.id;
+      return nb;
+    });
+    process.stdout.write(`${id}\n`);   // print the created id so callers never guess the slug
+  });
 
 program.command("link <from> <to>")
   .option("--type <type>", "decomposition|dependency", "dependency")
@@ -90,7 +107,7 @@ program.command("status <id> <status>")
   .action((id, status) => { mutate(file(), (b) => setNodeStatus(b, id, status === "none" ? "" : status)); });
 
 program.command("provenance <id> <value>")
-  .description("set node provenance: drafted|verified|informed-opinion|stale (use 'none' to clear)")
+  .description("set node provenance: drafted|verified|refuted|informed-opinion|stale (use 'none' to clear)")
   .action((id, value) => { mutate(file(), (b) => setNodeProvenance(b, id, value === "none" ? "" : value)); });
 
 program.command("guide <state>")
@@ -108,6 +125,16 @@ program.command("collisions")
 program.command("layout <type>")
   .description("set board layout: tree|funnel")
   .action((type) => { mutate(file(), (b) => setBoardLayout(b, type)); });
+
+program.command("framing-alt <layout>")
+  .description("Pathfinder: set the alternative framing (the road not taken); 'none' clears")
+  .option("--intent <s>", "the main idea that would justify this alternative")
+  .option("--divergence <n>", "how different the alt's message is, 0..1 (shown only if >= 0.35)", "0.5")
+  .action((layout, opts) => {
+    mutate(file(), (b) => layout === "none"
+      ? setAltFraming(b, null)
+      : setAltFraming(b, { layout, intent: opts.intent ?? "", divergence: Number(opts.divergence) }));
+  });
 
 program.command("section <title>")
   .description("add a section: --kind graph|note, graph takes --layout tree|funnel. Prints the new section id.")
@@ -159,7 +186,7 @@ program.command("logo <id> <domain>")
 
 program.command("verify <id>")
   .description("record a verification result on a node")
-  .requiredOption("--provenance <v>", "drafted|verified|informed-opinion|stale")
+  .requiredOption("--provenance <v>", "drafted|verified|refuted|informed-opinion|stale")
   .option("--kind <kind>", "factual|subjective")
   .option("--sources <csv>", "comma-separated source URLs")
   .option("--volatility <v>", "static|weeks|volatile")

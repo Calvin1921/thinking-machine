@@ -35,6 +35,7 @@ describe("schema", () => {
     };
     expect(() => BoardSchema.parse(board)).not.toThrow();
     expect(NodeProvenance.options).toContain("informed-opinion");
+    expect(NodeProvenance.options).toContain("refuted");
   });
 
   it("rejects an unknown provenance value", () => {

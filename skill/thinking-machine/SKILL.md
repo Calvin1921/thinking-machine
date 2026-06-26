@@ -93,6 +93,24 @@ atomically. Add `--json` to `show` for machine-readable output you can read back
 `definition` so the deep tree reads on the canvas. (`tmind decompose`'s `facets` apply to the parent;
 `tmind grow`'s per-node `facets` apply to each created node.)
 
+## Single source of truth (central store)
+
+All boards live in ONE central store so thinking ACCUMULATES across projects instead of
+fragmenting per-directory: `~/Projects/tmind/boards/` (cache/library at
+`~/Projects/tmind/boards/library/`). The CLI and MCP both honor `TM_BOARDS_DIR` (set globally
+in the shell) — so `tmind ls`/`new`/`cache-*` resolve to the central store from ANY directory,
+and `tmind ui` should serve `--dir ~/Projects/tmind/boards`. Never create per-project
+`boards/` dirs again. Name boards `<project>__<topic>.json` and set `domainHint` to the
+project/area (e.g. `petopia/de-slop`) so the pool stays filterable, not a junk drawer.
+
+**Seed from the pool (the payoff).** Before decomposing a topic for a NEW project, FIRST check
+the central store for prior work — `tmind cache-entry "<topic>"` and scan `tmind ls` for
+related `domainHint`s (e.g. existing `*/de-slop` boards). On a context-matching hit, graft it
+(`tmind grow`) for a mature starting point instead of re-deriving from scratch. This is how the
+Compounding Memory pillar pays off: reusable knowledge (de-slop recipes, methodology, market
+maps) is pulled forward, not re-asked. Surface cross-context hits to the user rather than
+silently reusing (see C′ verification cache rules).
+
 ## MCP equivalents
 
 If the MCP server is connected, the same operations are tools — but the server is

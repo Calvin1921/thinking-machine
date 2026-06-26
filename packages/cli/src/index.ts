@@ -14,14 +14,21 @@ import {
 } from "@tm/core";
 
 const program = new Command();
+// Single-source-of-truth defaults: when TM_BOARDS_DIR is set (globally or per
+// project), `ls`/`new`/cache resolve to that ONE central store regardless of CWD,
+// so thinking accumulates in one place. Library mirrors the MCP convention
+// (<boards>/library) unless TM_LIB_DIR overrides. Env unset => legacy CWD-relative.
+const ENV_BOARDS = process.env.TM_BOARDS_DIR;
+const DEFAULT_DIR = ENV_BOARDS ?? "boards";
+const DEFAULT_LIB = process.env.TM_LIB_DIR ?? (ENV_BOARDS ? join(ENV_BOARDS, "library") : "library");
 // Positional options let `note`/`facet` pass through text starting with "-"
 // (e.g. "- bullet"). Side effect: program options (-f/--dir) must come BEFORE
 // the subcommand name (tm -f board.json note …).
 program.name("tm").description("Thinking Machine board CLI")
   .enablePositionalOptions()
   .option("-f, --file <path>", "board file", "board.json")
-  .option("--dir <path>", "boards directory (for ls/new)", "boards")
-  .option("--lib <path>", "library directory (for cache-put/cache-get)", "library");
+  .option("--dir <path>", "boards directory (for ls/new)", DEFAULT_DIR)
+  .option("--lib <path>", "library directory (for cache-put/cache-get)", DEFAULT_LIB);
 
 const file = () => program.opts().file as string;
 const dir = () => program.opts().dir as string;
@@ -90,7 +97,7 @@ program.command("status <id> <status>")
   .action((id, status) => { mutate(file(), (b) => setNodeStatus(b, id, status === "none" ? "" : status)); });
 
 program.command("provenance <id> <value>")
-  .description("set node provenance: drafted|verified|informed-opinion|stale (use 'none' to clear)")
+  .description("set node provenance: drafted|verified|refuted|informed-opinion|stale (use 'none' to clear)")
   .action((id, value) => { mutate(file(), (b) => setNodeProvenance(b, id, value === "none" ? "" : value)); });
 
 program.command("guide <state>")
@@ -159,7 +166,7 @@ program.command("logo <id> <domain>")
 
 program.command("verify <id>")
   .description("record a verification result on a node")
-  .requiredOption("--provenance <v>", "drafted|verified|informed-opinion|stale")
+  .requiredOption("--provenance <v>", "drafted|verified|refuted|informed-opinion|stale")
   .option("--kind <kind>", "factual|subjective")
   .option("--sources <csv>", "comma-separated source URLs")
   .option("--volatility <v>", "static|weeks|volatile")

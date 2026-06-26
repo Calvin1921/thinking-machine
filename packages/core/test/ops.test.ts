@@ -364,4 +364,18 @@ describe("ops", () => {
     expect(after.nodes.find((n) => n.id === "root")!.provenance).toBe("stale");
     expect(after.nodes.find((n) => n.id === opId)!.provenance).toBe("informed-opinion");
   });
+
+  it("records a refuted verdict and never auto-stales it", () => {
+    let b = newBoard("App", "objective");
+    // a checked-and-FALSE factual claim -> refuted, with the disproving sources
+    b = setVerification(b, "root", {
+      provenance: "refuted", contentKind: "factual",
+      sources: ["https://example.com/correction"],
+      verifiedAt: "2020-01-01T00:00:00.000Z", volatility: "volatile",
+    });
+    expect(b.nodes.find((n) => n.id === "root")!.provenance).toBe("refuted");
+    // refuted is a terminal verdict: staleness only downgrades `verified`
+    const after = markStale(b, "2026-06-24T00:00:00.000Z");
+    expect(after.nodes.find((n) => n.id === "root")!.provenance).toBe("refuted");
+  });
 });

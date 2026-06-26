@@ -142,7 +142,7 @@ export function buildServer(dir: string): McpServer {
       ok(mutate(resolveBoard(board), (b) => growSubtree(b, parentId, { nodes, edges }))));
 
   server.tool("tm_set_provenance", "Set a node's content provenance/trust badge (empty clears)",
-    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), provenance: z.enum(["drafted", "verified", "informed-opinion", "stale", ""]).describe("one of drafted|verified|informed-opinion|stale, or empty to clear") },
+    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), provenance: z.enum(["drafted", "verified", "refuted", "informed-opinion", "stale", ""]).describe("one of drafted|verified|refuted|informed-opinion|stale, or empty to clear") },
     async ({ board, nodeId, provenance }) =>
       ok(mutate(resolveBoard(board), (b) => setNodeProvenance(b, nodeId, provenance))));
 
@@ -160,7 +160,7 @@ export function buildServer(dir: string): McpServer {
 
   server.tool("tm_verify", "Record a verification result on a node (provenance + optional sources/contentKind/volatility). Omit 'at' to stamp now.",
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(),
-      provenance: z.enum(["drafted", "verified", "informed-opinion", "stale"]),
+      provenance: z.enum(["drafted", "verified", "refuted", "informed-opinion", "stale"]),
       contentKind: z.enum(["factual", "subjective"]).optional(),
       sources: z.array(z.string()).optional(),
       volatility: z.enum(["static", "weeks", "volatile"]).optional(),

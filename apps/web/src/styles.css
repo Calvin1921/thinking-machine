@@ -22,6 +22,7 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, 
 .t-prov { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; opacity: .7; margin-top: 2px; }
 .prov-drafted { color: #9aa3b2; }
 .prov-verified { color: #4ade80; }
+.prov-refuted { color: #ff6b6b; }
 .prov-informed-opinion { color: #6aa3ff; }
 .prov-stale { color: #f0a868; }
 .t-preview { font-size: 11px; color: var(--dim); line-height: 1.5; margin-top: 7px; white-space: pre-wrap; }

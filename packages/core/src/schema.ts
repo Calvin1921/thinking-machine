@@ -9,9 +9,11 @@ export const EdgeType = z.enum(["decomposition", "dependency"]);
 // Probe/work status for a node. Drives the canvas "scoreboard" colors. Absent = untracked.
 export const NodeStatus = z.enum(["todo", "running", "passed", "failed", "blocked"]);
 // Content provenance / trust level (spec §2.4). `verified` is reserved for factual content
-// that passed a source-check; subjective content tops out at `informed-opinion`; past-TTL
-// content downgrades to `stale`. Phase 1 only ever sets `drafted`. Absent = untracked.
-export const NodeProvenance = z.enum(["drafted", "verified", "informed-opinion", "stale"]);
+// that passed a source-check; `refuted` is factual content that was source-checked and found
+// FALSE (the negative counterpart of `verified`); subjective content tops out at
+// `informed-opinion`; past-TTL content downgrades to `stale`. Phase 1 only ever sets `drafted`.
+// Absent = untracked.
+export const NodeProvenance = z.enum(["drafted", "verified", "refuted", "informed-opinion", "stale"]);
 // Whether a node's content is checkable against sources (factual) or a judgment call
 // (subjective). Drives whether background verification runs at all (spec §2.4).
 export const ContentKind = z.enum(["factual", "subjective"]);

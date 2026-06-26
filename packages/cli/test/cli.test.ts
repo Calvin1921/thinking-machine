@@ -34,6 +34,14 @@ describe("tm cli", () => {
     expect(out.nodes.map((n: any) => n.label)).toContain("Frontend");
   });
 
+  it("layout --alt sets the default layout and the Pathfinder alternative in one step", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    run(["layout", "grid", "--alt", "radial", "--alt-intent", "show it as a hub", "--alt-divergence", "0.7"]);
+    const b = JSON.parse(run(["show", "--json"]));
+    expect(b.layout).toBe("grid");
+    expect(b.altFraming).toEqual({ layout: "radial", intent: "show it as a hub", divergence: 0.7 });
+  });
+
   it("image attaches a url shown by show --json", () => {
     run(["init", "App", "--root-type", "objective"]);
     run(["add", "Frontend", "--parent", "root", "--kind", "branch"]);

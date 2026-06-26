@@ -40,11 +40,6 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
         {data.preview
           ? <div className="t-preview">{data.preview}</div>
           : <div className="t-empty">click to add your thinking…</div>}
-        {data.filledFacets.length > 0 && (
-          <div className="t-facets">
-            {data.filledFacets.map((f) => <span key={f}>{f}</span>)}
-          </div>
-        )}
       </div>
       {data.childCount > 0 && (
         <button

@@ -1,6 +1,5 @@
 // apps/web/src/boardToFlow.ts
 import type { Board, Node as BNode } from "@tm/core/schema";
-import { SEED_FACETS } from "@tm/core/schema";
 import { MarkerType, type Node as FlowNode, type Edge as FlowEdge } from "@xyflow/react";
 import { radialEdgeRewires } from "./radialLayout.js";
 
@@ -11,23 +10,12 @@ export interface ThinkNodeData {
   status?: BNode["status"]; // probe/work status — colors the card
   provenance?: BNode["provenance"]; // epistemic origin badge — drafted/verified/refuted/informed-opinion/stale
   image?: string;         // optional image URL rendered atop the card
-  preview: string;        // the node's own content (full, untruncated) — shown on the card
-  filledFacets: string[]; // names of the lenses that have content
+  preview: string;        // the node's body text (description) — shown on the card
   childCount: number;     // number of decomposition children (for the collapse toggle)
   sized?: boolean;        // node has an explicit user size → fill the node element
   collapsed?: boolean;    // injected at render time
   onToggle?: (id: string) => void; // injected at render time
   [key: string]: unknown;
-}
-
-/** The node's headline content: prefer the definition, else the first non-empty lens. */
-function firstContent(facets: BNode["facets"]): string {
-  const order = ["definition", ...SEED_FACETS.filter((f) => f !== "definition")];
-  for (const f of order) {
-    const v = facets[f];
-    if (v && v.length) return v[0];
-  }
-  return "";
 }
 
 export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; edges: FlowEdge[] } {
@@ -54,8 +42,7 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
         status: n.status,
         provenance: n.provenance,
         image: n.image,
-        preview: firstContent(n.facets),
-        filledFacets: SEED_FACETS.filter((f) => (n.facets[f]?.length ?? 0) > 0),
+        preview: n.description ?? "",
         childCount: childCount[n.id] ?? 0,
         sized,
       },

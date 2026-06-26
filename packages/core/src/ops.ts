@@ -27,13 +27,13 @@ function requireNode(board: Board, id: string): Node {
   return n;
 }
 
-export interface AddNodeInput { label: string; parentId: string; kind: "branch" | "atom"; }
+export interface AddNodeInput { label: string; parentId: string; kind: "branch" | "atom"; description?: string; }
 
 export function addNode(board: Board, input: AddNodeInput): Board {
   const parent = requireNode(board, input.parentId);
   const [pt] = placeChildren(parent, 1);
   const id = genId(board, input.label);
-  const node: Node = { id, label: input.label, kind: input.kind, x: pt.x, y: pt.y, facets: {}, sectionId: parent.sectionId };
+  const node: Node = { id, label: input.label, kind: input.kind, x: pt.x, y: pt.y, sectionId: parent.sectionId, ...(input.description ? { description: input.description } : {}) };
   return {
     ...board,
     nodes: [...board.nodes, node],
@@ -207,7 +207,7 @@ export function addSection(board: Board, input: AddSectionInput): Board {
   const id = genSectionId(board, input.title);
   if (input.kind === "graph") {
     const rootId = genId(board, `${input.title}-root`);
-    const root: Node = { id: rootId, label: input.title, kind: "root", x: 0, y: 0, facets: {}, sectionId: id };
+    const root: Node = { id: rootId, label: input.title, kind: "root", x: 0, y: 0, sectionId: id };
     const section: Section = { id, title: input.title, kind: "graph", layout: input.layout, rootId };
     return { ...board, sections: [...(board.sections ?? []), section], nodes: [...board.nodes, root] };
   }
@@ -275,31 +275,19 @@ export function detectCollisions(board: Board, labels: string[]): { label: strin
   return hits;
 }
 
-export function setFacet(board: Board, nodeId: string, facet: string, items: string[], mode: "set" | "add"): Board {
-  const node = requireNode(board, nodeId);
-  const current = node.facets[facet] ?? [];
-  const next = mode === "set" ? items : [...current, ...items];
-  const nodes = board.nodes.map((n) => (n.id === nodeId ? { ...n, facets: { ...n.facets, [facet]: next } } : n));
-  return { ...board, nodes };
-}
-
-export function promoteFacetItem(board: Board, nodeId: string, facet: string, index: number): Board {
-  const node = requireNode(board, nodeId);
-  const items = node.facets[facet] ?? [];
-  const label = items[index];
-  if (label === undefined) throw new Error(`No item ${index} in facet "${facet}"`);
-  const remaining = items.filter((_, i) => i !== index);
-  const withRemoved = setFacet(board, nodeId, facet, remaining, "set");
-  return addNode(withRemoved, { label, parentId: nodeId, kind: "branch" });
+/** Set (or clear, with empty) a node's body text. */
+export function setNodeDescription(board: Board, nodeId: string, description: string): Board {
+  requireNode(board, nodeId);
+  const next = description.trim() ? description : undefined;
+  return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, description: next } : n)) };
 }
 
 export interface DecomposeInput {
-  decomposition: { label: string; kind: "branch" | "atom" }[];
+  decomposition: { label: string; kind: "branch" | "atom"; description?: string }[];
   edges?: { fromLabel: string; toLabel: string; type: EdgeType; label?: string }[];
-  facets?: Record<string, string[]>;
 }
 
-/** Commit a full LLM proposal: children, cross-edges, and facet seeds in one shot. */
+/** Commit a full LLM proposal: children (each with optional body text) + cross-edges in one shot. */
 export function decompose(board: Board, nodeId: string, input: DecomposeInput): Board {
   const parent = requireNode(board, nodeId);
   const pts = placeChildren(parent, input.decomposition.length);
@@ -310,7 +298,7 @@ export function decompose(board: Board, nodeId: string, input: DecomposeInput): 
     labelToId[child.label] = id;
     b = {
       ...b,
-      nodes: [...b.nodes, { id, label: child.label, kind: child.kind, x: pts[i].x, y: pts[i].y, facets: {}, sectionId: parent.sectionId }],
+      nodes: [...b.nodes, { id, label: child.label, kind: child.kind, x: pts[i].x, y: pts[i].y, sectionId: parent.sectionId, ...(child.description ? { description: child.description } : {}) }],
       edges: [...b.edges, { from: parent.id, to: id, type: "decomposition" as const }],
     };
   });
@@ -319,16 +307,13 @@ export function decompose(board: Board, nodeId: string, input: DecomposeInput): 
     if (!from || !to) throw new Error(`decompose edge references unknown child label`);
     b = linkNodes(b, from, to, e.type, e.label);
   }
-  for (const [facet, items] of Object.entries(input.facets ?? {})) {
-    b = setFacet(b, nodeId, facet, items, "add");
-  }
   return b;
 }
 
 export interface GrowNode {
   label: string;
   kind: "branch" | "atom";
-  facets?: Record<string, string[]>;   // e.g. { definition: ["..."] }
+  description?: string;                 // the node's body text
   children?: GrowNode[];                // recursive
 }
 export interface GrowInput {
@@ -367,12 +352,9 @@ export function growSubtree(board: Board, parentId: string, input: GrowInput): B
       labelToId[child.label] = id;   // last-created wins on duplicate labels
       b = {
         ...b,
-        nodes: [...b.nodes, { id, label: child.label, kind: child.kind, x: pts[i].x, y: pts[i].y, facets: {}, sectionId: parentNode.sectionId }],
+        nodes: [...b.nodes, { id, label: child.label, kind: child.kind, x: pts[i].x, y: pts[i].y, sectionId: parentNode.sectionId, ...(child.description ? { description: child.description } : {}) }],
         edges: [...b.edges, { from: parent, to: id, type: "decomposition" as const }],
       };
-      for (const [facet, items] of Object.entries(child.facets ?? {})) {
-        b = setFacet(b, id, facet, items, "set");
-      }
       if (child.children?.length) growLevel(child.children, id);
     });
   };

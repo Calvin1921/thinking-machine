@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import {
   newBoard, loadBoard, saveBoard, mutate,
-  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout,
+  addNode, linkNodes, setNodeDescription, decompose, setNodeImage, setNodeStatus, setBoardLayout,
   addSection, setSectionNote, setSectionLayout, growSubtree,
   listBoards, createBoard,
   setNodeProvenance, setGuideMode, detectCollisions,
@@ -77,11 +77,12 @@ program.command("show")
 program.command("add <label>")
   .requiredOption("--parent <id>", "parent node id")
   .option("--kind <kind>", "branch|atom", "branch")
+  .option("--desc <text>", "the node's body text")
   .action((label, opts) => {
     let id = "";
     mutate(file(), (b) => {
       const before = new Set(b.nodes.map((n) => n.id));
-      const nb = addNode(b, { label, parentId: opts.parent, kind: opts.kind });
+      const nb = addNode(b, { label, parentId: opts.parent, kind: opts.kind, description: opts.desc });
       id = nb.nodes.find((n) => !before.has(n.id))!.id;
       return nb;
     });
@@ -93,10 +94,10 @@ program.command("link <from> <to>")
   .option("--label <verb>", "relationship verb shown on the edge, e.g. 'blocks', 'feeds'")
   .action((from, to, opts) => { mutate(file(), (b) => linkNodes(b, from, to, opts.type, opts.label)); });
 
-program.command("facet <id> <facet> <mode> [items...]")
-  .description("mode = set|add. Items may start with '-' (e.g. \"- bullet\"); they pass through as text.")
+program.command("describe <id> <text...>")
+  .description("set a node's body text (empty clears it). Text may start with '-'.")
   .passThroughOptions()
-  .action((id, facet, mode, items) => { mutate(file(), (b) => setFacet(b, id, facet, items, mode)); });
+  .action((id, text) => { mutate(file(), (b) => setNodeDescription(b, id, (text as string[]).join(" "))); });
 
 program.command("image <id> <url>")
   .description("attach an image url to a node (empty url clears it)")
@@ -165,8 +166,6 @@ program.command("section-layout <sectionId> <type>")
   .description("set a graph section's layout: tree|funnel")
   .action((sectionId, type) => { mutate(file(), (b) => setSectionLayout(b, sectionId, type)); });
 
-program.command("promote <id> <facet> <index>")
-  .action((id, facet, index) => { mutate(file(), (b) => promoteFacetItem(b, id, facet, Number(index))); });
 
 /** Read a proposal from --json or --json-file (exactly one must be given). */
 const proposalOf = (opts: { json?: string; jsonFile?: string }): unknown => {
@@ -176,7 +175,7 @@ const proposalOf = (opts: { json?: string; jsonFile?: string }): unknown => {
 };
 
 program.command("decompose <id>")
-  .option("--json <proposal>", "JSON {decomposition, edges?, facets?}")
+  .option("--json <proposal>", "JSON {decomposition:[{label,kind,description?}], edges?}")
   .option("--json-file <path>", "read the proposal JSON from a file instead of --json")
   .action((id, opts) => { mutate(file(), (b) => decompose(b, id, proposalOf(opts) as Parameters<typeof decompose>[2])); });
 

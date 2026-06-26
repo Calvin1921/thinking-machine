@@ -1,6 +1,6 @@
 // packages/core/src/board.ts
 import { readFileSync, writeFileSync, renameSync, openSync, closeSync, unlinkSync, existsSync } from "node:fs";
-import { Board, migrate, CURRENT_VERSION, SEED_FACETS } from "./schema.js";
+import { Board, migrate, CURRENT_VERSION } from "./schema.js";
 import { tmpPath, lockPath } from "./paths.js";
 
 export function newBoard(
@@ -8,10 +8,9 @@ export function newBoard(
   rootType: "objective" | "cause" | "decision" | "concept",
   id = "board",
 ): Board {
-  const facets = Object.fromEntries(SEED_FACETS.map((k) => [k, [] as string[]]));
   return {
     version: CURRENT_VERSION, id, title, rootId: "root",
-    nodes: [{ id: "root", label: title, kind: "root", rootType, x: 0, y: 0, facets }],
+    nodes: [{ id: "root", label: title, kind: "root", rootType, x: 0, y: 0 }],
     edges: [],
   };
 }

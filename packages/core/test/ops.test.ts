@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setNodeDescription, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale, setAltFraming, shouldSuggestAlt } from "../src/ops.js";
+import { addNode, linkNodes, setNodeDescription, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale, setAltFraming, shouldSuggestAlt, subtreeIds, ancestorPath } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -354,6 +354,21 @@ describe("ops", () => {
     const after = markStale(b, "2026-06-24T00:00:00.000Z");
     expect(after.nodes.find((n) => n.id === "root")!.provenance).toBe("stale");
     expect(after.nodes.find((n) => n.id === opId)!.provenance).toBe("informed-opinion");
+  });
+
+  it("subtreeIds + ancestorPath drive Focus-dive", () => {
+    let b = newBoard("App", "objective");   // root
+    b = decompose(b, "root", { decomposition: [{ label: "A", kind: "branch" }, { label: "B", kind: "atom" }] });
+    const aId = b.nodes.find((n) => n.label === "A")!.id;
+    b = decompose(b, aId, { decomposition: [{ label: "A1", kind: "atom" }, { label: "A2", kind: "atom" }] });
+    const a1 = b.nodes.find((n) => n.label === "A1")!.id;
+    // diving into A shows A + A1 + A2, not B or root
+    const sub = subtreeIds(b, aId);
+    expect([...sub].sort()).toEqual([aId, a1, b.nodes.find((n) => n.label === "A2")!.id].sort());
+    expect(sub.has("root")).toBe(false);
+    expect(sub.has(b.nodes.find((n) => n.label === "B")!.id)).toBe(false);
+    // breadcrumb from root to A1
+    expect(ancestorPath(b, a1)).toEqual(["root", aId, a1]);
   });
 
   it("Pathfinder alt framing: set/clear + suggest only above the divergence threshold", () => {

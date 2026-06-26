@@ -1,10 +1,11 @@
 import { Handle, Position, NodeResizer, type NodeProps } from "@xyflow/react";
 import type { ThinkNodeData } from "./boardToFlow.js";
 
-const KIND_BORDER: Record<string, string> = { root: "#c78bff", branch: "#323a47", atom: "#323a47" };
+// Wayfinder (DESIGN.md): root = violet, others = quiet line; selection wins with cyan.
+const KIND_BORDER: Record<string, string> = { root: "#a78bfa", branch: "#1d2735", atom: "#1d2735" };
 // Status colors double as the card's left-accent and pill. Absent status falls back to kind.
 const STATUS_COLOR: Record<string, string> = {
-  running: "#6aa3ff", passed: "#4ade80", failed: "#ff6b6b", blocked: "#f0a868", todo: "#9aa3b2",
+  running: "#6aa3ff", passed: "#34d399", failed: "#ff6b6b", blocked: "#f5a623", todo: "#8499b3",
 };
 
 export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeData }) {
@@ -12,7 +13,8 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
   return (
     <div
       className={`think ${data.kind} ${selected ? "sel" : ""} ${data.sized ? "sized" : ""}`}
-      style={{ borderColor: statusColor ?? KIND_BORDER[data.kind], borderLeftWidth: statusColor ? 4 : undefined }}
+      title="double-click to dive in"
+      style={{ borderColor: selected ? "#22d3ee" : (statusColor ?? KIND_BORDER[data.kind]), borderLeftWidth: statusColor ? 4 : undefined }}
     >
       <NodeResizer isVisible={selected} minWidth={150} minHeight={56} lineClassName="nr-line" handleClassName="nr-handle" />
       <Handle type="target" position={Position.Left} id="l" />

@@ -19,7 +19,14 @@ export const createBoard = (title: string, rootType: RootType): Promise<{ id: st
   post("/api/boards", { title, rootType });
 
 // --- a single board ---
-export const getBoard = (id: string): Promise<Board> => fetch(`/api/boards/${id}`).then((r) => r.json());
+export const getBoard = async (id: string): Promise<Board> => {
+  const r = await fetch(`/api/boards/${id}`);
+  if (!r.ok) {
+    const detail = await r.json().catch(() => null);
+    throw new Error(detail?.error ? `Couldn't load board "${id}": ${detail.error}` : `Couldn't load board "${id}" (HTTP ${r.status})`);
+  }
+  return r.json();
+};
 export const addNode = (boardId: string, label: string, parentId: string, kind: "branch" | "atom") =>
   post(`/api/boards/${boardId}/add`, { label, parentId, kind });
 export const moveNode = (boardId: string, nodeId: string, x: number, y: number) =>

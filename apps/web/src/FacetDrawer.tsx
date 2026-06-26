@@ -43,6 +43,9 @@ export function FacetDrawer({ boardId, node, onClose, onSaved }: { boardId: stri
           {node.contentKind && <span className="verif-kind">{node.contentKind}</span>}
           {node.verifiedAt && <span className="verif-at">checked {node.verifiedAt.slice(0, 10)}</span>}
           {node.volatility && <span className="verif-vol">TTL: {node.volatility}</span>}
+          {node.provenance === "refuted" && (
+            <div className="verif-refuted">⚠ Refuted — the source-check found this claim false. See sources below.</div>
+          )}
           {node.rationale && <div className="verif-rationale">{node.rationale}</div>}
           {node.sources?.length ? (
             <ul className="verif-sources">

@@ -79,7 +79,7 @@ describe("mcp tools", () => {
       board: id,
       parentId: "root",
       nodes: [
-        { label: "A", kind: "branch", children: [{ label: "B", kind: "atom", facets: { definition: ["b def"] } }] },
+        { label: "A", kind: "branch", children: [{ label: "B", kind: "atom", description: "b def" }] },
         { label: "C", kind: "branch" },
       ],
       edges: [{ fromLabel: "C", toLabel: "A", type: "dependency" }],
@@ -90,7 +90,7 @@ describe("mcp tools", () => {
     expect(b.edges).toContainEqual({ from: "root", to: nid("A"), type: "decomposition" });
     expect(b.edges).toContainEqual({ from: nid("A"), to: nid("B"), type: "decomposition" });
     expect(b.edges).toContainEqual({ from: nid("C"), to: nid("A"), type: "dependency" });
-    expect(b.nodes.find((n: any) => n.label === "B").facets.definition).toEqual(["b def"]);
+    expect(b.nodes.find((n: any) => n.label === "B").description).toBe("b def");
   });
 
   it("tm_show with a bad board id returns an isError result", async () => {

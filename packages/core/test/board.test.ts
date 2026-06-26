@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadBoard, saveBoard, newBoard, mutate } from "../src/board.js";
-import { addNode, setFacet } from "../src/ops.js";
+import { addNode, setNodeDescription } from "../src/ops.js";
 
 let dir: string, file: string;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "tm-")); file = join(dir, "board.json"); });
@@ -26,14 +26,16 @@ describe("board io", () => {
     expect(readdirSync(dir).filter((f: string) => f.includes(".tmp"))).toHaveLength(0);
   });
 
-  it("load migrates an unversioned file on disk", () => {
+  it("load migrates an unversioned file and folds legacy facets into description", () => {
     writeFileSync(file, JSON.stringify({
       id: "b", title: "Legacy", rootId: "r",
-      nodes: [{ id: "r", label: "R", kind: "root" }], edges: [],
+      nodes: [{ id: "r", label: "R", kind: "root", facets: { definition: ["the core"], risks: ["a", "b"] } }],
+      edges: [],
     }));
     const loaded = loadBoard(file);
     expect(loaded.version).toBe(1);
-    expect(loaded.nodes[0].facets).toEqual({});
+    expect(loaded.nodes[0]).not.toHaveProperty("facets");   // old field dropped
+    expect(loaded.nodes[0].description).toBe("the core\nrisks: a; b");  // folded, nothing lost
   });
 });
 
@@ -50,9 +52,10 @@ describe("mutate / withLock", () => {
 
   it("composes sequential mutations: the second sees the first's result", () => {
     saveBoard(file, newBoard("Idea", "objective"));
-    mutate(file, (b) => setFacet(b, "root", "risks", ["first"], "add"));
-    mutate(file, (b) => setFacet(b, "root", "risks", ["second"], "add"));
+    mutate(file, (b) => addNode(b, { label: "Step", parentId: "root", kind: "atom" }));
+    mutate(file, (b) => setNodeDescription(b, "root", "second mutation"));
     const onDisk = loadBoard(file);
-    expect(onDisk.nodes[0].facets.risks).toEqual(["first", "second"]);
+    expect(onDisk.nodes).toHaveLength(2);                       // first mutation persisted
+    expect(onDisk.nodes[0].description).toBe("second mutation"); // second saw + extended it
   });
 });

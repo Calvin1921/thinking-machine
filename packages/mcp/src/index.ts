@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
-  addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout,
+  addNode, linkNodes, setNodeDescription, decompose, setNodeImage, setNodeStatus, setBoardLayout,
   addSection, setSectionNote, setSectionLayout, growSubtree,
   setNodeProvenance, setGuideMode, detectCollisions,
   setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
@@ -64,10 +64,10 @@ export function buildServer(dir: string): McpServer {
     async ({ board, from, to, type, label }) =>
       ok(mutate(resolveBoard(board), (b) => linkNodes(b, from, to, type, label))));
 
-  server.tool("tm_set_facet", "Set or add items to a node facet on a board",
-    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), facet: z.string(), items: z.array(z.string()), mode: z.enum(["set", "add"]) },
-    async ({ board, nodeId, facet, items, mode }) =>
-      ok(mutate(resolveBoard(board), (b) => setFacet(b, nodeId, facet, items, mode))));
+  server.tool("tm_set_description", "Set a node's body text (empty clears it)",
+    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), description: z.string() },
+    async ({ board, nodeId, description }) =>
+      ok(mutate(resolveBoard(board), (b) => setNodeDescription(b, nodeId, description))));
 
   server.tool("tm_set_image", "Attach an optional image url to a node on a board (empty url clears it)",
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(), url: z.string().describe("image URL, or empty string to clear") },
@@ -109,27 +109,21 @@ export function buildServer(dir: string): McpServer {
     async ({ board, sectionId, layout }) =>
       ok(mutate(resolveBoard(board), (b) => setSectionLayout(b, sectionId, layout))));
 
-  server.tool("tm_promote", "Promote a facet item into its own node on a board",
-    { board: z.string().describe(BOARD_DESC), nodeId: z.string(), facet: z.string(), index: z.number() },
-    async ({ board, nodeId, facet, index }) =>
-      ok(mutate(resolveBoard(board), (b) => promoteFacetItem(b, nodeId, facet, index))));
-
   server.tool("tm_decompose", "Commit a full decomposition proposal in one shot on a board",
     {
       board: z.string().describe(BOARD_DESC),
       nodeId: z.string(),
-      decomposition: z.array(z.object({ label: z.string(), kind: z.enum(["branch", "atom"]) })),
+      decomposition: z.array(z.object({ label: z.string(), kind: z.enum(["branch", "atom"]), description: z.string().optional().describe("the node's body text") })),
       edges: z.array(z.object({ fromLabel: z.string(), toLabel: z.string(), type: z.enum(["decomposition", "dependency"]), label: z.string().optional().describe("relationship verb shown on the edge") })).optional(),
-      facets: z.record(z.string(), z.array(z.string())).optional(),
     },
-    async ({ board, nodeId, decomposition, edges, facets }) =>
-      ok(mutate(resolveBoard(board), (b) => decompose(b, nodeId, { decomposition, edges, facets }))));
+    async ({ board, nodeId, decomposition, edges }) =>
+      ok(mutate(resolveBoard(board), (b) => decompose(b, nodeId, { decomposition, edges }))));
 
   // Recursive GrowNode shape (a node may carry nested children of the same shape).
   const growNode: z.ZodType<any> = z.lazy(() => z.object({
     label: z.string(),
     kind: z.enum(["branch", "atom"]),
-    facets: z.record(z.string(), z.array(z.string())).optional(),
+    description: z.string().optional(),
     children: z.array(growNode).optional(),
   }));
 
@@ -137,7 +131,7 @@ export function buildServer(dir: string): McpServer {
     {
       board: z.string().describe(BOARD_DESC),
       parentId: z.string().describe("id of the node the new subtree hangs under (e.g. \"root\")"),
-      nodes: z.array(growNode).describe("forest of GrowNodes {label,kind,facets?,children?}; children recurse to any depth"),
+      nodes: z.array(growNode).describe("forest of GrowNodes {label,kind,description?,children?}; children recurse to any depth"),
       edges: z.array(z.object({ fromLabel: z.string(), toLabel: z.string(), type: z.enum(["decomposition", "dependency"]), label: z.string().optional().describe("relationship verb shown on the edge") })).optional(),
     },
     async ({ board, parentId, nodes, edges }) =>

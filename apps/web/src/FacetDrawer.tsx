@@ -1,25 +1,24 @@
 import { useState, useEffect } from "react";
 import type { Node as BNode } from "@tm/core/schema";
-import { SEED_FACETS } from "@tm/core/schema";
-import { setFacet, setImage, setStatus } from "./api.js";
+import { setDescription, setImage, setStatus } from "./api.js";
 import { RefText } from "./refLinks.js";
 import { safeHttpUrl } from "./safeUrl.js";
 
 const STATUSES = ["todo", "running", "passed", "failed", "blocked"] as const;
 
 export function FacetDrawer({ boardId, node, onClose, onSaved }: { boardId: string; node: BNode | null; onClose: () => void; onSaved: () => void }) {
-  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [desc, setDesc] = useState("");
   const [image, setImageDraft] = useState("");
   useEffect(() => {
     if (!node) return;
-    setDraft(Object.fromEntries(SEED_FACETS.map((f) => [f, (node.facets[f] ?? []).join("\n")])));
+    setDesc(node.description ?? "");
     setImageDraft(node.image ?? "");
   }, [node]);
   if (!node) return null;
 
-  const save = async (facet: string) => {
-    const items = draft[facet].split("\n").map((s) => s.trim()).filter(Boolean);
-    await setFacet(boardId, node.id, facet, items, "set");
+  const saveDesc = async () => {
+    if (desc === (node.description ?? "")) return;
+    await setDescription(boardId, node.id, desc);
     onSaved();
   };
 
@@ -78,20 +77,18 @@ export function FacetDrawer({ boardId, node, onClose, onSaved }: { boardId: stri
           onBlur={saveImage}
         />
       </div>
-      {SEED_FACETS.map((f) => (
-        <div className="facet" key={f}>
-          <label>{f}</label>
-          <textarea
-            value={draft[f] ?? ""}
-            placeholder="One thought per line…"
-            onChange={(e) => setDraft({ ...draft, [f]: e.target.value })}
-            onBlur={() => save(f)}
-          />
-          {(draft[f] ?? "").includes("[[") && (
-            <div className="facet-refs"><RefText text={draft[f]} /></div>
-          )}
-        </div>
-      ))}
+      <div className="facet">
+        <label>description</label>
+        <textarea
+          value={desc}
+          placeholder="What this node means — the thinking it holds…"
+          onChange={(e) => setDesc(e.target.value)}
+          onBlur={saveDesc}
+        />
+        {desc.includes("[[") && (
+          <div className="facet-refs"><RefText text={desc} /></div>
+        )}
+      </div>
     </div>
   );
 }

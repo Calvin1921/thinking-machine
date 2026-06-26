@@ -7,22 +7,21 @@ description: Use when the user wants to build, expand, or decompose a Thinking M
 
 You are the decomposition engine for a visual thinking canvas. A board is a `board.json`
 file: a graph of **nodes** the user expands by **decomposition** (breaking into parts →
-child nodes, building a DAG) and analyzes through **facets** (lenses applied to a node
-without spawning new nodes). A web canvas renders the same `board.json` and live-updates
+child nodes, building a DAG). A web canvas renders the same `board.json` and live-updates
 as you edit it — the user watches their thinking take shape.
 
-## The two axes
+## One axis: decompose
 
-- **Decompose**: break a node into the parts worth thinking about further → child nodes.
-- **Facets** (seed set — swap to fit the domain): `definition, essentials, dependencies,
-  priorities, considerations, perspectives`. For a *decision* node, prefer lenses like
-  `options, criteria, risks, reversibility`. For *operations*: `inputs, steps, owners,
-  failure-modes, metrics`. Pick lenses that fit the node's domain — the seed is a default,
-  not a cage. (Facet keys are free-form strings; you are not limited to the seed six.)
+There is ONE mechanic — **decompose**: break a node into the parts worth thinking about
+further → child nodes. (The old multi-lens "facets" mechanic is gone; everything that matters
+becomes a node.)
 
-**Child vs facet item:** something is a facet item until it earns its own sub-tree, then
-**promote** it to a node. Use **dependency** edges (not decomposition) for shared
-cross-links (e.g. Frontend and Backend both depend on an API Contract → a DAG, not a tree).
+- A **node** = `label` + an optional `description` (its body text — what it means / the
+  thinking it holds) + children. Give every node a `description` so the deep tree reads on the
+  canvas instead of being empty boxes.
+- If a thought is worth keeping, make it a **child node** — don't park it in a side-lens.
+- Use **dependency** edges (not decomposition) for shared cross-links (e.g. Frontend and
+  Backend both depend on an API Contract → a DAG, not a tree).
 
 **Node kinds:** `root` (the single starting point — an objective / cause / decision /
 concept), `branch` (decomposes further), `atom` (leaf — stop expanding).
@@ -56,42 +55,39 @@ atomically. Add `--json` to `show` for machine-readable output you can read back
 | Command | Purpose |
 |---|---|
 | `tmind --file <path> init "<title>" --root-type objective\|cause\|decision\|concept` | create a board with one root |
-| `tmind show [--node <id>] [--json]` | read the whole board, or one node + its facets |
+| `tmind show [--node <id>] [--json]` | read the whole board, or one node |
 | `tmind ui [--dir <path>] [--port <n>] [--no-open]` | open the live web canvas for boards in the dir (defaults to CWD) in the browser |
 | `tmind add "<label>" --parent <id> --kind branch\|atom` | add one child (decomposition edge to parent) |
 | `tmind link <from> <to> --type decomposition\|dependency` | add an edge (use `dependency` for cross-links) |
-| `tmind facet <id> <facet> set\|add <items...>` | set/append items on a lens |
-| `tmind promote <id> <facet> <index>` | turn facet item #index into its own child node |
+| `tmind describe <id> <text...>` | set a node's body text (empty clears) |
 | `tmind decompose <id> --json '<proposal>'` | commit ONE level in one shot (co-build mode) |
 | `tmind grow <id> --json '<tree>'` | **DEFAULT** — commit a whole multi-level subtree in one shot |
 
 `tmind decompose` (one level) proposal shape:
 ```json
 {
-  "decomposition": [{ "label": "Frontend", "kind": "branch" }, { "label": "Database", "kind": "atom" }],
-  "edges": [{ "fromLabel": "Frontend", "toLabel": "Backend", "type": "dependency" }],
-  "facets": { "considerations": ["scope creep is the #1 killer"] }
+  "decomposition": [{ "label": "Frontend", "kind": "branch", "description": "the user-facing layer" }, { "label": "Database", "kind": "atom" }],
+  "edges": [{ "fromLabel": "Frontend", "toLabel": "Backend", "type": "dependency" }]
 }
 ```
 
-`tmind grow` (deep, nested — the default) shape — each node may carry `facets` and `children`:
+`tmind grow` (deep, nested — the default) shape — each node may carry a `description` and `children`:
 ```json
 {
   "nodes": [
-    { "label": "Frontend", "kind": "branch", "facets": { "definition": ["the user-facing layer"] },
+    { "label": "Frontend", "kind": "branch", "description": "the user-facing layer",
       "children": [
-        { "label": "UI components", "kind": "atom", "facets": { "definition": ["buttons, forms, views"] } },
-        { "label": "State", "kind": "atom", "facets": { "definition": ["client cache + form state"] } }
+        { "label": "UI components", "kind": "atom", "description": "buttons, forms, views" },
+        { "label": "State", "kind": "atom", "description": "client cache + form state" }
       ] },
-    { "label": "Backend", "kind": "branch", "facets": { "definition": ["the server + data layer"] } }
+    { "label": "Backend", "kind": "branch", "description": "the server + data layer" }
   ],
   "edges": [{ "fromLabel": "Frontend", "toLabel": "Backend", "type": "dependency" }]
 }
 ```
 `tmind grow` creates the entire tree under `<id>` at once (decomposition edges built automatically);
 `edges[]` adds dependency cross-links by label across any nodes in the tree. Give EVERY node a
-`definition` so the deep tree reads on the canvas. (`tmind decompose`'s `facets` apply to the parent;
-`tmind grow`'s per-node `facets` apply to each created node.)
+`description` so the deep tree reads on the canvas.
 
 ## Pathfinder: offer the alternative framing
 
@@ -143,7 +139,7 @@ If the MCP server is connected, the same operations are tools — but the server
 **directory-aware** (multi-board), matching the web app. Two collection tools manage
 boards: `tm_list_boards` (no args) and `tm_create_board` `{ title, rootType }` → returns a
 board `id`. Every other tool takes that `board` id as its first arg: `tm_show`,
-`tm_add_node`, `tm_link`, `tm_set_facet`, `tm_promote`, `tm_decompose`, and **`tm_grow`**
+`tm_add_node`, `tm_link`, `tm_set_description`, `tm_decompose`, and **`tm_grow`**
 `{ board, parentId, nodes, edges? }` — the deep-by-default one (same nested `nodes` shape as
 `tmind grow` above). Typical flow: call `tm_list_boards` (or `tm_create_board`) to get a board id,
 then `tm_grow` the whole tree. Prefer these in-session; fall back to the CLI otherwise. The MCP
@@ -173,22 +169,22 @@ that's high-charge but low-tractability is a **probe candidate** (→ 0), not a 
 **3 · Name the crux by in-degree × uncertainty (reasoning-spine heuristic)** — Add
 **dependency** cross-edges for real shared dependencies. The **crux** = the child with the
 highest *in-degree × uncertainty* (what the most others depend on AND is least resolved).
-Record it in the parent's `priorities` facet and expand it first — it's load-bearing.
+Note it in the parent's `description` (and expand it first — it's load-bearing).
 
 **4 · For `decision` nodes, run the gate (decide heuristic)** — children should be the
 pipeline **options · criteria · risks · reversibility**, and the decomposition must **exit
 on a probe**: a dated, numeric test of the crux + a tripwire ("wrong if X by DATE"). Never
 leave a decision node as analysis with no next action.
 
-### Domain → lenses
-Infer the domain and pick the 4–6 facet lenses that fit — the seed six are a default, swap
-freely (decision → options/criteria/risks/reversibility; operations →
-inputs/steps/owners/failure-modes/metrics). Seed 1–3 items per lens where you have genuine
-signal; leave the rest for the user.
+### Domain → how to break it down
+Infer the domain and pick the 4–6 parts that fit, then make them **child nodes** (what used
+to be "lenses" are now just children): decision → options/criteria/risks/reversibility;
+operations → inputs/steps/owners/failure-modes/metrics. Put the genuine signal in each child's
+`description`; leave the rest for the user.
 
 ### Apply the heuristics at EVERY level
 When growing deep, run heuristics 0–4 for the root node AND recursively for each branch child:
-MECE + drop a lens, rank by charge × tractability, name that level's crux, gate decisions.
+MECE + drop the weakest part, rank by charge × tractability, name that level's crux, gate decisions.
 A branch with one good economic reason but no further insight becomes an `atom` — that's the
 recursion's stopping rule.
 
@@ -226,8 +222,8 @@ When `tmind collisions` reports a proposed label already on the board, ask the u
 - **Same thing** → `tmind link <parentId> <existingId> --type dependency --label needs`
   (DAG, one node — do not create a second)
 - **Different** → rename the proposed label, then decompose with the new label
-- **A concern** → `tmind facet <parentId> considerations add "<label>"`
-  (cross-cutting, not a child)
+- **A concern** → fold it into the parent's `description` (`tmind describe <parentId> "…"`)
+  (cross-cutting, not its own child)
 
 ### Mode toggle
 

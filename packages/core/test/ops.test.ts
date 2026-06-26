@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setFacet, promoteFacetItem, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale, setAltFraming, shouldSuggestAlt } from "../src/ops.js";
+import { addNode, linkNodes, setNodeDescription, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale, setAltFraming, shouldSuggestAlt } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -39,36 +39,27 @@ describe("ops", () => {
     expect(b.edges).toContainEqual({ from: fe, to: api, type: "dependency", label: "queries" });
   });
 
-  it("setFacet replaces a facet's items", () => {
+  it("setNodeDescription sets and clears a node's body text", () => {
     let b = newBoard("App", "objective");
-    b = setFacet(b, "root", "essentials", ["one", "two"], "set");
-    expect(b.nodes[0].facets.essentials).toEqual(["one", "two"]);
-    b = setFacet(b, "root", "essentials", ["three"], "add");
-    expect(b.nodes[0].facets.essentials).toEqual(["one", "two", "three"]);
+    b = setNodeDescription(b, "root", "the user-facing layer");
+    expect(b.nodes[0].description).toBe("the user-facing layer");
+    b = setNodeDescription(b, "root", "   ");          // blank clears
+    expect(b.nodes[0].description).toBeUndefined();
   });
 
-  it("promoteFacetItem turns a facet item into a child node", () => {
-    let b = newBoard("App", "objective");
-    b = setFacet(b, "root", "dependencies", ["Deployment"], "set");
-    b = promoteFacetItem(b, "root", "dependencies", 0);
-    expect(b.nodes.find((n) => n.label === "Deployment")).toBeTruthy();
-    expect(b.nodes[0].facets.dependencies).toEqual([]); // removed from facet
-  });
-
-  it("decompose commits children + edges + facets in one shot", () => {
+  it("decompose commits children with descriptions + edges in one shot", () => {
     let b = newBoard("App", "objective");
     b = decompose(b, "root", {
       decomposition: [
-        { label: "FE", kind: "branch" },
+        { label: "FE", kind: "branch", description: "the front end" },
         { label: "BE", kind: "branch" },
       ],
       edges: [{ fromLabel: "FE", toLabel: "BE", type: "dependency" }],
-      facets: { considerations: ["scope creep"] },
     });
     expect(b.nodes).toHaveLength(3);
     expect(b.edges.filter((e) => e.type === "decomposition")).toHaveLength(2);
     expect(b.edges.filter((e) => e.type === "dependency")).toHaveLength(1);
-    expect(b.nodes[0].facets.considerations).toContain("scope creep");
+    expect(b.nodes.find((n) => n.label === "FE")!.description).toBe("the front end");
   });
 
   it("setNodeImage attaches an image url, and an empty string clears it", () => {
@@ -198,7 +189,7 @@ describe("ops", () => {
             {
               label: "B",
               kind: "branch",
-              facets: { definition: ["the B thing"] },
+              description: "the B thing",
               children: [{ label: "C", kind: "atom" }],
             },
           ],
@@ -221,9 +212,9 @@ describe("ops", () => {
     expect(hasDecomp("A", "B")).toBe(true);
     expect(hasDecomp("B", "C")).toBe(true);
 
-    // facet landed on B specifically
-    expect(b.nodes.find((n) => n.label === "B")!.facets.definition).toEqual(["the B thing"]);
-    expect(b.nodes.find((n) => n.label === "A")!.facets.definition).toBeUndefined();
+    // description landed on B specifically
+    expect(b.nodes.find((n) => n.label === "B")!.description).toBe("the B thing");
+    expect(b.nodes.find((n) => n.label === "A")!.description).toBeUndefined();
 
     // cross-link D -> A
     expect(b.edges).toContainEqual({ from: id("D"), to: id("A"), type: "dependency" });

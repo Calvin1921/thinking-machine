@@ -58,8 +58,9 @@ export const NodeSchema = z.object({
   y: z.number(),
   w: z.number().optional(),          // explicit size once the user resizes (else auto)
   h: z.number().optional(),
-  // facet key -> list of thought items (strings in v1). Domain-specific keys allowed.
-  facets: z.record(z.string(), z.array(z.string())),
+  // The node's body text — what it means / the thinking it holds. (Replaces the old
+  // multi-lens `facets`; the model is now one axis: decompose into children.)
+  description: z.string().optional(),
 });
 
 export const EdgeSchema = z.object({
@@ -110,10 +111,21 @@ export type SectionKind = z.infer<typeof SectionKind>;
 export type Section = z.infer<typeof SectionSchema>;
 export type AltFraming = z.infer<typeof AltFramingSchema>;
 
-export const SEED_FACETS = [
-  "definition", "essentials", "dependencies",
-  "priorities", "considerations", "perspectives",
-] as const;
+/** Fold a legacy node's `facets` into a single `description` string so no content is lost
+ *  when the multi-lens model is dropped: the `definition` lens leads, other lenses follow as
+ *  "key: items" lines. Already-migrated nodes (with `description`, no `facets`) pass through. */
+function foldFacets(n: any): string | undefined {
+  if (!n.facets || typeof n.facets !== "object") return n.description;
+  const f = n.facets as Record<string, string[]>;
+  const parts: string[] = [];
+  if (Array.isArray(f.definition) && f.definition.length) parts.push(f.definition.join(" "));
+  for (const [k, v] of Object.entries(f)) {
+    if (k === "definition" || !Array.isArray(v) || !v.length) continue;
+    parts.push(`${k}: ${v.join("; ")}`);
+  }
+  const folded = parts.join("\n").trim();
+  return folded || n.description;
+}
 
 /** Bring any older/unversioned board up to CURRENT_VERSION. One-way, additive. */
 export function migrate(raw: any): Board {
@@ -122,7 +134,11 @@ export function migrate(raw: any): Board {
   if (b.version > CURRENT_VERSION) {
     throw new Error(`Board version ${b.version} is newer than supported ${CURRENT_VERSION}`);
   }
-  b.nodes = (b.nodes ?? []).map((n: any) => ({ facets: {}, x: 0, y: 0, ...n }));
+  b.nodes = (b.nodes ?? []).map((n: any) => {
+    const description = foldFacets(n);          // legacy facets -> description (no data lost)
+    const { facets, ...rest } = n;              // drop the old facets field
+    return { x: 0, y: 0, ...rest, ...(description ? { description } : {}) };
+  });
   b.edges = b.edges ?? [];
   return BoardSchema.parse(b);
 }

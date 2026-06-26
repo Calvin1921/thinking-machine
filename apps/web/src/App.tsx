@@ -3,12 +3,14 @@ import { ReactFlow, Background, Controls, applyNodeChanges, type Node as FlowNod
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import type { Board } from "@tm/core/schema";
+import { shouldSuggestAlt } from "@tm/core/ops";
 import { boardToFlow } from "./boardToFlow.js";
 import { tidyLayout } from "./tidyLayout.js";
 import { funnelLayout } from "./funnelLayout.js";
 import { gridLayout } from "./gridLayout.js";
 import { timelineLayout } from "./timelineLayout.js";
 import { radialLayout } from "./radialLayout.js";
+import { concentricLayout } from "./concentricLayout.js";
 import { sectionedLayout, HEADER_H } from "./sectionedLayout.js";
 import { ThinkNode } from "./ThinkNode.js";
 import { SectionBox } from "./SectionNodes.js";
@@ -103,6 +105,7 @@ export default function App() {
 
 function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }) {
   const [board, setBoard] = useState<Board | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [flowNodes, setFlowNodes] = useState<FlowNode[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -159,7 +162,14 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   }, [toggleCollapse]);
 
   const refresh = useCallback(async () => {
-    const b = await getBoard(boardId);
+    let b: Board;
+    try {
+      b = await getBoard(boardId);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : String(e));
+      return;
+    }
+    setLoadError(null);
     setBoard(b);
     // First open of a board: big boards start as an overview (root + two levels), small
     // ones fully expanded. Once per board — afterwards the user's fold state rules. Done
@@ -224,9 +234,9 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
 
   // Re-arrange a NON-sectioned board with the given layout, sizing every card to the
   // uniform cell and aligning to it — committed atomically (one write, no race).
-  const arrange = useCallback((b: Board, kind: "tree" | "funnel" | "grid" | "timeline" | "radial") => {
+  const arrange = useCallback((b: Board, kind: "tree" | "funnel" | "grid" | "timeline" | "radial" | "concentric") => {
     const cell = uniformCell(flowNodes);
-    const pos = kind === "funnel" ? funnelLayout(b, {}, cell) : kind === "grid" ? gridLayout(b, {}, cell) : kind === "timeline" ? timelineLayout(b, {}, cell) : kind === "radial" ? radialLayout(b, {}, cell) : tidyLayout(b, {}, new Set(), cell);
+    const pos = kind === "funnel" ? funnelLayout(b, {}, cell) : kind === "grid" ? gridLayout(b, {}, cell) : kind === "timeline" ? timelineLayout(b, {}, cell) : kind === "radial" ? radialLayout(b, {}, cell) : kind === "concentric" ? concentricLayout(b, {}, cell) : tidyLayout(b, {}, new Set(), cell);
     const sizes: Record<string, { w: number; h: number }> = {};
     for (const n of b.nodes) sizes[n.id] = cell;
     applyLayout(boardId, { positions: pos, sizes });
@@ -250,7 +260,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   }, [board, boardId, arrange, flowNodes]);
 
   // Cycle the board layout tree → funnel → grid → timeline → radial: persist, flip handles, re-arrange.
-  const switchLayout = useCallback((kind: "tree" | "funnel" | "grid" | "timeline" | "radial") => {
+  const switchLayout = useCallback((kind: "tree" | "funnel" | "grid" | "timeline" | "radial" | "concentric") => {
     if (!board) return;
     const next = { ...board, layout: kind === "tree" ? undefined : kind };
     setBoard(next);             // re-renders edges with the right handles immediately
@@ -270,6 +280,12 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
 
   const sectioned = !!board?.sections?.length;
 
+  if (loadError) return (
+    <div className="loading">
+      <p>{loadError}</p>
+      <button className="back" onClick={onBack}>← Back to canvases</button>
+    </div>
+  );
   if (!board) return <div className="loading">Loading board…</div>;
   const visibleIds = new Set(flowNodes.map((n) => n.id));
   const edges = boardToFlow(board).edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target));
@@ -280,21 +296,23 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
       <div className="topbar">
         <button className="back" onClick={onBack}>← Canvases</button>
         <span className="topbar-title">{board.title}</span>
+        {board.guideMode && (
+          <span className="guide-badge" title="Guide posture is on — the assistant asks before expanding the board">◆ Guide</span>
+        )}
         <button className="back" onClick={collapsed.size ? expandAll : collapseAll}
           title="Toggle overview">{collapsed.size ? "⊞ Expand all" : "⊟ Collapse all"}</button>
         <button className="back" onClick={tidy} title={sectioned ? "Reset section layout" : "Auto-arrange"}>⤢ Tidy</button>
         {!sectioned && (() => {
-          const cycle = { tree: "funnel", funnel: "grid", grid: "timeline", timeline: "radial", radial: "tree" } as const;
+          const cycle = { tree: "funnel", funnel: "grid", grid: "timeline", timeline: "radial", radial: "concentric", concentric: "tree" } as const;
           const next = cycle[board.layout ?? "tree"];
-          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline", radial: "◎ Radial" } as const;
+          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline", radial: "◎ Radial", concentric: "⊚ Concentric" } as const;
           return <button className="back" onClick={() => switchLayout(next)} title="Switch representation">{label[next]}</button>;
         })()}
-        {!sectioned && board.altFraming && board.altFraming.divergence >= 0.35
-          && board.altFraming.layout !== (board.layout ?? "tree") && (() => {
-          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline", radial: "◎ Radial" } as const;
+        {!sectioned && shouldSuggestAlt(board) && (() => {
+          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline", radial: "◎ Radial", concentric: "⊚ Concentric" } as const;
           const a = board.altFraming!;
           // Pathfinder: offer the road not taken — the framing the user might not have considered.
-          return <button className="back alt-frame" onClick={() => switchLayout(a.layout as "tree" | "funnel" | "grid" | "timeline" | "radial")}
+          return <button className="back alt-frame" onClick={() => switchLayout(a.layout as "tree" | "funnel" | "grid" | "timeline" | "radial" | "concentric")}
             title={a.intent ? `if your point is: ${a.intent}` : "alternative framing"}>↝ See as {label[a.layout]}</button>;
         })()}
       </div>

@@ -123,7 +123,7 @@ program.command("collisions")
   });
 
 program.command("layout <type>")
-  .description("set board layout: tree|funnel|grid|timeline|radial; pass --alt to record the Pathfinder alternative in the same step")
+  .description("set board layout: tree|funnel|grid|timeline|radial|concentric; pass --alt to record the Pathfinder alternative in the same step")
   .option("--alt <layout>", "alternative layout (the road not taken) — set it together with the default")
   .option("--alt-intent <s>", "the main idea that would justify the alternative")
   .option("--alt-divergence <n>", "how different the alt's message is, 0..1 (shown only if >= 0.35)", "0.5")

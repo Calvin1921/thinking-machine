@@ -21,7 +21,7 @@ export const ContentKind = z.enum(["factual", "subjective"]);
 export const Volatility = z.enum(["static", "weeks", "volatile"]);
 // How the canvas lays the graph out. The neutral foundation defaults to "tree"; a
 // methodology can pick another representation (FR-2). Absent = tree.
-export const BoardLayout = z.enum(["tree", "funnel", "grid", "timeline", "radial"]);
+export const BoardLayout = z.enum(["tree", "funnel", "grid", "timeline", "radial", "concentric"]);
 // A board can hold many sections, each a different representation for a different purpose
 // (the "nothing explains in one graph" insight). A graph section lays out its own nodes;
 // a note section is just free text. Absent sections[] → the board is a single graph (legacy).

@@ -71,12 +71,23 @@ export const EdgeSchema = z.object({
   label: z.string().optional(),
 });
 
+// Pathfinder (the "offer the alternative" behavior): the strongest ALTERNATIVE
+// representation for this board's content — the road not taken. `intent` is the main idea
+// that would justify it; `divergence` (0..1) is how different the alt's MESSAGE is from the
+// current layout's. The canvas only surfaces it above SUGGEST_DIVERGENCE so it never nags.
+export const AltFramingSchema = z.object({
+  layout: BoardLayout,
+  intent: z.string().min(1),
+  divergence: z.number().min(0).max(1),
+});
+
 export const BoardSchema = z.object({
   version: z.literal(CURRENT_VERSION),
   id: z.string().min(1),
   title: z.string().min(1),
   domainHint: z.string().optional(),
   layout: BoardLayout.optional(),
+  altFraming: AltFramingSchema.optional(),
   sections: z.array(SectionSchema).optional(),
   guideMode: z.boolean().optional(),   // Guide posture ON gates interactive prompts (spec §1)
   rootId: z.string().min(1),
@@ -97,6 +108,7 @@ export type Volatility = z.infer<typeof Volatility>;
 export type BoardLayout = z.infer<typeof BoardLayout>;
 export type SectionKind = z.infer<typeof SectionKind>;
 export type Section = z.infer<typeof SectionSchema>;
+export type AltFraming = z.infer<typeof AltFramingSchema>;
 
 export const SEED_FACETS = [
   "definition", "essentials", "dependencies",

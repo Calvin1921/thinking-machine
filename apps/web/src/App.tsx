@@ -289,6 +289,14 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
           const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline", radial: "◎ Radial" } as const;
           return <button className="back" onClick={() => switchLayout(next)} title="Switch representation">{label[next]}</button>;
         })()}
+        {!sectioned && board.altFraming && board.altFraming.divergence >= 0.35
+          && board.altFraming.layout !== (board.layout ?? "tree") && (() => {
+          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline", radial: "◎ Radial" } as const;
+          const a = board.altFraming!;
+          // Pathfinder: offer the road not taken — the framing the user might not have considered.
+          return <button className="back alt-frame" onClick={() => switchLayout(a.layout as "tree" | "funnel" | "grid" | "timeline" | "radial")}
+            title={a.intent ? `if your point is: ${a.intent}` : "alternative framing"}>↝ See as {label[a.layout]}</button>;
+        })()}
       </div>
       <ReactFlow
         nodes={flowNodes}

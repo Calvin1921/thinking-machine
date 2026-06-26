@@ -93,6 +93,29 @@ atomically. Add `--json` to `show` for machine-readable output you can read back
 `definition` so the deep tree reads on the canvas. (`tmind decompose`'s `facets` apply to the parent;
 `tmind grow`'s per-node `facets` apply to each created node.)
 
+## Pathfinder: offer the alternative framing
+
+A board's content almost always supports more than one representation — the right one depends
+on the MAIN IDEA the user wants to land (drop-off → funnel; sequence → tree/flow; hub → radial).
+Rather than silently pick the conventional default, also offer the **road not taken**.
+
+When you set or change a board's `layout`, also produce TWO things and record the alternative:
+1. **default** — the layout you chose + the intent you assumed.
+2. **alt** — the *maximally different* layout (changes what the viewer learns, not a cosmetic
+   variant) + the intent that would justify it + a **divergence** 0..1 (how different the alt's
+   message is from the default's). Force diversity: a near-duplicate is not an alt.
+
+Record it: `tmind framing-alt <layout> --intent "<the main idea>" --divergence <0..1>`
+(or `tmind framing-alt none` to clear; MCP: `tm_set_alt_framing`). The canvas surfaces a
+"↝ See as <alt>" chip **only when divergence ≥ 0.35** (below that it's a near-duplicate and would
+just nag — so leave it unset or low). `<layout>` must be one the canvas renders:
+**tree | funnel | grid | timeline | radial**. (The richer preset vocabulary — network, concentric,
+pyramid, flow — is future Adaptive-Lens work; map to the nearest renderable layout for now.)
+
+This is the cheapest slice of the Pathfinder: it never relies on *detecting* that intent is
+ambiguous (which isn't possible from content alone) — it just always computes and offers the
+alternative, and the divergence gate keeps it quiet when there genuinely isn't one.
+
 ## Single source of truth (central store)
 
 All boards live in ONE central store so thinking ACCUMULATES across projects instead of

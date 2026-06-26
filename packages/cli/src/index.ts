@@ -11,6 +11,7 @@ import {
   listBoards, createBoard,
   setNodeProvenance, setGuideMode, detectCollisions,
   setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
+  setAltFraming,
 } from "@tm/core";
 
 const program = new Command();
@@ -124,6 +125,16 @@ program.command("collisions")
 program.command("layout <type>")
   .description("set board layout: tree|funnel")
   .action((type) => { mutate(file(), (b) => setBoardLayout(b, type)); });
+
+program.command("framing-alt <layout>")
+  .description("Pathfinder: set the alternative framing (the road not taken); 'none' clears")
+  .option("--intent <s>", "the main idea that would justify this alternative")
+  .option("--divergence <n>", "how different the alt's message is, 0..1 (shown only if >= 0.35)", "0.5")
+  .action((layout, opts) => {
+    mutate(file(), (b) => layout === "none"
+      ? setAltFraming(b, null)
+      : setAltFraming(b, { layout, intent: opts.intent ?? "", divergence: Number(opts.divergence) }));
+  });
 
 program.command("section <title>")
   .description("add a section: --kind graph|note, graph takes --layout tree|funnel. Prints the new section id.")

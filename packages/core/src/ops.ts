@@ -1,5 +1,5 @@
 // packages/core/src/ops.ts
-import { Board, Node, EdgeType, NodeStatus, NodeProvenance, ContentKind, Volatility, BoardLayout, Section, SectionKind } from "./schema.js";
+import { Board, Node, EdgeType, NodeStatus, NodeProvenance, ContentKind, Volatility, BoardLayout, Section, SectionKind, AltFraming, AltFramingSchema } from "./schema.js";
 import { placeChildren } from "./layout.js";
 
 // Resets to 0 on every process restart; uniqueness is guaranteed by the live-board
@@ -168,6 +168,24 @@ export function setGuideMode(board: Board, on: boolean): Board {
 /** Set the board's canvas layout. Empty string resets to the default (tree). */
 export function setBoardLayout(board: Board, layout: BoardLayout | ""): Board {
   return { ...board, layout: layout === "" || layout === "tree" ? undefined : BoardLayout.parse(layout) };
+}
+
+// Pathfinder: only surface the alternative framing once its message diverges enough from the
+// current view — below this, the alt is a near-duplicate and would just nag (Build-1b finding).
+export const SUGGEST_DIVERGENCE = 0.35;
+
+/** Set (or clear, with null) the Pathfinder alternative framing — the "road not taken". */
+export function setAltFraming(board: Board, input: AltFraming | null): Board {
+  if (!input) { const { altFraming, ...rest } = board; return rest; }
+  return { ...board, altFraming: AltFramingSchema.parse(input) };
+}
+
+/** Whether the canvas should offer the alternative framing: present, divergent enough, and
+ *  actually different from the current layout. */
+export function shouldSuggestAlt(board: Board): boolean {
+  const a = board.altFraming;
+  if (!a) return false;
+  return a.divergence >= SUGGEST_DIVERGENCE && a.layout !== (board.layout ?? "tree");
 }
 
 function genSectionId(board: Board, title: string): string {

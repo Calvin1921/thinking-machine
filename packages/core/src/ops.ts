@@ -5,9 +5,17 @@ import { placeChildren } from "./layout.js";
 // Resets to 0 on every process restart; uniqueness is guaranteed by the live-board
 // collision check (board.nodes.some(...)) below, not by this counter.
 let counter = 0;
+/** Slugify text to an id base, truncating on a word boundary so ids never cut mid-word
+ *  (a hard mid-word slice made generated ids unpredictable for callers). */
+function slugify(text: string, fallback: string): string {
+  const full = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  if (full.length <= 64) return full || fallback;
+  return full.slice(0, 64).replace(/-[^-]*$/, "") || fallback;
+}
+
 /** Deterministic-enough id without Date.now/Math.random (unavailable in some runtimes). */
 function genId(board: Board, label: string): string {
-  const base = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 64) || "node";
+  const base = slugify(label, "node");
   let id = base;
   while (board.nodes.some((n) => n.id === id)) id = `${base}-${++counter}`;
   return id;
@@ -163,7 +171,7 @@ export function setBoardLayout(board: Board, layout: BoardLayout | ""): Board {
 }
 
 function genSectionId(board: Board, title: string): string {
-  const base = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 64) || "section";
+  const base = slugify(title, "section");
   const existing = board.sections ?? [];
   let id = base;
   while (existing.some((s) => s.id === id)) id = `${base}-${++counter}`;

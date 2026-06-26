@@ -76,7 +76,16 @@ program.command("show")
 program.command("add <label>")
   .requiredOption("--parent <id>", "parent node id")
   .option("--kind <kind>", "branch|atom", "branch")
-  .action((label, opts) => { mutate(file(), (b) => addNode(b, { label, parentId: opts.parent, kind: opts.kind })); });
+  .action((label, opts) => {
+    let id = "";
+    mutate(file(), (b) => {
+      const before = new Set(b.nodes.map((n) => n.id));
+      const nb = addNode(b, { label, parentId: opts.parent, kind: opts.kind });
+      id = nb.nodes.find((n) => !before.has(n.id))!.id;
+      return nb;
+    });
+    process.stdout.write(`${id}\n`);   // print the created id so callers never guess the slug
+  });
 
 program.command("link <from> <to>")
   .option("--type <type>", "decomposition|dependency", "dependency")

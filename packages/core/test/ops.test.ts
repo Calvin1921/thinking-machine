@@ -365,6 +365,17 @@ describe("ops", () => {
     expect(after.nodes.find((n) => n.id === opId)!.provenance).toBe("informed-opinion");
   });
 
+  it("truncates long ids on a word boundary, never mid-word", () => {
+    let b = newBoard("App", "objective");
+    const long = "resolved freelance ai work now sequenced to the product over the next quarter";
+    b = addNode(b, { label: long, parentId: "root", kind: "atom" });
+    const id = b.nodes.find((n) => n.label === long)!.id;
+    expect(id.length).toBeLessThanOrEqual(64);
+    const fullSlug = long.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    expect(fullSlug.startsWith(id)).toBe(true);     // id is a clean prefix
+    expect(fullSlug[id.length]).toBe("-");          // cut fell on a word boundary, not mid-word
+  });
+
   it("records a refuted verdict and never auto-stales it", () => {
     let b = newBoard("App", "objective");
     // a checked-and-FALSE factual claim -> refuted, with the disproving sources

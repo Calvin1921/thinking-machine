@@ -6,7 +6,8 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./schema": { "types": "./dist/schema.d.ts", "default": "./dist/schema.js" }
+    "./schema": { "types": "./dist/schema.d.ts", "default": "./dist/schema.js" },
+    "./ops": { "types": "./dist/ops.d.ts", "default": "./dist/ops.js" }
   },
   "scripts": {
     "test": "vitest run",

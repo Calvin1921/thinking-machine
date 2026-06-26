@@ -15,10 +15,11 @@ import {
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
 
-// Board ids are slugs (see core's slug()): a leading [a-z0-9] then up to 63 more
-// [a-z0-9-]. Guards `board` before it reaches boardPath()/join(), so a value like
-// "../secret" can never escape the boards dir. Mirrors the web sidecar's ID_RE.
-const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+// Board ids are slugs / filename stems: a leading [a-z0-9] then up to 127 more
+// [a-z0-9_-] (underscore included for central-store names like `petopia__topic`). Guards
+// `board` before it reaches boardPath()/join(), so a value like "../secret" can never escape
+// the boards dir (still no `.` / `/` / `\`). Mirrors the web sidecar's ID_RE.
+const ID_RE = /^[a-z0-9][a-z0-9_-]{0,127}$/;
 
 const BOARD_DESC = "the board id from tm_list_boards / tm_create_board";
 
@@ -78,8 +79,8 @@ export function buildServer(dir: string): McpServer {
     async ({ board, nodeId, status }) =>
       ok(mutate(resolveBoard(board), (b) => setNodeStatus(b, nodeId, status))));
 
-  server.tool("tm_set_layout", "Set how the canvas lays out a board: 'tree' (default), 'funnel' (sequential stages), 'grid' (tight 2D matrix), 'timeline' (swimlane rows × left→right columns, Gantt-style), or 'radial' (ecosystem map — root in the center, one angular sector per top-level child, rings by depth)",
-    { board: z.string().describe(BOARD_DESC), layout: z.enum(["tree", "funnel", "grid", "timeline", "radial"]) },
+  server.tool("tm_set_layout", "Set how the canvas lays out a board: 'tree' (default), 'funnel' (sequential stages), 'grid' (tight 2D matrix), 'timeline' (swimlane rows × left→right columns, Gantt-style), 'radial' (ecosystem map — root in the center, one angular sector per top-level child, rings by depth), or 'concentric' (nested layers — root at the center, every node at the same depth evenly on one shared ring, emphasizing core→outer layers)",
+    { board: z.string().describe(BOARD_DESC), layout: z.enum(["tree", "funnel", "grid", "timeline", "radial", "concentric"]) },
     async ({ board, layout }) =>
       ok(mutate(resolveBoard(board), (b) => setBoardLayout(b, layout))));
 
@@ -103,8 +104,8 @@ export function buildServer(dir: string): McpServer {
     async ({ board, sectionId, note }) =>
       ok(mutate(resolveBoard(board), (b) => setSectionNote(b, sectionId, note))));
 
-  server.tool("tm_set_section_layout", "Set a graph section's layout on a board: tree|funnel|grid|timeline|radial",
-    { board: z.string().describe(BOARD_DESC), sectionId: z.string(), layout: z.enum(["tree", "funnel", "grid", "timeline", "radial"]) },
+  server.tool("tm_set_section_layout", "Set a graph section's layout on a board: tree|funnel|grid|timeline|radial|concentric",
+    { board: z.string().describe(BOARD_DESC), sectionId: z.string(), layout: z.enum(["tree", "funnel", "grid", "timeline", "radial", "concentric"]) },
     async ({ board, sectionId, layout }) =>
       ok(mutate(resolveBoard(board), (b) => setSectionLayout(b, sectionId, layout))));
 
@@ -149,7 +150,7 @@ export function buildServer(dir: string): McpServer {
 
   server.tool("tm_set_alt_framing", "Pathfinder: set the alternative framing (the road not taken). Empty layout clears. divergence 0..1; the canvas surfaces it only when >= 0.35.",
     { board: z.string().describe(BOARD_DESC),
-      layout: z.enum(["tree", "funnel", "grid", "timeline", "radial", ""]).describe("alternative representation, or empty to clear"),
+      layout: z.enum(["tree", "funnel", "grid", "timeline", "radial", "concentric", ""]).describe("alternative representation, or empty to clear"),
       intent: z.string().optional().describe("the main idea that would justify this alternative"),
       divergence: z.number().min(0).max(1).optional() },
     async ({ board, layout, intent, divergence }) =>

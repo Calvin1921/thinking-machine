@@ -20,7 +20,9 @@ export interface Sidecar {
 // Board ids are slugs (see core's slug()): a leading [a-z0-9] then up to 63 more
 // [a-z0-9-]. This guards `:id` before it reaches boardPath()/join(), so a value
 // like "../secret" or "..%2Fsecret" can never escape the boards dir.
-const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+// Board ids are filename slugs in the `<project>__<topic>` convention, so underscores
+// are valid. Still no `.` / `/` / `\` — ID_RE is the only guard against path traversal.
+const ID_RE = /^[a-z0-9][a-z0-9_-]{0,127}$/;
 
 const ROOT_TYPES = new Set(["objective", "cause", "decision", "concept"]);
 

@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setNodeDescription, decompose, setNodeImage, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale, setAltFraming, shouldSuggestAlt, subtreeIds, ancestorPath } from "../src/ops.js";
+import { addNode, linkNodes, setNodeDescription, decompose, setNodeImage, setNodeLabel, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale, setAltFraming, shouldSuggestAlt, subtreeIds, ancestorPath } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -45,6 +45,18 @@ describe("ops", () => {
     expect(b.nodes[0].description).toBe("the user-facing layer");
     b = setNodeDescription(b, "root", "   ");          // blank clears
     expect(b.nodes[0].description).toBeUndefined();
+  });
+
+  it("setNodeLabel renames a node, keeps id, and ignores a blank label", () => {
+    let b = newBoard("App", "objective");
+    b = addNode(b, { label: "Frontend", parentId: "root", kind: "branch" });
+    const child = b.nodes.find((n) => n.label === "Frontend")!;
+    b = setNodeLabel(b, child.id, "Web client");
+    const renamed = b.nodes.find((n) => n.id === child.id)!;
+    expect(renamed.label).toBe("Web client");
+    expect(renamed.id).toBe(child.id);                       // id is a stable reference — never re-slugged
+    b = setNodeLabel(b, child.id, "   ");                    // blank/whitespace is rejected (label is required)
+    expect(b.nodes.find((n) => n.id === child.id)!.label).toBe("Web client");
   });
 
   it("decompose commits children with descriptions + edges in one shot", () => {

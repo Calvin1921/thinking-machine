@@ -64,5 +64,13 @@ Orthogonal elbows. **Decomposition = solid**; **dependency = dashed + labeled ve
 - No decoration-as-design — the signature done well beats ornament.
 
 ## Out of scope (later)
-Inline label/description editing on the card (next slice), the richer Adaptive-Lens presets
-(network/concentric/pyramid/flow), Claude-in-canvas "expand with AI".
+The richer Adaptive-Lens presets (network/concentric/pyramid/flow), Claude-in-canvas
+"expand with AI". Metadata (status/image/verification) still uses the drawer for now — the
+"light popover" replacement is a later slice.
+
+## Shipped since freeze
+- **Inline label/description editing on the card** — select a node, then click its title or
+  body to edit in place (Enter/blur commits, Esc cancels). Honours the "editing is inline"
+  anti-slop gate. Metadata still in the drawer.
+- **Orthogonal hierarchy elbows in quiet `--line`** — decomposition edges no longer use the
+  cyan accent (it stays rationed for selection/dive-root).

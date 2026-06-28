@@ -303,6 +303,14 @@ export function ancestorPath(board: Board, id: string): string[] {
   return path;
 }
 
+/** Rename a node's headline. The id is a stable reference (never re-slugged); a blank label is rejected. */
+export function setNodeLabel(board: Board, nodeId: string, label: string): Board {
+  requireNode(board, nodeId);
+  const next = label.trim();
+  if (!next) return board;
+  return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, label: next } : n)) };
+}
+
 /** Set (or clear, with empty) a node's body text. */
 export function setNodeDescription(board: Board, nodeId: string, description: string): Board {
   requireNode(board, nodeId);

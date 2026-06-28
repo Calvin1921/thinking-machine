@@ -17,7 +17,7 @@ import { SectionBox } from "./SectionNodes.js";
 import { FacetDrawer } from "./FacetDrawer.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { CollectionView } from "./CollectionView.js";
-import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos, setNodeSize, applyLayout } from "./api.js";
+import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos, setNodeSize, applyLayout, setLabel, setDescription } from "./api.js";
 
 // Uniform cell = the widest × tallest measured think-node, so every card matches and aligns.
 function uniformCell(flowNodes: FlowNode[]): { w: number; h: number } {
@@ -217,8 +217,20 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => onBoardChange(refresh), [refresh]);   // live reload on CLI/MCP edits
-  // Rebuild the controlled node list whenever the board or collapse state changes.
-  useEffect(() => { if (board) { const fn = buildNodes(board, collapsed); fnRef.current = fn; setFlowNodes(fn); } }, [board, collapsed, buildNodes]);
+
+  // Inline card edits → persist, then refresh (SSE would also catch it, but explicit is instant).
+  const rename = useCallback((id: string, label: string) => { setLabel(boardId, id, label).then(refresh); }, [boardId, refresh]);
+  const describe = useCallback((id: string, description: string) => { setDescription(boardId, id, description).then(refresh); }, [boardId, refresh]);
+
+  // Rebuild the controlled node list whenever the board or collapse state changes; inject the
+  // inline-edit callbacks into each think node here (keeps buildNodes pure of the API layer).
+  useEffect(() => {
+    if (!board) return;
+    const fn = buildNodes(board, collapsed).map((n) =>
+      n.type === "think" ? { ...n, data: { ...n.data, onRename: rename, onDescribe: describe } } : n);
+    fnRef.current = fn;
+    setFlowNodes(fn);
+  }, [board, collapsed, buildNodes, rename, describe]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     // ReactFlow already corrects child positions for a top/left section resize (it emits the

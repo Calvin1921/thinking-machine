@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
-  addNode, linkNodes, setNodeDescription, updateNodePosition, setNodeImage, setNodeStatus, setBoardLayout,
+  addNode, linkNodes, setNodeLabel, setNodeDescription, updateNodePosition, setNodeImage, setNodeStatus, setBoardLayout,
   addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout,
 } from "@tm/core";
 
@@ -72,6 +72,12 @@ export function createSidecar(dir: string): Sidecar {
     if (!file) return;
     const { from, to, type, label } = req.body;
     res.json(mutate(file, (b) => linkNodes(b, from, to, type, label)));
+  });
+  app.post("/api/boards/:id/label", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
+    const { nodeId, label } = req.body;
+    res.json(mutate(file, (b) => setNodeLabel(b, nodeId, label)));
   });
   app.post("/api/boards/:id/description", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);

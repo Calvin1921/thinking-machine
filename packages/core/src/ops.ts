@@ -275,6 +275,42 @@ export function detectCollisions(board: Board, labels: string[]): { label: strin
   return hits;
 }
 
+/** All node ids in the decomposition subtree rooted at `rootId` (inclusive), cycle-safe.
+ *  Drives Focus-dive: re-rooting the canvas onto a node shows exactly this set. */
+export function subtreeIds(board: Board, rootId: string): Set<string> {
+  const kids: Record<string, string[]> = {};
+  for (const e of board.edges) if (e.type === "decomposition") (kids[e.from] ??= []).push(e.to);
+  const out = new Set<string>();
+  const q = [rootId];
+  while (q.length) {
+    const id = q.shift()!;
+    if (out.has(id)) continue;
+    out.add(id);
+    for (const c of kids[id] ?? []) q.push(c);
+  }
+  return out;
+}
+
+/** Path of node ids from the board root down to `id` (inclusive) via decomposition edges —
+ *  the Focus-dive breadcrumb. */
+export function ancestorPath(board: Board, id: string): string[] {
+  const parent: Record<string, string> = {};
+  for (const e of board.edges) if (e.type === "decomposition") parent[e.to] = e.from;
+  const path = [id];
+  let cur = id;
+  const seen = new Set([id]);
+  while (parent[cur] && !seen.has(parent[cur])) { cur = parent[cur]; seen.add(cur); path.unshift(cur); }
+  return path;
+}
+
+/** Rename a node's headline. The id is a stable reference (never re-slugged); a blank label is rejected. */
+export function setNodeLabel(board: Board, nodeId: string, label: string): Board {
+  requireNode(board, nodeId);
+  const next = label.trim();
+  if (!next) return board;
+  return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, label: next } : n)) };
+}
+
 /** Set (or clear, with empty) a node's body text. */
 export function setNodeDescription(board: Board, nodeId: string, description: string): Board {
   requireNode(board, nodeId);

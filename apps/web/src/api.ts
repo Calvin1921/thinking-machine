@@ -31,6 +31,8 @@ export const addNode = (boardId: string, label: string, parentId: string, kind: 
   post(`/api/boards/${boardId}/add`, { label, parentId, kind });
 export const moveNode = (boardId: string, nodeId: string, x: number, y: number) =>
   post(`/api/boards/${boardId}/move`, { nodeId, x, y });
+export const setLabel = (boardId: string, nodeId: string, label: string) =>
+  post(`/api/boards/${boardId}/label`, { nodeId, label });
 export const setDescription = (boardId: string, nodeId: string, description: string) =>
   post(`/api/boards/${boardId}/description`, { nodeId, description });
 export const setImage = (boardId: string, nodeId: string, url: string) =>

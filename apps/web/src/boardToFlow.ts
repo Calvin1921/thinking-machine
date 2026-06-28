@@ -14,7 +14,9 @@ export interface ThinkNodeData {
   childCount: number;     // number of decomposition children (for the collapse toggle)
   sized?: boolean;        // node has an explicit user size → fill the node element
   collapsed?: boolean;    // injected at render time
-  onToggle?: (id: string) => void; // injected at render time
+  onToggle?: (id: string) => void;   // injected at render time
+  onRename?: (id: string, label: string) => void;        // inline label edit, injected at render time
+  onDescribe?: (id: string, description: string) => void; // inline description edit, injected at render time
   [key: string]: unknown;
 }
 
@@ -55,7 +57,9 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
   //   timeline → sequence left→right within each lane · grid → none (position says it all) ·
   //   radial → hierarchy with handles picked by geometry (the side facing the other node),
   //   with band-packed children drawn from their nearest neighbor (see rewiresFor below).
-  const TEAL = "#5ce0c6", AMBER = "#f0a868";
+  // DESIGN.md: hierarchy lines are quiet & neutral (the cards carry attention); cyan is a
+  // rationed accent reserved for selection/dive-root, so it must NOT colour every edge.
+  const LINE = "#33445c", TEAL = "#5ce0c6", AMBER = "#f0a868";
   const npos = new Map(board.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
   // Handle pair for an edge whose endpoints can be anywhere around each other (radial):
   // pick the dominant axis of the source→target vector and exit/enter the facing sides.
@@ -76,9 +80,10 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
     edges.push({
       id: `e${ei++}`, source: from, target: to,
       sourceHandle: handles.s, targetHandle: handles.t,
+      type: kind === "hierarchy" ? "smoothstep" : undefined,   // orthogonal elbows for the tree (DESIGN.md)
       animated: kind === "dependency",
       markerEnd: kind === "sequence" ? { type: MarkerType.ArrowClosed, color: TEAL, width: 16, height: 16 } : undefined,
-      style: kind === "dependency" ? { stroke: AMBER, strokeDasharray: "5 5" } : { stroke: TEAL },
+      style: kind === "dependency" ? { stroke: AMBER, strokeDasharray: "5 5" } : kind === "sequence" ? { stroke: TEAL } : { stroke: LINE },
       data: { type: kind },
       ...(label ? { label } : {}),
     });

@@ -3,7 +3,7 @@ import { ReactFlow, Background, Controls, applyNodeChanges, type Node as FlowNod
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import type { Board } from "@tm/core/schema";
-import { shouldSuggestAlt } from "@tm/core/ops";
+import { shouldSuggestAlt, subtreeIds, ancestorPath } from "@tm/core/ops";
 import { boardToFlow } from "./boardToFlow.js";
 import { tidyLayout } from "./tidyLayout.js";
 import { funnelLayout } from "./funnelLayout.js";
@@ -17,7 +17,7 @@ import { SectionBox } from "./SectionNodes.js";
 import { FacetDrawer } from "./FacetDrawer.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { CollectionView } from "./CollectionView.js";
-import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos, setNodeSize, applyLayout } from "./api.js";
+import { getBoard, moveNode, onBoardChange, setLayout, setSectionPos, setNodeSize, applyLayout, setLabel, setDescription } from "./api.js";
 
 // Uniform cell = the widest × tallest measured think-node, so every card matches and aligns.
 function uniformCell(flowNodes: FlowNode[]): { w: number; h: number } {
@@ -107,6 +107,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const [board, setBoard] = useState<Board | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [flowNodes, setFlowNodes] = useState<FlowNode[]>([]);
+  const [focusId, setFocusId] = useState<string | null>(null);   // Focus-dive: current re-root, null = board root
   const [selected, setSelected] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [far, setFar] = useState(false);            // zoomed out past the LOD threshold
@@ -125,8 +126,10 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     const hidden = computeHidden(b, collapsedSet);
     const flow = boardToFlow(b);
     if (!b.sections?.length) {
+      // Focus-dive: when a node is the dive-root, show only its decomposition subtree.
+      const inFocus = focusId && b.nodes.some((n) => n.id === focusId) ? subtreeIds(b, focusId) : null;
       return flow.nodes
-        .filter((n) => !hidden.has(n.id))
+        .filter((n) => !hidden.has(n.id) && (!inFocus || inFocus.has(n.id)))
         .map((n) => ({ ...n, data: { ...n.data, collapsed: collapsedSet.has(n.id), onToggle: toggleCollapse } }));
     }
     const sl = sectionedLayout(b);
@@ -159,7 +162,22 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         data: { ...base.data, collapsed: collapsedSet.has(n.id), onToggle: toggleCollapse } } as FlowNode);
     }
     return out;
-  }, [toggleCollapse]);
+  }, [toggleCollapse, focusId]);
+
+  // Focus-dive controls: dive into a node, pop up one level, or jump to a breadcrumb crumb.
+  const dive = useCallback((id: string) => { setFocusId(id); setTimeout(() => rfRef.current?.fitView({ padding: 0.12 }), 120); }, []);
+  const popFocus = useCallback(() => {
+    if (!board || !focusId) return;
+    const path = ancestorPath(board, focusId);
+    setFocusId(path.length >= 2 ? path[path.length - 2] : null);
+    setTimeout(() => rfRef.current?.fitView({ padding: 0.12 }), 120);
+  }, [board, focusId]);
+  useEffect(() => { setFocusId(null); }, [boardId]);                 // reset dive on board switch
+  useEffect(() => {                                                  // Esc pops up one dive level
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && focusId) { e.preventDefault(); popFocus(); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focusId, popFocus]);
 
   const refresh = useCallback(async () => {
     let b: Board;
@@ -199,8 +217,20 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => onBoardChange(refresh), [refresh]);   // live reload on CLI/MCP edits
-  // Rebuild the controlled node list whenever the board or collapse state changes.
-  useEffect(() => { if (board) { const fn = buildNodes(board, collapsed); fnRef.current = fn; setFlowNodes(fn); } }, [board, collapsed, buildNodes]);
+
+  // Inline card edits → persist, then refresh (SSE would also catch it, but explicit is instant).
+  const rename = useCallback((id: string, label: string) => { setLabel(boardId, id, label).then(refresh); }, [boardId, refresh]);
+  const describe = useCallback((id: string, description: string) => { setDescription(boardId, id, description).then(refresh); }, [boardId, refresh]);
+
+  // Rebuild the controlled node list whenever the board or collapse state changes; inject the
+  // inline-edit callbacks into each think node here (keeps buildNodes pure of the API layer).
+  useEffect(() => {
+    if (!board) return;
+    const fn = buildNodes(board, collapsed).map((n) =>
+      n.type === "think" ? { ...n, data: { ...n.data, onRename: rename, onDescribe: describe } } : n);
+    fnRef.current = fn;
+    setFlowNodes(fn);
+  }, [board, collapsed, buildNodes, rename, describe]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     // ReactFlow already corrects child positions for a top/left section resize (it emits the
@@ -302,6 +332,21 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         <button className="back" onClick={collapsed.size ? expandAll : collapseAll}
           title="Toggle overview">{collapsed.size ? "⊞ Expand all" : "⊟ Collapse all"}</button>
         <button className="back" onClick={tidy} title={sectioned ? "Reset section layout" : "Auto-arrange"}>⤢ Tidy</button>
+        {!sectioned && focusId && board.nodes.some((n) => n.id === focusId) && (
+          <nav className="crumbs" aria-label="Focus path">
+            <button className="crumb" onClick={() => { setFocusId(null); setTimeout(() => rfRef.current?.fitView({ padding: 0.12 }), 120); }} title="Back to the whole board">⌂</button>
+            {ancestorPath(board, focusId).map((id, i, arr) => {
+              const n = board.nodes.find((x) => x.id === id);
+              if (!n) return null;
+              const last = i === arr.length - 1;
+              return <span key={id} className="crumb-seg">
+                <span className="crumb-sep">›</span>
+                {last ? <span className="crumb cur">{n.label}</span>
+                      : <button className="crumb" onClick={() => dive(id)}>{n.label}</button>}
+              </span>;
+            })}
+          </nav>
+        )}
         {!sectioned && (() => {
           const cycle = { tree: "funnel", funnel: "grid", grid: "timeline", timeline: "radial", radial: "concentric", concentric: "tree" } as const;
           const next = cycle[board.layout ?? "tree"];
@@ -322,12 +367,13 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onNodeClick={(_, n) => setSelected(n.id)}
+        onNodeDoubleClick={(_, n) => { if (!n.id.startsWith(SEC_PREFIX)) dive(n.id); }}
         onViewportChange={(vp) => setFar(vp.zoom < LOD_ZOOM)}
         onInit={(inst) => { rfRef.current = inst; }}
         fitView
         minZoom={0.02}
       >
-        <Background color="#262c36" gap={24} />
+        <Background color="#152130" gap={24} />
         <Controls />
       </ReactFlow>
       <div className="legend">

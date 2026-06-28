@@ -11,12 +11,12 @@ function sampleBoard(): Board {
   return {
     version: 1, id: "bd", title: "T", rootId: "root",
     nodes: [
-      { id: "root", label: "R", kind: "root", x: 0, y: 0, facets: {} },
-      { id: "a", label: "A", kind: "branch", x: 0, y: 0, facets: {} },
-      { id: "b", label: "B", kind: "atom", x: 0, y: 0, facets: {} },
-      { id: "c", label: "C", kind: "atom", x: 0, y: 0, facets: {} },
-      { id: "a1", label: "A1", kind: "atom", x: 0, y: 0, facets: {} },
-      { id: "a2", label: "A2", kind: "atom", x: 0, y: 0, facets: {} },
+      { id: "root", label: "R", kind: "root", x: 0, y: 0 },
+      { id: "a", label: "A", kind: "branch", x: 0, y: 0 },
+      { id: "b", label: "B", kind: "atom", x: 0, y: 0 },
+      { id: "c", label: "C", kind: "atom", x: 0, y: 0 },
+      { id: "a1", label: "A1", kind: "atom", x: 0, y: 0 },
+      { id: "a2", label: "A2", kind: "atom", x: 0, y: 0 },
     ],
     edges: [
       { from: "root", to: "a", type: "decomposition" },
@@ -43,8 +43,8 @@ describe("concentricLayout", () => {
     const many: Board = {
       version: 1, id: "bd", title: "T", rootId: "root",
       nodes: [
-        { id: "root", label: "R", kind: "root", x: 0, y: 0, facets: {} },
-        ...Array.from({ length: 20 }, (_, i) => ({ id: "n" + i, label: "N" + i, kind: "atom" as const, x: 0, y: 0, facets: {} })),
+        { id: "root", label: "R", kind: "root", x: 0, y: 0 },
+        ...Array.from({ length: 20 }, (_, i) => ({ id: "n" + i, label: "N" + i, kind: "atom" as const, x: 0, y: 0 })),
       ],
       edges: Array.from({ length: 20 }, (_, i) => ({ from: "root", to: "n" + i, type: "decomposition" as const })),
     } as Board;

@@ -1,6 +1,6 @@
 ---
 name: thinking-machine
-description: Use when the user wants to build, expand, or decompose a Thinking Machine board — mapping research, decisions, or system designs as a graph of nodes. Drives the `tmind` CLI / MCP to read and edit board.json, decomposing nodes as a domain-aware LLM-judge. Deep-dive by default — grows a full multi-level tree in one `tmind grow` call, confirming the whole tree before commit.
+description: Use when the user wants to build, expand, or decompose a Thinking Machine board — mapping research, decisions, or system designs as a graph of nodes. Drives the `tmind` CLI / MCP to read and edit board.json, decomposing nodes as a domain-aware LLM-judge. Recall-first (checks the store for prior thinking before decomposing) and deep-dive by default — grows a full multi-level tree in one `tmind grow` call, confirming the whole tree before commit.
 ---
 
 # Thinking Machine
@@ -62,6 +62,8 @@ atomically. Add `--json` to `show` for machine-readable output you can read back
 | `tmind describe <id> <text...>` | set a node's body text (empty clears) |
 | `tmind decompose <id> --json '<proposal>'` | commit ONE level in one shot (co-build mode) |
 | `tmind grow <id> --json '<tree>'` | **DEFAULT** — commit a whole multi-level subtree in one shot |
+| `tmind recall "<topic>"` | **RECALL-FIRST** — cross-board search for prior thinking on a topic (use before decomposing) |
+| `tmind grow-auto <id> [--yes]` | headless decompose — an embedded judge proposes a subtree (no session needed); recall-first, `--yes` commits |
 
 `tmind decompose` (one level) proposal shape:
 ```json
@@ -125,19 +127,24 @@ and `tmind ui` should serve `--dir ~/Projects/tmind/boards`. Never create per-pr
 `boards/` dirs again. Name boards `<project>__<topic>.json` and set `domainHint` to the
 project/area (e.g. `petopia/de-slop`) so the pool stays filterable, not a junk drawer.
 
-**Seed from the pool (the payoff).** Before decomposing a topic for a NEW project, FIRST check
-the central store for prior work — `tmind cache-entry "<topic>"` and scan `tmind ls` for
-related `domainHint`s (e.g. existing `*/de-slop` boards). On a context-matching hit, graft it
-(`tmind grow`) for a mature starting point instead of re-deriving from scratch. This is how the
-Compounding Memory pillar pays off: reusable knowledge (de-slop recipes, methodology, market
-maps) is pulled forward, not re-asked. Surface cross-context hits to the user rather than
-silently reusing (see C′ verification cache rules).
+**Recall-first (the payoff — do this as STEP 0).** Before decomposing ANY topic, FIRST call
+**`tm_recall "<topic>"`** (MCP, in-session) or **`tmind recall "<topic>"`** (CLI) to surface
+related prior thinking across the whole store. This is mandatory, not optional — never decompose
+cold when prior thinking exists. On hits, present them and ask the user:
+- **Extend** an existing board (graft onto / deepen it) rather than spawn a near-duplicate, OR
+- **Reuse** the prior framing as a starting point for the new board (`tmind grow`), OR
+- **Start fresh** if the hits are genuinely unrelated.
+
+This is how the Compounding Memory pillar pays off: reusable knowledge (de-slop recipes,
+methodology, market maps) is pulled forward, not re-asked — turning a pool of disconnected
+boards into one accumulating base. Surface cross-context hits to the user rather than silently
+reusing. (For deeper verified-subtree reuse, the cache layer still applies — see C′ rules.)
 
 ## MCP equivalents
 
 If the MCP server is connected, the same operations are tools — but the server is
 **directory-aware** (multi-board), matching the web app. Two collection tools manage
-boards: `tm_list_boards` (no args) and `tm_create_board` `{ title, rootType }` → returns a
+boards: `tm_list_boards` (no args), `tm_recall` `{ topic, limit? }` (cross-board memory — call FIRST, see Recall-first above), and `tm_create_board` `{ title, rootType }` → returns a
 board `id`. Every other tool takes that `board` id as its first arg: `tm_show`,
 `tm_add_node`, `tm_link`, `tm_set_description`, `tm_decompose`, and **`tm_grow`**
 `{ board, parentId, nodes, edges? }` — the deep-by-default one (same nested `nodes` shape as

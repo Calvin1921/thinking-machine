@@ -10,7 +10,7 @@ import {
   addSection, setSectionNote, setSectionLayout, growSubtree,
   setNodeProvenance, setGuideMode, detectCollisions,
   setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
-  setAltFraming,
+  setAltFraming, recall,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -39,6 +39,10 @@ export function buildServer(dir: string): McpServer {
   server.tool("tm_list_boards", "List every board in the boards directory (newest first)",
     {},
     async () => ok(listBoards(dir)));
+
+  server.tool("tm_recall", "Cross-board memory: find prior thinking related to a topic across the whole store. Call this BEFORE decomposing a new topic, so you can extend/reuse existing boards instead of starting cold. Returns ranked hits (board, ancestor path, snippet).",
+    { topic: z.string(), limit: z.number().int().positive().optional() },
+    async ({ topic, limit }) => ok(recall(dir, topic, { limit: limit ?? 8 })));
 
   server.tool("tm_create_board", "Create a new board with one root node; returns its id",
     { title: z.string(), rootType: z.enum(["objective", "cause", "decision", "concept"]) },

@@ -11,7 +11,7 @@ import {
   listBoards, createBoard,
   setNodeProvenance, setGuideMode, detectCollisions,
   setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
-  setAltFraming, runGrowFlow, type GrowProposal,
+  setAltFraming, runGrowFlow, type GrowProposal, recall, recallContext,
 } from "@tm/core";
 import { claudeCliJudge } from "./judge-cli.js";
 
@@ -198,11 +198,30 @@ program.command("grow <id>")
   .option("--json-file <path>", "read the GrowInput JSON from a file instead of --json")
   .action((id, opts) => { mutate(file(), (b) => growSubtree(b, id, proposalOf(opts) as Parameters<typeof growSubtree>[2])); });
 
+program.command("recall <topic>")
+  .description("cross-board memory: find prior thinking related to <topic> across the store")
+  .option("--limit <n>", "max hits", "8")
+  .action((topic, opts) => {
+    const hits = recall(dir(), topic, { limit: Number(opts.limit) });
+    if (!hits.length) { process.stdout.write("(no related prior thinking found)\n"); return; }
+    for (const h of hits) process.stdout.write(`• [${h.boardTitle}] ${h.path}  (${h.score})\n${h.snippet ? `    ${h.snippet}\n` : ""}`);
+  });
+
 program.command("grow-auto <id>")
   .description("headless: an embedded judge (claude -p) proposes a subtree under <id>; prints it, --yes to commit")
   .option("--yes", "commit the proposal (default is a dry-run that only prints it)")
+  .option("--no-recall", "skip the cross-board recall step")
   .action(async (id, opts) => {
-    const { board: next, proposal } = await runGrowFlow(loadBoard(file()), id, claudeCliJudge);
+    const board = loadBoard(file());
+    const node = board.nodes.find((n) => n.id === id);
+    // Recall-first: surface prior thinking on this node's topic and feed it to the judge.
+    const hits = opts.recall !== false && node ? recall(dir(), node.label, { limit: 6 }) : [];
+    if (hits.length) {
+      process.stdout.write(`📎 ${hits.length} related from your other boards:\n`);
+      for (const h of hits) process.stdout.write(`   • [${h.boardTitle}] ${h.path}\n`);
+      process.stdout.write("\n");
+    }
+    const { board: next, proposal } = await runGrowFlow(board, id, claudeCliJudge, { recall: recallContext(hits) });
     printProposal(proposal);
     if (opts.yes) { saveBoard(file(), next); process.stdout.write("\n✓ committed.\n"); }
     else process.stdout.write("\n(dry-run — re-run with --yes to commit)\n");

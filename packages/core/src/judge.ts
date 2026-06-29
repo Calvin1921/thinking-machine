@@ -22,8 +22,9 @@ export interface Judge {
   propose(ctx: GrowContext): Promise<GrowProposal>;
 }
 
-/** Build the GrowContext for a node from the board (pure). */
-export function growContext(board: Board, nodeId: string): GrowContext {
+/** Build the GrowContext for a node from the board (pure). `recall` is injected by the
+ *  caller (the surface computes it via core.recall over the store) — keeps this IO-free. */
+export function growContext(board: Board, nodeId: string, recall: string[] = []): GrowContext {
   const node = board.nodes.find((n) => n.id === nodeId);
   if (!node) throw new Error(`unknown node: ${nodeId}`);
   const root = board.nodes.find((n) => n.id === board.rootId);
@@ -33,7 +34,7 @@ export function growContext(board: Board, nodeId: string): GrowContext {
     rootType: root?.rootType,
     ancestorPath: ancestorPath(board, nodeId).map(labelOf),
     domainHint: board.domainHint,
-    recall: [],
+    recall,
   };
 }
 
@@ -72,8 +73,9 @@ export async function runGrowFlow(
   board: Board,
   nodeId: string,
   judge: Judge,
+  opts: { recall?: string[] } = {},
 ): Promise<{ board: Board; proposal: GrowProposal }> {
-  const ctx = growContext(board, nodeId);
+  const ctx = growContext(board, nodeId, opts.recall ?? []);
   const proposal = await judge.propose(ctx);
   const next = growSubtree(board, nodeId, proposal);
   return { board: next, proposal };

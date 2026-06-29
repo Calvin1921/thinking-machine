@@ -34,6 +34,18 @@ describe("mcp tools", () => {
     expect(b.nodes.map((n: any) => n.label)).toContain("FE");
   });
 
+  it("tm_recall finds a node by topic across the store", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({
+      name: "tm_create_board", arguments: { title: "SaaS launch", rootType: "objective" },
+    }));
+    await c.callTool({ name: "tm_add_node", arguments: { board: id, label: "Pricing strategy", parentId: "root", kind: "branch" } });
+    const hits = payload(await c.callTool({ name: "tm_recall", arguments: { topic: "pricing" } }));
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].label).toBe("Pricing strategy");
+    expect(hits[0].boardId).toBe(id);
+  });
+
   it("tm_decompose commits a proposal on the named board", async () => {
     const c = await connect();
     const { id } = payload(await c.callTool({

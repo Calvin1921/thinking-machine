@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { existsSync, readFileSync } from "node:fs";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import {
@@ -37,6 +37,27 @@ const dir = () => program.opts().dir as string;
 const lib = () => program.opts().lib as string;
 const out = (obj: unknown) => process.stdout.write(JSON.stringify(obj, null, 2) + "\n");
 const nowIso = () => new Date().toISOString();
+
+/** Kill whatever is LISTENING on a port (a stale ui server), so `tmind ui` can restart cleanly.
+ *  Only listeners — never a client connection (e.g. a Vite dev proxy connected to the port). */
+function freePortListeners(port: string): number {
+  if (!/^\d{1,5}$/.test(port)) return 0; // only a numeric port reaches the shell — no injection surface
+  try {
+    let pids: string[];
+    if (process.platform === "win32") {
+      const o = execSync(`netstat -ano -p tcp | findstr LISTENING | findstr :${port}`, { stdio: ["ignore", "pipe", "ignore"] }).toString();
+      pids = [...new Set(o.trim().split(/\r?\n/).map((l) => l.trim().split(/\s+/).pop()).filter((x): x is string => !!x))];
+      for (const pid of pids) { try { execSync(`taskkill /PID ${pid} /F`, { stdio: "ignore" }); } catch { /* gone */ } }
+    } else {
+      const o = execSync(`lsof -ti tcp:${port} -sTCP:LISTEN`, { stdio: ["ignore", "pipe", "ignore"] }).toString();
+      pids = o.trim().split(/\s+/).filter(Boolean);
+      for (const pid of pids) { try { process.kill(Number(pid)); } catch { /* gone */ } }
+    }
+    return pids.length;
+  } catch {
+    return 0; // nothing listening, or lsof/netstat unavailable — fine, the new server will just bind
+  }
+}
 
 /** Render a grow proposal as an indented outline for the dry-run confirm step. */
 const printProposal = (p: GrowProposal) => {
@@ -308,6 +329,10 @@ program.command("ui")
       process.exit(1);
     }
     const boardsDir = resolve(opts.dir);
+    // Free the port first: kill any stale ui server still listening, so re-running `tmind ui`
+    // restarts cleanly instead of crashing with EADDRINUSE.
+    const killed = freePortListeners(String(opts.port));
+    if (killed) process.stdout.write(`↻ stopped a previous ui server on :${opts.port}, restarting…\n`);
     const child = spawn("node", ["--import", "tsx", join(webDir, "server", "sidecar.ts")], {
       cwd: webDir,
       env: { ...process.env, TM_BOARDS_DIR: boardsDir, TM_WEB_DIST: dist, TM_UI_PORT: String(opts.port) },

@@ -54,7 +54,7 @@ Apply these heuristics at EVERY level, in order:
 2. Rank by charge x tractability: order children by how much each matters x how actionable it is.
 3. Name the crux (the child with the highest in-degree x uncertainty: what the most others depend on AND is least resolved) inside the PARENT's description; expand it first.
 4. For a decision root, the children MUST be the pipeline: options, criteria, risks, reversibility — and the decomposition MUST exit on a probe (a dated, numeric test of the crux + a tripwire "wrong if X by DATE"). (Skip if the root is not a decision.)
-
+${ctx.rootType && ctx.rootType !== "decision" ? "5. NON-DECISION discipline: name exactly ONE overall crux for the whole tree (not one per branch). Do NOT attach a fresh crux or a probe to every node — add a probe only where heuristic 0 genuinely applies. Fewer, cleaner, non-overlapping branches beat breadth; resist drifting into a list.\n" : ""}
 Give EVERY node a description that carries real signal (not a restatement of the label). Depth 2-3. 3-6 children per level. Use dependency edges only for genuine shared cross-links.
 
 ROOT: "${ctx.label}"${ctx.rootType ? `\nROOT TYPE: ${ctx.rootType}` : ""}${path ? `\nPATH (context above this node): ${path}` : ""}${ctx.domainHint ? `\nDOMAIN: ${ctx.domainHint}` : ""}${recall}

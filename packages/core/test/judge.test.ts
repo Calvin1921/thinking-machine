@@ -24,6 +24,14 @@ describe("judge port", () => {
     expect(prompt).toContain("Launch > Pricing");
   });
 
+  it("adds the non-decision over-expansion discipline only for non-decision roots", () => {
+    const concept = buildJudgePrompt({ label: "What converts", rootType: "concept", ancestorPath: ["What converts"], recall: [] });
+    const decision = buildJudgePrompt({ label: "Ship or not", rootType: "decision", ancestorPath: ["Ship or not"], recall: [] });
+    expect(concept).toContain("NON-DECISION discipline");
+    expect(concept).toContain("ONE overall crux");
+    expect(decision).not.toContain("NON-DECISION discipline");
+  });
+
   it("runGrowFlow commits whatever the injected judge proposes, under the node", async () => {
     let b = newBoard("App", "objective");
     b = addNode(b, { label: "Backend", parentId: "root", kind: "branch" });

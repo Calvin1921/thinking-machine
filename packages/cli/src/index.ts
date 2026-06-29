@@ -207,6 +207,22 @@ program.command("recall <topic>")
     for (const h of hits) process.stdout.write(`• [${h.boardTitle}] ${h.path}  (${h.score})\n${h.snippet ? `    ${h.snippet}\n` : ""}`);
   });
 
+program.command("recall-hook")
+  .description("Claude Code UserPromptSubmit hook: read the prompt from stdin JSON, surface related accumulated knowledge. Gated so it stays quiet unless there's a strong, relevant hit.")
+  .option("--min-words <n>", "skip prompts shorter than this (control words like 'go ahead')", "5")
+  .option("--min-coverage <n>", "only inject hits sharing at least this many distinct terms with the prompt (≥2 = real topical overlap, not one coincidental word)", "2")
+  .action((opts) => {
+    let raw = "";
+    try { raw = readFileSync(0, "utf8"); } catch { return; }       // no stdin → nothing to do
+    let prompt = "";
+    try { prompt = (JSON.parse(raw).prompt as string) ?? ""; } catch { prompt = raw; }
+    if (prompt.trim().split(/\s+/).filter(Boolean).length < Number(opts.minWords)) return;
+    const hits = recall(dir(), prompt, { limit: 4 }).filter((h) => h.coverage >= Number(opts.minCoverage));
+    if (!hits.length) return;                                        // quiet unless ≥2 terms genuinely overlap
+    process.stdout.write("📎 From your thinking-machine boards (your own accumulated/verified knowledge — may be more current or specific than my defaults):\n");
+    for (const h of hits) process.stdout.write(`• [${h.boardTitle}] ${h.path}${h.snippet ? ` — ${h.snippet}` : ""}\n`);
+  });
+
 program.command("grow-auto <id>")
   .description("headless: an embedded judge (claude -p) proposes a subtree under <id>; prints it, --yes to commit")
   .option("--yes", "commit the proposal (default is a dry-run that only prints it)")

@@ -34,6 +34,7 @@ describe("recall", () => {
     expect(hits.length).toBe(2); // dog-grooming excluded
     expect(hits[0].label).toBe("Pricing strategy"); // label hit (3) outranks desc hit (1)
     expect(hits[0].score).toBeGreaterThan(hits[1].score);
+    expect(hits[0].coverage).toBe(1); // single-term query → covers 1 distinct term (the hook gates on ≥2)
     expect(hits.some((h) => h.boardTitle === "Dog grooming")).toBe(false);
   });
 

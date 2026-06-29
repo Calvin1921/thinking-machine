@@ -11,8 +11,9 @@ import {
   listBoards, createBoard,
   setNodeProvenance, setGuideMode, detectCollisions,
   setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
-  setAltFraming,
+  setAltFraming, runGrowFlow, type GrowProposal,
 } from "@tm/core";
+import { claudeCliJudge } from "./judge-cli.js";
 
 const program = new Command();
 // Single-source-of-truth defaults: when TM_BOARDS_DIR is set (globally or per
@@ -36,6 +37,18 @@ const dir = () => program.opts().dir as string;
 const lib = () => program.opts().lib as string;
 const out = (obj: unknown) => process.stdout.write(JSON.stringify(obj, null, 2) + "\n");
 const nowIso = () => new Date().toISOString();
+
+/** Render a grow proposal as an indented outline for the dry-run confirm step. */
+const printProposal = (p: GrowProposal) => {
+  const walk = (nodes: GrowProposal["nodes"], depth: number) => {
+    for (const n of nodes) {
+      process.stdout.write(`${"  ".repeat(depth)}• ${n.label} [${n.kind}]${n.description ? ` — ${n.description}` : ""}\n`);
+      if (n.children?.length) walk(n.children, depth + 1);
+    }
+  };
+  walk(p.nodes, 0);
+  for (const e of p.edges ?? []) process.stdout.write(`  ↳ ${e.fromLabel} —${e.label ?? e.type}→ ${e.toLabel}\n`);
+};
 
 program.command("init <title>")
   .option("--root-type <type>", "objective|cause|decision|concept", "objective")
@@ -185,6 +198,16 @@ program.command("grow <id>")
   .option("--json-file <path>", "read the GrowInput JSON from a file instead of --json")
   .action((id, opts) => { mutate(file(), (b) => growSubtree(b, id, proposalOf(opts) as Parameters<typeof growSubtree>[2])); });
 
+program.command("grow-auto <id>")
+  .description("headless: an embedded judge (claude -p) proposes a subtree under <id>; prints it, --yes to commit")
+  .option("--yes", "commit the proposal (default is a dry-run that only prints it)")
+  .action(async (id, opts) => {
+    const { board: next, proposal } = await runGrowFlow(loadBoard(file()), id, claudeCliJudge);
+    printProposal(proposal);
+    if (opts.yes) { saveBoard(file(), next); process.stdout.write("\n✓ committed.\n"); }
+    else process.stdout.write("\n(dry-run — re-run with --yes to commit)\n");
+  });
+
 program.command("logo <id> <domain>")
   .description("set a node's image to a site favicon (Google s2). Accepts a bare domain or a pasted URL; 'none' clears.")
   .action((id, domain) => {
@@ -269,5 +292,5 @@ program.command("ui")
     child.on("exit", (code) => process.exit(code ?? 0));
   });
 
-try { program.parse(); }
-catch (err) { process.stderr.write(`Error: ${(err as Error).message}\n`); process.exit(1); }
+program.parseAsync()
+  .catch((err) => { process.stderr.write(`Error: ${(err as Error).message}\n`); process.exit(1); });

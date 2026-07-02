@@ -1,6 +1,6 @@
 // packages/core/test/schema.test.ts
 import { describe, it, expect } from "vitest";
-import { BoardSchema, NodeProvenance, ContentKind, Volatility, migrate, CURRENT_VERSION } from "../src/schema.js";
+import { BoardSchema, JudgeResultSchema, NodeProvenance, ContentKind, Volatility, migrate, CURRENT_VERSION } from "../src/schema.js";
 
 describe("schema", () => {
   it("parses a minimal valid board", () => {
@@ -81,5 +81,58 @@ describe("schema", () => {
     });
     expect(() => BoardSchema.parse(base("2026-06-24T00:00:00.000Z", "pick this if you want zero-config"))).not.toThrow();
     expect(() => BoardSchema.parse(base("banana"))).toThrow();
+  });
+});
+
+describe("gap + resolution (honest-map fields)", () => {
+  const boardWith = (extra: object) => ({
+    version: CURRENT_VERSION, id: "b1", title: "T", rootId: "app",
+    nodes: [{ id: "app", label: "App", kind: "root", x: 0, y: 0, ...extra }],
+    edges: [],
+  });
+
+  it("accepts a node gap {kind, question} and a resolution", () => {
+    expect(() => BoardSchema.parse(boardWith({
+      gap: { kind: "reality", question: "What is the actual churn rate?" },
+    }))).not.toThrow();
+    expect(() => BoardSchema.parse(boardWith({
+      resolution: "Chose the MCP wedge — narrowest reachable audience.", status: "passed",
+    }))).not.toThrow();
+  });
+
+  it("rejects an unknown gap kind and an empty gap question", () => {
+    expect(() => BoardSchema.parse(boardWith({ gap: { kind: "vibes", question: "?" } }))).toThrow();
+    expect(() => BoardSchema.parse(boardWith({ gap: { kind: "intent", question: "" } }))).toThrow();
+  });
+});
+
+describe("JudgeResultSchema (the commit-or-gap contract)", () => {
+  it("parses a commit arm with nested children", () => {
+    const r = JudgeResultSchema.parse({
+      kind: "commit",
+      nodes: [{ label: "API", kind: "branch", description: "http surface",
+        children: [{ label: "Auth", kind: "atom" }] }],
+      edges: [{ fromLabel: "API", toLabel: "Auth", type: "dependency", label: "guards" }],
+    });
+    expect(r.kind).toBe("commit");
+  });
+
+  it("parses a gap arm", () => {
+    const r = JudgeResultSchema.parse({
+      kind: "gap",
+      gap: { kind: "intent", question: "Is this for hiring readers or for daily users?" },
+    });
+    expect(r.kind).toBe("gap");
+  });
+
+  it("rejects a commit with an empty child label (no fabricated blanks on disk)", () => {
+    expect(() => JudgeResultSchema.parse({
+      kind: "commit", nodes: [{ label: "", kind: "atom" }],
+    })).toThrow();
+  });
+
+  it("rejects a result that is neither commit nor gap", () => {
+    expect(() => JudgeResultSchema.parse({ kind: "maybe" })).toThrow();
+    expect(() => JudgeResultSchema.parse({ nodes: "not-an-array" })).toThrow();
   });
 });

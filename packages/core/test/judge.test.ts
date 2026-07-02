@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
 import { addNode } from "../src/ops.js";
-import { growContext, buildJudgePrompt, runGrowFlow, type Judge } from "../src/judge.js";
+import { growContext, buildJudgePrompt, runGrowFlow, parseJudgeResult, type Judge } from "../src/judge.js";
 
 describe("judge port", () => {
   it("growContext gathers label, rootType, ancestor path and domainHint from the board", () => {
@@ -32,7 +32,7 @@ describe("judge port", () => {
     expect(decision).not.toContain("NON-DECISION discipline");
   });
 
-  it("runGrowFlow commits whatever the injected judge proposes, under the node", async () => {
+  it("runGrowFlow commits a judge's commit arm under the node", async () => {
     let b = newBoard("App", "objective");
     b = addNode(b, { label: "Backend", parentId: "root", kind: "branch" });
     const backend = b.nodes.find((n) => n.label === "Backend")!;
@@ -40,21 +40,55 @@ describe("judge port", () => {
     const scripted: Judge = {
       async propose() {
         return {
+          kind: "commit" as const,
           nodes: [
-            { label: "API", kind: "atom", description: "the http surface" },
-            { label: "DB", kind: "atom", description: "persistence" },
+            { label: "API", kind: "atom" as const, description: "the http surface" },
+            { label: "DB", kind: "atom" as const, description: "persistence" },
           ],
-          edges: [{ fromLabel: "API", toLabel: "DB", type: "dependency", label: "reads" }],
+          edges: [{ fromLabel: "API", toLabel: "DB", type: "dependency" as const, label: "reads" }],
         };
       },
     };
-    const { board: next, proposal } = await runGrowFlow(b, backend.id, scripted);
-    expect(proposal.nodes).toHaveLength(2);
+    const { board: next, result } = await runGrowFlow(b, backend.id, scripted);
+    expect(result.kind).toBe("commit");
     const api = next.nodes.find((n) => n.label === "API")!;
     const db = next.nodes.find((n) => n.label === "DB")!;
     expect(api && db).toBeTruthy();
     // children hang off Backend by decomposition; the cross-link is a dependency
     expect(next.edges).toContainEqual({ from: backend.id, to: api.id, type: "decomposition" });
     expect(next.edges).toContainEqual({ from: api.id, to: db.id, type: "dependency", label: "reads" });
+  });
+
+  it("runGrowFlow records a judge's gap arm on the node instead of inventing children", async () => {
+    let b = newBoard("Grow revenue", "objective");
+    b = addNode(b, { label: "Pricing", parentId: "root", kind: "branch" });
+    const pricing = b.nodes.find((n) => n.label === "Pricing")!;
+    const honest: Judge = {
+      async propose() {
+        return { kind: "gap" as const, gap: { kind: "reality" as const, question: "What do current users pay today?" } };
+      },
+    };
+    const { board: next, result } = await runGrowFlow(b, pricing.id, honest);
+    expect(result.kind).toBe("gap");
+    const after = next.nodes.find((n) => n.id === pricing.id)!;
+    expect(after.gap).toEqual({ kind: "reality", question: "What do current users pay today?" });
+    // no children were fabricated
+    expect(next.nodes).toHaveLength(b.nodes.length);
+  });
+
+  it("parseJudgeResult strict-parses raw judge JSON and accepts the legacy bare {nodes} shape as a commit", () => {
+    const legacy = parseJudgeResult({ nodes: [{ label: "A", kind: "atom" }] });
+    expect(legacy.kind).toBe("commit");
+    const gap = parseJudgeResult({ kind: "gap", gap: { kind: "structure", question: "Which parts?" } });
+    expect(gap.kind).toBe("gap");
+    expect(() => parseJudgeResult({ kind: "commit", nodes: [{ label: "", kind: "atom" }] })).toThrow();
+    expect(() => parseJudgeResult("prose, not an object")).toThrow();
+  });
+
+  it("buildJudgePrompt carries the commit-or-gap contract", () => {
+    const prompt = buildJudgePrompt({ label: "Pricing", ancestorPath: ["Pricing"], recall: [] });
+    expect(prompt).toContain('"gap"');
+    expect(prompt).toMatch(/intent\|structure\|reality/);
+    expect(prompt.toLowerCase()).toContain("do not invent");
   });
 });

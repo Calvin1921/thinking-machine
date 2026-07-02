@@ -1,5 +1,7 @@
 // packages/core/src/ops.ts
-import { Board, Node, EdgeType, NodeStatus, NodeProvenance, ContentKind, Volatility, BoardLayout, Section, SectionKind, AltFraming, AltFramingSchema } from "./schema.js";
+import { Board, Node, EdgeType, NodeStatus, NodeProvenance, ContentKind, Volatility, BoardLayout, Section, SectionKind, AltFraming, AltFramingSchema, Gap } from "./schema.js";
+import type { GrowNode, GrowInput } from "./schema.js";
+export type { GrowNode, GrowInput };
 import { placeChildren } from "./layout.js";
 
 // Resets to 0 on every process restart; uniqueness is guaranteed by the live-board
@@ -311,6 +313,42 @@ export function setNodeLabel(board: Board, nodeId: string, label: string): Board
   return { ...board, nodes: board.nodes.map((n) => (n.id === nodeId ? { ...n, label: next } : n)) };
 }
 
+/** Plant (or with null, clear) a frontier flag on a node: "can't map past here — this is
+ *  the question that unblocks it." The honest alternative to fabricating children. */
+export function setNodeGap(board: Board, nodeId: string, gap: Gap | null): Board {
+  requireNode(board, nodeId);
+  return {
+    ...board,
+    nodes: board.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      if (gap) return { ...n, gap };
+      const { gap: _cleared, ...rest } = n;
+      return rest;
+    }),
+  };
+}
+
+/** Close a node: record the outcome, set the verdict status, clear any open gap.
+ *  Closure is what turns a board from a sketch into a reusable answer (it feeds recall). */
+export function resolveNode(
+  board: Board,
+  nodeId: string,
+  outcome: string,
+  status: "passed" | "failed" = "passed",
+): Board {
+  requireNode(board, nodeId);
+  const resolution = outcome.trim();
+  if (!resolution) throw new Error("resolveNode: outcome must be non-empty");
+  return {
+    ...board,
+    nodes: board.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      const { gap: _cleared, ...rest } = n;
+      return { ...rest, resolution, status };
+    }),
+  };
+}
+
 /** Set (or clear, with empty) a node's body text. */
 export function setNodeDescription(board: Board, nodeId: string, description: string): Board {
   requireNode(board, nodeId);
@@ -346,16 +384,8 @@ export function decompose(board: Board, nodeId: string, input: DecomposeInput): 
   return b;
 }
 
-export interface GrowNode {
-  label: string;
-  kind: "branch" | "atom";
-  description?: string;                 // the node's body text
-  children?: GrowNode[];                // recursive
-}
-export interface GrowInput {
-  nodes: GrowNode[];
-  edges?: { fromLabel: string; toLabel: string; type: EdgeType; label?: string }[];  // cross-links by label, with an optional relationship verb
-}
+// GrowNode/GrowInput live in schema.ts next to their zod schemas (one concept, one home);
+// re-exported above for callers that import them from ops.
 
 const GROW_MAX_NODES = 300;
 

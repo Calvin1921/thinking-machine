@@ -10,7 +10,7 @@ import {
   addSection, setSectionNote, setSectionLayout, growSubtree,
   setNodeProvenance, setGuideMode, detectCollisions,
   setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
-  setAltFraming, recall,
+  setAltFraming, setNodeGap, resolveNode, recall,
 } from "@tm/core";
 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
@@ -117,15 +117,16 @@ export function buildServer(dir: string): McpServer {
     {
       board: z.string().describe(BOARD_DESC),
       nodeId: z.string(),
-      decomposition: z.array(z.object({ label: z.string(), kind: z.enum(["branch", "atom"]), description: z.string().optional().describe("the node's body text") })),
+      decomposition: z.array(z.object({ label: z.string().min(1), kind: z.enum(["branch", "atom"]), description: z.string().optional().describe("the node's body text") })),
       edges: z.array(z.object({ fromLabel: z.string(), toLabel: z.string(), type: z.enum(["decomposition", "dependency"]), label: z.string().optional().describe("relationship verb shown on the edge") })).optional(),
     },
     async ({ board, nodeId, decomposition, edges }) =>
       ok(mutate(resolveBoard(board), (b) => decompose(b, nodeId, { decomposition, edges }))));
 
   // Recursive GrowNode shape (a node may carry nested children of the same shape).
+  // label min(1) matches NodeSchema — an empty label must die here, not on disk.
   const growNode: z.ZodType<any> = z.lazy(() => z.object({
-    label: z.string(),
+    label: z.string().min(1),
     kind: z.enum(["branch", "atom"]),
     description: z.string().optional(),
     children: z.array(growNode).optional(),
@@ -140,6 +141,30 @@ export function buildServer(dir: string): McpServer {
     },
     async ({ board, parentId, nodes, edges }) =>
       ok(mutate(resolveBoard(board), (b) => growSubtree(b, parentId, { nodes, edges }))));
+
+  server.tool("tm_gap", "Plant a frontier flag on a node: the honest 'can't map past here' marker + the one question that unblocks it. Pass clear:true to remove.",
+    {
+      board: z.string().describe(BOARD_DESC),
+      nodeId: z.string(),
+      kind: z.enum(["intent", "structure", "reality"]).optional().describe("intent = what's wanted is unclear; structure = domain shape unknown; reality = only the real world can answer"),
+      question: z.string().optional().describe("the one question that unblocks this node"),
+      clear: z.boolean().optional().describe("remove the gap flag instead"),
+    },
+    async ({ board, nodeId, kind, question, clear }) => {
+      if (clear) return ok(mutate(resolveBoard(board), (b) => setNodeGap(b, nodeId, null)));
+      if (!kind || !question) throw new Error("tm_gap: kind and question are required (or pass clear:true)");
+      return ok(mutate(resolveBoard(board), (b) => setNodeGap(b, nodeId, { kind, question })));
+    });
+
+  server.tool("tm_resolve", "Close a node: record the outcome, set the verdict status, clear any open gap. Closure turns a board into a reusable answer (it feeds recall).",
+    {
+      board: z.string().describe(BOARD_DESC),
+      nodeId: z.string(),
+      outcome: z.string().min(1).describe("what was decided/learned, and why"),
+      status: z.enum(["passed", "failed"]).optional().describe("verdict; defaults to passed"),
+    },
+    async ({ board, nodeId, outcome, status }) =>
+      ok(mutate(resolveBoard(board), (b) => resolveNode(b, nodeId, outcome, status))));
 
   server.tool("tm_set_provenance", "Set a node's content provenance/trust badge (empty clears)",
     { board: z.string().describe(BOARD_DESC), nodeId: z.string(), provenance: z.enum(["drafted", "verified", "refuted", "informed-opinion", "stale", ""]).describe("one of drafted|verified|refuted|informed-opinion|stale, or empty to clear") },

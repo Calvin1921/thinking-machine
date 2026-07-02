@@ -28,6 +28,11 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, 
 .prov-refuted { color: #ff6b6b; }
 .prov-informed-opinion { color: #6aa3ff; }
 .prov-stale { color: #f0a868; }
+/* frontier flag: the honest "map stops here" marker — amber, like its dashed border */
+.t-gap { font-size: 11px; line-height: 1.4; color: #f0a868; margin-top: 5px; }
+.t-gap-kind { font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: 9px; }
+/* closure: the recorded outcome — green, like the passed status it usually pairs with */
+.t-resolution { font-size: 11px; line-height: 1.4; color: #34d399; margin-top: 5px; }
 .t-preview { font-size: 11px; color: var(--dim); line-height: 1.5; margin-top: 7px; white-space: pre-wrap; }
 .t-empty { font-size: 10.5px; font-style: italic; color: #4a5260; margin-top: 7px; }
 /* Inline editors: transparent, borderless — they read as the text they replace, not as a form. */

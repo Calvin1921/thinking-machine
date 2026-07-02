@@ -183,6 +183,15 @@ pipeline **options · criteria · risks · reversibility**, and the decompositio
 on a probe**: a dated, numeric test of the crux + a tripwire ("wrong if X by DATE"). Never
 leave a decision node as analysis with no next action.
 
+**H · The honesty rule (overrides all of the above)** — if you cannot support a decomposition
+— because what the user actually *wants* is unclear (**intent**), the domain's shape is
+unknown to you (**structure**), or only the real world can answer (**reality**) — do **not**
+invent children. Plant a **gap** instead (`tm_gap` / `tmind gap <id> --kind <k> --question "…"`):
+the one question that would unblock the most. A named gap is a better output than a confident
+guess — the gaps ARE the map's most valuable output. When a gap is answered or a node's
+question is settled, close it with **`tm_resolve` / `tmind resolve <id> <outcome…>`** so the
+board records the outcome (and feeds recall) instead of trailing off.
+
 ### Domain → how to break it down
 Infer the domain and pick the 4–6 parts that fit, then make them **child nodes** (what used
 to be "lenses" are now just children): decision → options/criteria/risks/reversibility;

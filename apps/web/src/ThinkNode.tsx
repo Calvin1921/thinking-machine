@@ -43,7 +43,12 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
     <div
       className={`think ${data.kind} ${selected ? "sel" : ""} ${data.sized ? "sized" : ""}`}
       title={selected ? "click the title or body to edit · double-click to dive in" : "double-click to dive in"}
-      style={{ borderColor: selected ? "#22d3ee" : (statusColor ?? KIND_BORDER[data.kind]), borderLeftWidth: statusColor ? 4 : undefined }}
+      style={{
+        // gap = frontier: amber dashed edge (reuses the dependency accent — no new color).
+        borderColor: selected ? "#22d3ee" : data.gap ? "#f0a868" : (statusColor ?? KIND_BORDER[data.kind]),
+        borderStyle: data.gap && !selected ? "dashed" : undefined,
+        borderLeftWidth: statusColor ? 4 : undefined,
+      }}
     >
       <NodeResizer isVisible={selected} minWidth={150} minHeight={56} lineClassName="nr-line" handleClassName="nr-handle" />
       <Handle type="target" position={Position.Left} id="l" />
@@ -79,6 +84,14 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
         )}
         {data.provenance && (
           <div className={`t-prov prov-${data.provenance}`}>{data.provenance}</div>
+        )}
+        {data.gap && (
+          <div className="t-gap" title={`frontier: the map honestly stops here (${data.gap.kind} gap)`}>
+            <span className="t-gap-kind">⚑ {data.gap.kind}</span> {data.gap.question}
+          </div>
+        )}
+        {data.resolution && (
+          <div className="t-resolution" title="resolved — the recorded outcome">✓ {data.resolution}</div>
         )}
         {data.kind === "root" && data.rootType && <div className="t-sub">{data.rootType}</div>}
         {edit === "desc" ? (

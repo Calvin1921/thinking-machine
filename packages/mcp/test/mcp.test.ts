@@ -196,3 +196,44 @@ describe("mcp tools", () => {
     expect(entry).toEqual({ context: "static blog", payload: { a: 1 } });
   });
 });
+
+describe("gap + resolve tools (frontier + closure)", () => {
+  it("tm_gap plants and clears a frontier flag", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({
+      name: "tm_create_board", arguments: { title: "App", rootType: "objective" },
+    }));
+    await c.callTool({ name: "tm_gap", arguments: { board: id, nodeId: "root", kind: "reality", question: "Do users return unprompted?" } });
+    let b = JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8"));
+    expect(b.nodes[0].gap).toEqual({ kind: "reality", question: "Do users return unprompted?" });
+    await c.callTool({ name: "tm_gap", arguments: { board: id, nodeId: "root", clear: true } });
+    b = JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8"));
+    expect(b.nodes[0].gap).toBeUndefined();
+  });
+
+  it("tm_resolve closes a node with an outcome and clears its gap", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({
+      name: "tm_create_board", arguments: { title: "Ship?", rootType: "decision" },
+    }));
+    await c.callTool({ name: "tm_gap", arguments: { board: id, nodeId: "root", kind: "intent", question: "Which audience?" } });
+    await c.callTool({ name: "tm_resolve", arguments: { board: id, nodeId: "root", outcome: "Chose the MCP wedge." } });
+    const b = JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8"));
+    expect(b.nodes[0].resolution).toBe("Chose the MCP wedge.");
+    expect(b.nodes[0].status).toBe("passed");
+    expect(b.nodes[0].gap).toBeUndefined();
+  });
+
+  it("tm_grow rejects an empty child label at the tool boundary", async () => {
+    const c = await connect();
+    const { id } = payload(await c.callTool({
+      name: "tm_create_board", arguments: { title: "App", rootType: "objective" },
+    }));
+    const res: any = await c.callTool({ name: "tm_grow", arguments: {
+      board: id, parentId: "root", nodes: [{ label: "", kind: "atom" }],
+    } });
+    expect(res.isError).toBe(true);
+    const b = JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8"));
+    expect(b.nodes).toHaveLength(1);   // board untouched
+  });
+});

@@ -1,7 +1,7 @@
 // apps/web/src/boardToFlow.test.ts
 import { describe, it, expect } from "vitest";
 import { boardToFlow } from "./boardToFlow.js";
-import { newBoard, addNode, linkNodes, setNodeProvenance } from "@tm/core";
+import { newBoard, addNode, linkNodes, setNodeProvenance, setNodeGap, resolveNode } from "@tm/core";
 
 describe("boardToFlow", () => {
   it("maps nodes and typed edges", () => {
@@ -29,5 +29,21 @@ describe("boardToFlow", () => {
     const { nodes } = boardToFlow(b);
     const idea = nodes.find((n) => n.id === ideaId)!;
     expect(idea.data.provenance).toBe("drafted");
+  });
+});
+
+describe("gap + resolution rendering data", () => {
+  it("carries a node's gap flag and resolution into flow node data", () => {
+    let b = newBoard("App", "objective");
+    b = addNode(b, { label: "Pricing", parentId: "root", kind: "branch" });
+    const id = b.nodes.find((n) => n.label === "Pricing")!.id;
+    b = setNodeGap(b, id, { kind: "reality", question: "What do users pay today?" });
+    b = resolveNode(b, "root", "Shipped the wedge.", "passed");
+
+    const { nodes } = boardToFlow(b);
+    const pricing = nodes.find((n) => n.id === id)!;
+    expect(pricing.data.gap).toEqual({ kind: "reality", question: "What do users pay today?" });
+    const root = nodes.find((n) => n.id === "root")!;
+    expect(root.data.resolution).toBe("Shipped the wedge.");
   });
 });

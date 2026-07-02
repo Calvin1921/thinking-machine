@@ -11,7 +11,8 @@ import {
   listBoards, createBoard,
   setNodeProvenance, setGuideMode, detectCollisions,
   setVerification, markStale, cacheSubtree, lookupCache, setNodeRationale, lookupCacheEntry,
-  setAltFraming, runGrowFlow, type GrowProposal, recall, recallContext,
+  setAltFraming, runGrowFlow, applyJudgeResult, setNodeGap, resolveNode,
+  type JudgeResult, type GrowNode, GrowInputSchema, DecomposeInputSchema, recall, recallContext,
 } from "@tm/core";
 import { claudeCliJudge } from "./judge-cli.js";
 
@@ -59,16 +60,20 @@ function freePortListeners(port: string): number {
   }
 }
 
-/** Render a grow proposal as an indented outline for the dry-run confirm step. */
-const printProposal = (p: GrowProposal) => {
-  const walk = (nodes: GrowProposal["nodes"], depth: number) => {
+/** Render a judge result for the dry-run confirm step: the proposed outline, or the gap. */
+const printResult = (r: JudgeResult) => {
+  if (r.kind === "gap") {
+    process.stdout.write(`⚑ GAP (${r.gap.kind}): ${r.gap.question}\n`);
+    return;
+  }
+  const walk = (nodes: GrowNode[], depth: number) => {
     for (const n of nodes) {
       process.stdout.write(`${"  ".repeat(depth)}• ${n.label} [${n.kind}]${n.description ? ` — ${n.description}` : ""}\n`);
       if (n.children?.length) walk(n.children, depth + 1);
     }
   };
-  walk(p.nodes, 0);
-  for (const e of p.edges ?? []) process.stdout.write(`  ↳ ${e.fromLabel} —${e.label ?? e.type}→ ${e.toLabel}\n`);
+  walk(r.nodes, 0);
+  for (const e of r.edges ?? []) process.stdout.write(`  ↳ ${e.fromLabel} —${e.label ?? e.type}→ ${e.toLabel}\n`);
 };
 
 program.command("init <title>")
@@ -208,16 +213,40 @@ const proposalOf = (opts: { json?: string; jsonFile?: string }): unknown => {
   return JSON.parse(opts.json ?? readFileSync(opts.jsonFile!, "utf8"));
 };
 
+
 program.command("decompose <id>")
   .option("--json <proposal>", "JSON {decomposition:[{label,kind,description?}], edges?}")
   .option("--json-file <path>", "read the proposal JSON from a file instead of --json")
-  .action((id, opts) => { mutate(file(), (b) => decompose(b, id, proposalOf(opts) as Parameters<typeof decompose>[2])); });
+  .action((id, opts) => { mutate(file(), (b) => decompose(b, id, DecomposeInputSchema.parse(proposalOf(opts)))); });
 
 program.command("grow <id>")
   .description("grow a whole nested subtree under <id> in one shot")
-  .option("--json <input>", "JSON GrowInput {nodes:[{label,kind,facets?,children?}], edges?}")
+  .option("--json <input>", "JSON GrowInput {nodes:[{label,kind,description?,children?}], edges?}")
   .option("--json-file <path>", "read the GrowInput JSON from a file instead of --json")
-  .action((id, opts) => { mutate(file(), (b) => growSubtree(b, id, proposalOf(opts) as Parameters<typeof growSubtree>[2])); });
+  .action((id, opts) => {
+    // Strict-validate at the boundary: a hallucinated/malformed proposal fails loud here,
+    // matching the MCP surface, instead of being as-cast onto the board.
+    const input = GrowInputSchema.parse(proposalOf(opts));
+    mutate(file(), (b) => growSubtree(b, id, input));
+  });
+
+program.command("gap <id>")
+  .description("plant a frontier flag on <id>: the honest 'can't map past here' + the unblocking question")
+  .option("--kind <kind>", "intent|structure|reality", "reality")
+  .option("--question <text>", "the one question that unblocks this node")
+  .option("--clear", "remove the gap flag instead")
+  .action((id, opts) => {
+    if (opts.clear) { mutate(file(), (b) => setNodeGap(b, id, null)); return; }
+    if (!opts.question) throw new Error("gap: --question is required (or use --clear)");
+    mutate(file(), (b) => setNodeGap(b, id, { kind: opts.kind, question: opts.question }));
+  });
+
+program.command("resolve <id> <outcome...>")
+  .description("close a node: record the outcome, set the verdict, clear any open gap")
+  .option("--status <status>", "passed|failed", "passed")
+  .action((id, outcome, opts) => {
+    mutate(file(), (b) => resolveNode(b, id, (outcome as string[]).join(" "), opts.status));
+  });
 
 program.command("recall <topic>")
   .description("cross-board memory: find prior thinking related to <topic> across the store")
@@ -258,9 +287,11 @@ program.command("grow-auto <id>")
       for (const h of hits) process.stdout.write(`   • [${h.boardTitle}] ${h.path}\n`);
       process.stdout.write("\n");
     }
-    const { board: next, proposal } = await runGrowFlow(board, id, claudeCliJudge, { recall: recallContext(hits) });
-    printProposal(proposal);
-    if (opts.yes) { saveBoard(file(), next); process.stdout.write("\n✓ committed.\n"); }
+    const { result } = await runGrowFlow(board, id, claudeCliJudge, { recall: recallContext(hits) });
+    printResult(result);
+    // Commit against the CURRENT board under lock — the snapshot above is only judge context;
+    // saving it directly would clobber any edit made during the (slow) LLM call.
+    if (opts.yes) { mutate(file(), (b) => applyJudgeResult(b, id, result)); process.stdout.write("\n✓ committed.\n"); }
     else process.stdout.write("\n(dry-run — re-run with --yes to commit)\n");
   });
 

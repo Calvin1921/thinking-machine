@@ -158,3 +158,40 @@ describe("tm cli", () => {
     expect(entry).toEqual({ context: "static blog", payload: { nodes: [{ label: "Vercel" }] } });
   });
 });
+
+describe("gap + resolve (frontier + closure verbs)", () => {
+  it("gap plants a frontier flag; gap --clear removes it", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    run(["gap", "root", "--kind", "reality", "--question", "Do users return unprompted?"]);
+    let root = JSON.parse(run(["show", "--node", "root"]));
+    expect(root.gap).toEqual({ kind: "reality", question: "Do users return unprompted?" });
+    run(["gap", "root", "--clear"]);
+    root = JSON.parse(run(["show", "--node", "root"]));
+    expect(root.gap).toBeUndefined();
+  });
+
+  it("resolve records the outcome, closes the node, and clears its gap", () => {
+    run(["init", "Ship it?", "--root-type", "decision"]);
+    run(["gap", "root", "--kind", "intent", "--question", "Which audience?"]);
+    run(["resolve", "root", "Chose the MCP wedge."]);
+    const root = JSON.parse(run(["show", "--node", "root"]));
+    expect(root.resolution).toBe("Chose the MCP wedge.");
+    expect(root.status).toBe("passed");
+    expect(root.gap).toBeUndefined();
+  });
+
+  it("resolve --status failed records a failed probe", () => {
+    run(["init", "Probe", "--root-type", "objective"]);
+    run(["resolve", "root", "Missed the threshold.", "--status", "failed"]);
+    const root = JSON.parse(run(["show", "--node", "root"]));
+    expect(root.status).toBe("failed");
+  });
+
+  it("grow --json rejects a malformed proposal (empty label) without touching the board", () => {
+    run(["init", "App", "--root-type", "objective"]);
+    const bad = JSON.stringify({ nodes: [{ label: "", kind: "atom" }] });
+    expect(() => run(["grow", "root", "--json", bad])).toThrow();
+    const b = JSON.parse(run(["show", "--json"]));
+    expect(b.nodes).toHaveLength(1);   // board unchanged
+  });
+});

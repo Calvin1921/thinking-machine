@@ -2,7 +2,7 @@
 // parse) live here in the surface, never in core. This is the zero-extra-auth adapter the
 // parity probe validated; swapping in the Anthropic Agent SDK later is just another Judge.
 import { spawn } from "node:child_process";
-import { buildJudgePrompt, type Judge, type GrowContext, type GrowProposal } from "@tm/core";
+import { buildJudgePrompt, parseJudgeResult, type Judge, type GrowContext, type JudgeResult } from "@tm/core";
 
 function runClaude(prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -15,8 +15,10 @@ function runClaude(prompt: string): Promise<string> {
   });
 }
 
-/** Pull the JSON object out of the model's reply (tolerant of stray prose or ```json fences). */
-function parseProposal(raw: string): GrowProposal {
+/** Pull the JSON object out of the model's reply (tolerant of stray prose or ```json fences),
+ *  then strict-parse it through core's JudgeResult contract — extraction is tolerant, the
+ *  content never is. */
+function parseReply(raw: string): JudgeResult {
   let s = raw.trim();
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fence) s = fence[1].trim();
@@ -28,12 +30,11 @@ function parseProposal(raw: string): GrowProposal {
   } catch (e) {
     throw new Error(`judge did not return valid JSON: ${(e as Error).message}\n--- raw (first 500 chars) ---\n${raw.slice(0, 500)}`);
   }
-  if (!obj || !Array.isArray((obj as GrowProposal).nodes)) throw new Error("judge JSON is missing a nodes[] array");
-  return obj as GrowProposal;
+  return parseJudgeResult(obj);
 }
 
 export const claudeCliJudge: Judge = {
-  async propose(ctx: GrowContext): Promise<GrowProposal> {
-    return parseProposal(await runClaude(buildJudgePrompt(ctx)));
+  async propose(ctx: GrowContext): Promise<JudgeResult> {
+    return parseReply(await runClaude(buildJudgePrompt(ctx)));
   },
 };

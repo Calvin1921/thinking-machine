@@ -269,8 +269,11 @@ program.command("recall-hook")
     if (prompt.trim().split(/\s+/).filter(Boolean).length < Number(opts.minWords)) return;
     const hits = recall(dir(), prompt, { limit: 4 }).filter((h) => h.coverage >= Number(opts.minCoverage));
     if (!hits.length) return;                                        // quiet unless ≥2 terms genuinely overlap
-    process.stdout.write("📎 From your thinking-machine boards (your own accumulated/verified knowledge — may be more current or specific than my defaults):\n");
-    for (const h of hits) process.stdout.write(`• [${h.boardTitle}] ${h.path}${h.snippet ? ` — ${h.snippet}` : ""}\n`);
+    process.stdout.write("📎 Related prior thinking from your boards (point-in-time notes; provenance shown per line — treat anything not ✓verified as unchecked draft, not fact):\n");
+    for (const h of hits) {
+      const prov = h.provenance === "verified" ? "✓verified" : h.provenance ?? "unverified";
+      process.stdout.write(`• (${prov}) [${h.boardTitle}] ${h.path}${h.snippet ? ` — ${h.snippet}` : ""}\n`);
+    }
   });
 
 program.command("grow-auto <id>")

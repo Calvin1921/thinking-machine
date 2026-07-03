@@ -254,7 +254,15 @@ above (`tmind show`) does not surface it directly; use `tmind show --json` and c
 ### C′ verification — what happens on DEEPEN (the trust layer)
 
 Render first, verify after; never block the flow (spec §2.4–§2.5). The machine drafts and
-classifies; you (Claude) do the source work and write results back. Steps:
+classifies; you (Claude) do the source work and write results back.
+
+**PROVENANCE FLOOR (audited 2026-07-03: 97.9% of 2,898 corpus nodes carried NO provenance; of the 11 ever verify-checked, 1 was flatly false; two `verified` nodes contradicted each other with no reconciliation):**
+- Any node that becomes a **CRUX** or **FOUNDATION** (load-bearing) MUST be verified or visibly demoted before the board's decision leans on it. Blank provenance is acceptable for leaves, never for load-bearing nodes.
+- A claim checked and found FALSE gets `refuted` provenance — a checked-false claim must never look like a never-checked one.
+- When upgrading a node to `verified`, grep existing verified nodes across boards for the same topic; if two `verified` claims conflict, surface the contradiction — never let both stand.
+- `verified` means *externally checked this session*, never "owner agreed at the time" — decisions get LOCKED status, not `verified`.
+
+Steps:
 
 1. CACHE CHECK (cross-board, context-aware): `tmind cache-entry "<topic>"`. On a HIT, read its
    `context`. If the cached context MATCHES this board's context, graft it (instant reuse via

@@ -1,8 +1,9 @@
 # Thinking Machine
 
-**A decision-mapping workbench.** Before — and while — you act, `tm` lays out the tree of
-considerations and decisions that most affect the outcome, grounded in the information
-actually in hand and honest about what's missing.
+**A decision-mapping workbench for one technical user and their AI agents.** Before — and
+while — you act, `tmind` lays out the tree of considerations and decisions that most
+affect the outcome, grounded in the information actually in hand and honest about what's
+missing.
 
 Here is a real decision this repo made — *does a single-user thinking tool need a
 database?* — mapped from the terminal:
@@ -31,37 +32,37 @@ collaboration.
 The board above took about a dozen commands:
 
 ```bash
-tm new "Storage for boards" --root-type decision   # → boards/storage-for-boards.json
-B=boards/storage-for-boards.json                   # node ids are slugs of the labels
-tm -f $B add "Flat JSON files" --parent root --desc "One board = one file. git-diffable, portable…"
-tm -f $B add "Concurrency reality" --parent root --desc "Single writer today — every surface funnels through one core lib."
-tm -f $B add "Multi-process write frequency" --parent root --desc "Nobody has measured it."
-tm -f $B status flat-json-files passed
-tm -f $B rationale flat-json-files "pick this while single-user, single-writer"
-tm -f $B provenance concurrency-reality verified
-tm -f $B gap multi-process-write-frequency --kind reality \
+tmind new "Storage for boards" --root-type decision   # creates boards/storage-for-boards.json
+B=boards/storage-for-boards.json                      # node ids are slugs of the labels
+tmind -f $B add "Flat JSON files" --parent root --desc "One board = one file. git-diffable, portable…"
+tmind -f $B add "Concurrency reality" --parent root --desc "Single writer today — every surface funnels through one core lib."
+tmind -f $B add "Multi-process write frequency" --parent root --desc "Nobody has measured it."
+tmind -f $B status flat-json-files passed
+tmind -f $B rationale flat-json-files "pick this while single-user, single-writer"
+tmind -f $B provenance concurrency-reality verified
+tmind -f $B gap multi-process-write-frequency --kind reality \
    --question "Instrument concurrent writes before adding anything beyond the lockfile"
-tm -f $B resolve root "Flat JSON stays the source of truth…"
-tm ui --dir boards       # → the canvas above, live-updating as you keep editing
+tmind -f $B resolve root "Flat JSON stays the source of truth…"
+tmind ui --dir boards       # → the canvas above, live-updating as you keep editing
 ```
 
-(`tm` = `node packages/cli/dist/index.js` from a clone — alias it once. This board was
-placed by hand; `tm grow-auto <id> --yes` asks the embedded LLM-judge to propose the
+(Getting `tmind` on your PATH: [Install & develop](#install--develop). This board was
+placed by hand; `tmind grow-auto <id> --yes` asks the embedded LLM-judge to propose the
 subtree instead — or to plant a gap.)
 
 ## The three properties
 
 1. **Gap-awareness — unknowns are first-class nodes, not silence.** When the judge (or
    you) can't support a path with the information in hand, the map gets a gap marker
-   with the one unblocking question (`tm gap` / `tm resolve`). Unknown-unknowns become
+   with the one unblocking question (`tmind gap` / `tmind resolve`). Unknown-unknowns become
    named gaps that can't be silently skipped.
 2. **Decidability marking — every consideration shows its state.** Decided (outcome
    recorded with a rationale), laid out and ready for a call (options with pass/fail
    verdicts side by side), or blocked-on-unknown (a gap naming what evidence would
    unblock it).
 3. **Typed provenance — the part notes apps don't have.** Every claim carries
-   `drafted | verified | refuted | informed-opinion | stale`. `tm verify` records a
-   check, `tm refresh-stale` downgrades verifications past their TTL, and recalled
+   `drafted | verified | refuted | informed-opinion | stale`. `tmind verify` records a
+   check, `tmind refresh-stale` downgrades verifications past their TTL, and recalled
    prior thinking carries its provenance with it (per line in the Claude Code recall
    hook, typed in the MCP output) — a borrowed conclusion is never silently trusted.
 
@@ -83,8 +84,8 @@ decomposes nodes; the React Flow canvas is a live view of the same file.
 board.json  ── single source of truth (nodes, edges)
    ▲ atomic read-modify-write (+ lockfile), schema-validated before every write
  core lib ── ALL board operations; the Judge is a port (claude -p is one adapter)
-   ▲          ▲            ▲
-  CLI (tm)   MCP server   Web sidecar (Express)
+   ▲            ▲            ▲
+  CLI (tmind)  MCP server   Web sidecar (Express)
                           ├─ REST read/write → core
                           └─ chokidar file-watch → SSE → React Flow canvas
 
@@ -95,7 +96,7 @@ board.json  ── single source of truth (nodes, edges)
 | Path | What |
 |---|---|
 | `packages/core` | zod schema + migrations, atomic-write/lockfile store, graph ops, judge contract, cross-board recall |
-| `packages/cli` | `tm` — commander CLI over core, incl. the embedded judge (`grow-auto`) and `tm ui` |
+| `packages/cli` | `tmind` — commander CLI over core, incl. the embedded judge (`grow-auto`) and `tmind ui` |
 | `packages/mcp` | MCP server exposing core ops as tools |
 | `apps/web` | Express sidecar (REST + SSE) + React Flow canvas, 6 layout algorithms |
 | `skill/thinking-machine` | the decomposition method + command reference |
@@ -115,23 +116,52 @@ board.json  ── single source of truth (nodes, edges)
   (already inside Claude Code), at the cost of a CLI dependency. The `Judge` port
   keeps another provider one adapter away.
 
-## Develop
+## Install & develop
 
-Requires Node >=22 and pnpm >=11 (matches CI).
+Requires Node >=22 and pnpm >=11 (matches CI). There is no npm package yet — install
+from a clone:
 
 ```bash
+git clone https://github.com/Calvin1921/thinking-machine.git
+cd thinking-machine
 pnpm install
 pnpm -r build          # builds core → cli → mcp → web in dependency order
 pnpm -r test           # 158 tests: 83 core · 19 cli · 18 mcp · 38 web
 
+# put `tmind` on your PATH — alias the built CLI (add this line to your shell profile)
+alias tmind="node $PWD/packages/cli/dist/index.js"
+
 # create a board and open the canvas
-mkdir boards
-node packages/cli/dist/index.js --dir boards new "My Idea" --root-type objective
-node packages/cli/dist/index.js ui --dir boards        # sidecar + canvas on :8787
+tmind --dir boards new "My Idea" --root-type objective
+tmind ui --dir boards        # sidecar + canvas on http://localhost:8787
 ```
 
-`tm ui` auto-frees a stale port before starting. Edit the board from a second
-terminal (`tm add`, `tm grow`, `tm gap`, …) and the canvas live-updates over SSE.
+`tmind ui` auto-frees a stale port before starting. Edit the board from a second
+terminal (`tmind add`, `tmind grow`, `tmind gap`, …) and the canvas live-updates over
+SSE.
+
+Two environment notes: `tmind grow-auto` (the embedded LLM-judge) shells out to the
+[Claude Code](https://claude.com/claude-code) CLI — it needs `claude` on your PATH and
+logged in; every other command works without it. And `TM_BOARDS_DIR` overrides the
+default boards directory for the CLI, the sidecar, and the MCP server.
+
+### Wire up an agent (MCP + skill)
+
+The MCP server (built by the steps above) exposes the same board operations as stdio
+tools. Register it with Claude Code from the clone root:
+
+```bash
+claude mcp add thinking-machine --env TM_BOARDS_DIR=$PWD/boards -- node $PWD/packages/mcp/dist/index.js
+```
+
+Any other MCP client works the same way: run `node <clone>/packages/mcp/dist/index.js`,
+boards directory via the `TM_BOARDS_DIR` env var.
+
+The skill in [`skill/thinking-machine`](skill/thinking-machine/SKILL.md) teaches an
+agent the command vocabulary and the decompose → confirm → commit method. The repo's
+`.claude/skills/` directory already symlinks it, so a Claude Code session started
+inside a clone picks it up automatically; for use elsewhere, symlink
+`skill/thinking-machine` into your own `.claude/skills/`.
 
 ## Local-only web boundary, accessibility, and verification
 
@@ -142,7 +172,8 @@ board write through the core schema.
 
 The canvas supports keyboard editing, focus-dive breadcrumbs, visible focus states,
 and labelled navigation controls. CI builds every package, typechecks the web app,
-runs the full test suite, and rejects high-severity production dependency advisories.
+runs the full test suite, and runs an advisory-only audit that surfaces high-severity
+production dependency advisories without blocking the build.
 
 ## AI-assisted development
 
@@ -157,6 +188,11 @@ with typechecking and automated tests.
   the local filesystem.
 - The tool is single-user. It does not implement authentication, shared workspaces, or
   a network-service threat model.
+
+## Contributing
+
+Issues and focused PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
+conventions, and what to include in a bug report.
 
 ## Design docs
 
@@ -173,6 +209,8 @@ original system + feature specs: [docs/README.md](docs/README.md).
 ## Status
 
 v1 shipped: deep canvas, full CLI + MCP + skill, live-reload loop, and the gap-aware
-judge (commit-or-gap contract, PR #12). Open, in dependency order: automated
+judge (commit-or-gap contract,
+[PR #12](https://github.com/Calvin1921/thinking-machine/pull/12)). Open, in dependency
+order: automated
 interview loop, typed probes, Mermaid/ASCII serializer, causal why-chains — see
 [docs/STATUS.md](docs/STATUS.md).

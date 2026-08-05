@@ -67,10 +67,10 @@ One bolded title → one preattentive key (status hue OR logo, never a conjuncti
 1–2 line preview → click for drawer. One preattentive channel per board for "what matters";
 status color is that channel. Don't add a second hue-coded dimension.
 
-## Form follows meaning (the tm/LLM layer)
+## Form follows meaning (the tmind/LLM layer)
 
 Napkin's architecture: a *closed taxonomy* of structures + a dedicated layout-selection
-step + a human picking from a slate. TM's equivalent: `tm grow` should classify the idea's
+step + a human picking from a slate. TM's equivalent: `tmind grow` should classify the idea's
 *relationship type* and propose the layout — sequence→timeline, elimination→funnel,
 comparison→grid, part-whole→tree, ecosystem-membership→radial/sections — with the human
 confirming. AI picks content; the layout engine stays deterministic.
@@ -83,12 +83,12 @@ single preattentive channel, sections with per-section layouts, dashed-vs-solid 
 
 | # | Gap | Evidence | Fix |
 |---|---|---|---|
-| P0-1 | **No edge labels** (schema has no field; nothing rendered) | Nesbit & Adesope: the labeled link is the active ingredient | add `label?` to Edge schema; render at zoom ≥ threshold; `tm link` accepts a verb |
+| P0-1 | **No edge labels** (schema has no field; nothing rendered) | Nesbit & Adesope: the labeled link is the active ingredient | add `label?` to Edge schema; render at zoom ≥ threshold; `tmind link` accepts a verb |
 | P0-2 | **Everything expanded by default** at any size | Cowan ~4; SpaceTree; markmap initialExpandLevel | boards > ~60 nodes load collapsed to depth 2; expand path-to-focus |
 | P0-3 | **No semantic zoom** — 353 full-fidelity cards at 0.02 zoom is noise | tldraw LOD; Figma constant-size labels | below zoom ~0.35: hide preview/facets/edges-in-bands, keep title+status; section & radial-sector labels render constant screen size |
 | P1-4 | **Radial radius/angle encode nothing** beyond sector | ThoughtWorks Radar rule; market-map survey | sector hulls (tinted wedge + constant-size sector label); optional radius=status/maturity; hover = highlight path, fade rest |
 | P1-5 | **No search / minimap** | desert fog (Jul & Furnas 1998) | search box that flies camera to hit; React Flow MiniMap with edges hidden |
-| P1-6 | **Layout chosen by manual cycling** | Napkin layout-agent pattern | `tm grow`/`tm decompose` suggests layout from structure shape; UI confirms |
+| P1-6 | **Layout chosen by manual cycling** | Napkin layout-agent pattern | `tmind grow`/`tmind decompose` suggests layout from structure shape; UI confirms |
 | P2-7 | **No local/focus view** | TheBrain plex; Obsidian local graph | "focus mode": selected node + N hops full opacity, rest dimmed |
 | P2-8 | **Layout switches teleport nodes** | Scarr: reflow destroys spatial memory | animate transitions; preserve relative order |
 | P2-9 | **Grid rows aren't semantic** — columns-of-stacks, not a matrix | accidental alignment lies | optional row dimension (facet/status) so rows mean something |

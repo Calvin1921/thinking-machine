@@ -26,8 +26,8 @@ const DEFAULT_DIR = ENV_BOARDS ?? "boards";
 const DEFAULT_LIB = process.env.TM_LIB_DIR ?? (ENV_BOARDS ? join(ENV_BOARDS, "library") : "library");
 // Positional options let `note`/`facet` pass through text starting with "-"
 // (e.g. "- bullet"). Side effect: program options (-f/--dir) must come BEFORE
-// the subcommand name (tm -f board.json note …).
-program.name("tm").description("Thinking Machine board CLI")
+// the subcommand name (tmind -f board.json note …).
+program.name("tmind").description("Thinking Machine board CLI")
   .enablePositionalOptions()
   .option("-f, --file <path>", "board file", "board.json")
   .option("--dir <path>", "boards directory (for ls/new)", DEFAULT_DIR)
@@ -196,7 +196,7 @@ program.command("section <title>")
   });
 
 program.command("note <sectionId> <text...>")
-  .description("set (or append) the text body of a note section. Text may start with '-' (e.g. \"- bullet\"). --mode must come BEFORE <sectionId>: tm note --mode add s1 \"more\"")
+  .description("set (or append) the text body of a note section. Text may start with '-' (e.g. \"- bullet\"). --mode must come BEFORE <sectionId>: tmind note --mode add s1 \"more\"")
   .option("--mode <mode>", "set|add (add appends with a newline)", "set")
   .passThroughOptions()
   .action((sectionId, text, opts) => { mutate(file(), (b) => setSectionNote(b, sectionId, (text as string[]).join(" "), opts.mode)); });

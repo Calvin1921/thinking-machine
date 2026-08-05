@@ -1,23 +1,23 @@
 # Status — North Star vs. Current Code
 
-Comparing `NORTH_STAR.md` against the running engine (`packages/core`, `cli`, `mcp`, `apps/web`) as of 2026-07-01. Verdict per capability, then a dependency-ordered build sequence.
+Comparing `NORTH_STAR.md` against the running engine (`packages/core`, `cli`, `mcp`, `apps/web`). Written 2026-07-01; scorecard updated 2026-08-05. Verdict per capability, then a dependency-ordered build sequence.
 
-> **Status update (2026-08-05):** Phase 1 shipped with the commit-or-gap `JudgeResult` union, `gap`/`resolution` node fields with migration, `tm gap` / `tm resolve` verbs, MCP tools, frontier rendering in the canvas, and validate-before-write on every board mutation. Scorecard rows #3 and #4 are now **built**; #2 is **partial** (gap questions surface and resolutions are recorded; the automated ask→fold-answer→re-decompose loop is still open). Phase 0 and Phases 2–4 remain as written below.
+> **Status update (2026-08-05):** Phase 1 shipped with the commit-or-gap `JudgeResult` union, `gap`/`resolution` node fields with migration, `tmind gap` / `tmind resolve` verbs, MCP tools, frontier rendering in the canvas, and validate-before-write on every board mutation ([PR #12](https://github.com/Calvin1921/thinking-machine/pull/12)). The scorecard below reflects this. Phase 0 and Phases 2–4 remain as written.
 
 ## Scorecard
 
 | # | North-star capability | Today | Gap |
 |---|---|---|---|
 | 1 | **Full map** (enough info → draw start→goal, all paths) | ✅ **Built** | `decompose`/`grow` produce depth-2–3 MECE trees + crux. This is the strong half. |
-| 2 | **Interview** (fixable gaps → ask sharp Qs, then map) | ❌ **Missing in engine** | Exists only as prose in `SKILL.md` Guide mode. No tool detects missing info or emits a question. |
-| 3 | **Partial map + named gaps** (draw to the frontier, flag what's missing) | ❌ **Missing** | No `confidence`, no gap marker, no frontier concept. Judge always commits children. |
-| 4 | **Never draw an unsupported path** (gap-first = the moat) | ❌ **Missing** | Judge has no "commit OR name-what's-missing" branch. Designed in the original spec, never built. |
+| 2 | **Interview** (fixable gaps → ask sharp Qs, then map) | 🟡 **Partial** | Gap questions surface and resolutions are recorded (`tmind gap` / `tmind resolve`); the automated ask→fold-answer→re-decompose loop is still open. |
+| 3 | **Partial map + named gaps** (draw to the frontier, flag what's missing) | ✅ **Built** (PR #12) | `gap` node field with kind + question, frontier rendering in the canvas. |
+| 4 | **Never draw an unsupported path** (gap-first = the moat) | ✅ **Built** (PR #12) | Commit-or-gap `JudgeResult` union — children over missing information is unrepresentable; strict-parsed before any board write. |
 | 5 | **Every step testable** (grounding: metric/probe/pass-fail) | 🟡 **Weak** | "Probe" is free-text in `description` + a 5-value `status` enum. No probe object, no criterion/threshold field, no link between status and a test. |
 | 6 | **Cause → effect / root cause** | ❌ **Missing** | `rootType:"cause"` exists but no why-chain logic; only a free-text edge `label`. |
 | 7 | **Form follows meaning** (pick the diagram form from content) | 🟡 **Renderer yes, auto-select no** | 6 real layout algorithms exist (tree/funnel/grid/timeline/radial/concentric) but form is set **manually** (`tm_set_layout`). No Mermaid/ASCII output. |
 | 8 | **Trust layer** (provenance drafted→verified→refuted…) | 🟡 **Built, dormant** | Full schema + `verify`/`refresh-stale`. But "Phase 1 only ever sets drafted" — never auto-populated, used on ~2% of nodes. |
 
-**One-line diagnosis:** the engine can *open* structure beautifully and cannot yet *be honest about what it doesn't know* — which is the entire north star.
+**One-line diagnosis (updated 2026-08-05):** the honesty layer (gap-first decompose) now exists in the engine; what's left is making it *conversational* (the automated interview loop) and *grounded* (typed probes) — Phases 2–4 below.
 
 ---
 
@@ -28,8 +28,8 @@ Comparing `NORTH_STAR.md` against the running engine (`packages/core`, `cli`, `m
 **Build:** in `judge.ts`, have the decomposition output tag each node `contentKind` (factual|subjective) and set `provenance` at commit — `drafted` for factual-unchecked, `informed-opinion` for subjective. Wire `growSubtree`/`runGrowFlow` (`ops.ts`) to write it.
 **Why first:** near-free, turns the 2% into ~100%, and makes the trust layer visible in every demo. No new concepts.
 
-### Phase 1 — Gap-aware decompose (THE MOAT — builds #2, #3, #4 at once)
-**Gap:** the judge always commits children; it can't say "I don't have enough to map this."
+### Phase 1 — Gap-aware decompose (THE MOAT — builds #2, #3, #4 at once) — ✅ shipped 2026-08-05, [PR #12](https://github.com/Calvin1921/thinking-machine/pull/12)
+**Gap (at time of writing):** the judge always committed children; it couldn't say "I don't have enough to map this."
 **Build:**
 - **Schema** (`schema.ts`): add a node concept for a gap — either a new `kind:"gap"` or a `gap?: { kind: "intent"|"structure"|"reality"; question: string }` field. Add optional `confidence?: number` on Node.
 - **Judge** (`judge.ts`): change the output contract so that for any node the model returns **EITHER** `{commit: children[]}` **OR** `{gap: {kind, question}}`. Add a heuristic: *"if the goal is ambiguous or a required fact is missing, do not invent children — emit a gap with the one question that would unblock the most."*
@@ -72,7 +72,7 @@ Phase 3  form-follows-meaning + txt ██ med   → context-aware + portable di
 Phase 4  causal / why-chains        ██ med   → root-cause capability
 ```
 
-Phase 1 is the one that turns TM from "a decomposition tree builder" into "the honest map that knows what it doesn't know." Everything else compounds on it.
+Phase 1 (shipped) is the one that turned TM from "a decomposition tree builder" into "the honest map that knows what it doesn't know." Everything else compounds on it.
 
 ---
 

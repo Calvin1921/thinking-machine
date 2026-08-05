@@ -2,14 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { Handle, Position, NodeResizer, type NodeProps } from "@xyflow/react";
 import type { ThinkNodeData } from "./boardToFlow.js";
 
-// Wayfinder (DESIGN.md): root = violet, others = quiet line; selection wins with cyan.
+// Wayfinder (docs/DESIGN.md): root = violet, others = quiet line; selection wins with cyan.
 const KIND_BORDER: Record<string, string> = { root: "#a78bfa", branch: "#1d2735", atom: "#1d2735" };
 // Status colors double as the card's left-accent and pill. Absent status falls back to kind.
 const STATUS_COLOR: Record<string, string> = {
   running: "#6aa3ff", passed: "#34d399", failed: "#ff6b6b", blocked: "#f5a623", todo: "#8499b3",
 };
 
-// Inline editing (DESIGN.md anti-slop gate: "editing is inline"). A selected node's label and
+// Inline editing (docs/DESIGN.md anti-slop gate: "editing is inline"). A selected node's label and
 // body become click-to-edit; Enter/blur commits, Esc cancels. Events are stopped so the canvas
 // never reads them as a dive / drag / keyboard-nav while you type.
 type Field = "label" | "desc";

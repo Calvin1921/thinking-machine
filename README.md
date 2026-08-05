@@ -106,7 +106,7 @@ board.json  ── single source of truth (nodes, edges)
   git-diffable, human-inspectable, and portable — the format is the product. The
   cost is whole-file reads and a lockfile instead of transactions. The revisit
   trigger (and why SQLite would only ever be a derived index) is in
-  [ARCHITECTURE.md](ARCHITECTURE.md).
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Lexical recall over embeddings.** Cross-board search is field-weighted token
   matching with a common-token cutoff: fast at the current corpus size with zero
   model dependency. The cost is no synonym matching. Embeddings stay a future
@@ -135,16 +135,17 @@ terminal (`tm add`, `tm grow`, `tm gap`, …) and the canvas live-updates over S
 
 | Doc | What it answers |
 |---|---|
-| [NORTH_STAR.md](NORTH_STAR.md) | What the tool is for, the honesty rules, the test of success |
-| [BUILD_RECONCILIATION.md](BUILD_RECONCILIATION.md) | North star vs. shipped code — capability scorecard + dependency-ordered build plan |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Structure, and the deliberate infrastructure decisions (DB? RAG? daemon? — each "no" with its revisit trigger) |
-| [EVALUATION.md](EVALUATION.md) | How each capability is proven — deterministic layer in CI, behavioral layer with pass-rate bars |
+| [docs/NORTH_STAR.md](docs/NORTH_STAR.md) | What the tool is for, the honesty rules, the test of success |
+| [docs/STATUS.md](docs/STATUS.md) | North star vs. shipped code — capability scorecard + dependency-ordered build plan |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Structure, and the deliberate infrastructure decisions (DB? RAG? daemon? — each "no" with its revisit trigger) |
+| [docs/EVALUATION.md](docs/EVALUATION.md) | How each capability is proven — deterministic layer in CI, behavioral layer with pass-rate bars |
 
-Original design spec and implementation plans: `docs/superpowers/`.
+Full index, incl. the visual design ruler, canvas representation principles, and the
+original system + feature specs: [docs/README.md](docs/README.md).
 
 ## Status
 
 v1 shipped: deep canvas, full CLI + MCP + skill, live-reload loop, and the gap-aware
 judge (commit-or-gap contract, PR #12). Open, in dependency order: automated
 interview loop, typed probes, Mermaid/ASCII serializer, causal why-chains — see
-[BUILD_RECONCILIATION.md](BUILD_RECONCILIATION.md).
+[docs/STATUS.md](docs/STATUS.md).

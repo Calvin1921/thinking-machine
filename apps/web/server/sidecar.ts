@@ -28,7 +28,20 @@ const ROOT_TYPES = new Set(["objective", "cause", "decision", "concept"]);
 
 export function createSidecar(dir: string): Sidecar {
   const app = express();
-  app.use(express.json());
+  // This is a local, single-user service. Apply browser controls as a defence-in-depth
+  // boundary for local browsers and extensions, then keep requests deliberately small.
+  app.disable("x-powered-by");
+  app.use((_req, res, next) => {
+    res.set({
+      "Content-Security-Policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self';",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
+    });
+    next();
+  });
+  app.use(express.json({ limit: "100kb" }));
   const clients = new Set<express.Response>();
 
   // Validate `:id` and (when mutating) confirm the board exists. Returns the
@@ -217,7 +230,7 @@ export function createSidecar(dir: string): Sidecar {
       ready.then(
         () =>
           new Promise<AddressInfo>((resolve) => {
-            server = app.listen(port, () => resolve(server!.address() as AddressInfo));
+            server = app.listen(port, "127.0.0.1", () => resolve(server!.address() as AddressInfo));
           }),
       ),
     close: async () => {
@@ -230,7 +243,8 @@ export function createSidecar(dir: string): Sidecar {
   };
 }
 
-// Stdio entrypoint: `node --import tsx server/sidecar.ts` boots the sidecar on :8787.
+// Stdio entrypoint: `node --import tsx server/sidecar.ts` boots the local-only sidecar
+// on 127.0.0.1:8787. It is intentionally not a network service.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dir = process.env.TM_BOARDS_DIR ?? "boards";
   const port = Number(process.env.TM_UI_PORT ?? 8787);

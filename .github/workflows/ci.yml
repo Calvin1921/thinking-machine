@@ -24,4 +24,8 @@ jobs:
 
       - run: pnpm -r build
 
+      - run: pnpm --filter @tm/web typecheck
+
       - run: pnpm -r test
+
+      - run: pnpm audit --prod --audit-level high

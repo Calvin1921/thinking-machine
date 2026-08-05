@@ -27,6 +27,12 @@ describe("sidecar", () => {
     expect(list[0].title).toBe("App");
   });
 
+  it("returns baseline security headers", async () => {
+    const response = await fetch(`${base}/api/boards`);
+    expect(response.headers.get("content-security-policy")).toContain("default-src 'self'");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
   it("serves the built web app from TM_WEB_DIST (static + SPA fallback, API still wins)", async () => {
     const distDir = mkdtempSync(join(tmpdir(), "tm-dist-"));
     writeFileSync(join(distDir, "index.html"), "<!doctype html><title>TM</title>");

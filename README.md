@@ -117,10 +117,12 @@ board.json  ── single source of truth (nodes, edges)
 
 ## Develop
 
+Requires Node >=22 and pnpm >=11 (matches CI).
+
 ```bash
 pnpm install
 pnpm -r build          # builds core → cli → mcp → web in dependency order
-pnpm -r test           # 157 tests: 83 core · 19 cli · 18 mcp · 37 web
+pnpm -r test           # 158 tests: 83 core · 19 cli · 18 mcp · 38 web
 
 # create a board and open the canvas
 mkdir boards
@@ -130,6 +132,31 @@ node packages/cli/dist/index.js ui --dir boards        # sidecar + canvas on :87
 
 `tm ui` auto-frees a stale port before starting. Edit the board from a second
 terminal (`tm add`, `tm grow`, `tm gap`, …) and the canvas live-updates over SSE.
+
+## Local-only web boundary, accessibility, and verification
+
+The web sidecar binds to `127.0.0.1` only. It is a single-user local interface to
+boards on your machine, not a multi-user or internet-facing service. It limits JSON
+request bodies, sets CSP and baseline browser-security headers, and validates every
+board write through the core schema.
+
+The canvas supports keyboard editing, focus-dive breadcrumbs, visible focus states,
+and labelled navigation controls. CI builds every package, typechecks the web app,
+runs the full test suite, and rejects high-severity production dependency advisories.
+
+## AI-assisted development
+
+AI tools can propose board structure through the Judge adapter and were also used during
+development. Their output is treated as untrusted: Judge responses are strict-parsed,
+all board writes are schema-validated, and accepted implementation changes are verified
+with typechecking and automated tests.
+
+## Known limitations
+
+- There is no hosted demo: the UI is intentionally local-only and uses boards stored on
+  the local filesystem.
+- The tool is single-user. It does not implement authentication, shared workspaces, or
+  a network-service threat model.
 
 ## Design docs
 

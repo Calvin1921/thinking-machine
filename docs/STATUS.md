@@ -2,7 +2,7 @@
 
 Comparing `NORTH_STAR.md` against the running engine (`packages/core`, `cli`, `mcp`, `apps/web`) as of 2026-07-01. Verdict per capability, then a dependency-ordered build sequence.
 
-> **Status update (2026-08-05):** Phase 1 shipped in [PR #12](https://github.com/Calvin1921/thinking-machine/pull/12) — commit-or-gap `JudgeResult` union, `gap`/`resolution` node fields with migration, `tm gap` / `tm resolve` verbs, MCP tools, frontier rendering in the canvas, and validate-before-write on every board mutation. Scorecard rows #3 and #4 are now **built**; #2 is **partial** (gap questions surface and resolutions are recorded; the automated ask→fold-answer→re-decompose loop is still open). Phase 0 and Phases 2–4 remain as written below.
+> **Status update (2026-08-05):** Phase 1 shipped with the commit-or-gap `JudgeResult` union, `gap`/`resolution` node fields with migration, `tm gap` / `tm resolve` verbs, MCP tools, frontier rendering in the canvas, and validate-before-write on every board mutation. Scorecard rows #3 and #4 are now **built**; #2 is **partial** (gap questions surface and resolutions are recorded; the automated ask→fold-answer→re-decompose loop is still open). Phase 0 and Phases 2–4 remain as written below.
 
 ## Scorecard
 

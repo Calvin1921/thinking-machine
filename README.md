@@ -1,15 +1,74 @@
 # Thinking Machine
 
-A thinking canvas where the intelligence lives in the CLI. You map research, decisions,
-and system designs as a graph of nodes; an LLM-judge decomposes each node into the parts
-worth thinking about further; a React Flow canvas live-updates as the board is edited
-from the terminal.
+**A decision-mapping workbench.** Before — and while — you act, `tm` lays out the tree of
+considerations and decisions that most affect the outcome, grounded in the information
+actually in hand and honest about what's missing.
 
-**Why it exists:** chat answers *for* you, and notes bury what you concluded. Thinking
-Machine keeps reasoning as a durable, git-diffable `board.json` graph — grown step by
-step, with one honesty rule enforced by the type system: when the judge lacks the
-information to decompose a node, it must plant a **gap** (the question that would
-unblock it) instead of inventing children.
+Here is a real decision this repo made — *does a single-user thinking tool need a
+database?* — mapped from the terminal:
+
+![A decision board: two options with verdicts, evidence with typed provenance, and one open gap flagged in amber](docs/decision-board.png)
+
+Read it straight off the board:
+
+- The **decision is closed**: the root carries the chosen outcome (✓) and the losing
+  option stays on the map, marked FAILED, with its own "pick this if…" rationale for
+  the day the conditions change.
+- Every piece of **evidence carries its epistemic status**: VERIFIED (checked) vs
+  DRAFTED (plausible, unchecked) — what you *know* is visibly separate from what you
+  *assumed*.
+- The one thing nobody has measured is not silence — it's the amber **gap node**,
+  stating the exact question that would unblock it.
+
+Notes and whiteboards hold whatever you happened to write down. This map also holds
+what you *don't* know and what state every consideration is in. Same family of thinking
+as consideration-mapping approaches like the "wayfinder" pattern (destination /
+frontier / fog-of-war) — but tool-shaped instead of issue-tracker-shaped: a persistent
+visual graph (CLI + MCP server + web canvas) that you and your agents keep.
+
+The board above took about a dozen commands:
+
+```bash
+tm new "Storage for boards" --root-type decision
+tm add "Flat JSON files" --desc "One board = one file. git-diffable, portable…"
+tm add "Multi-process write frequency" --desc "Nobody has measured it."
+tm status flat-json-files passed
+tm rationale flat-json-files "pick this while single-user, single-writer"
+tm provenance concurrency-reality verified
+tm gap multi-process-write-frequency --kind reality \
+   --question "Instrument concurrent writes before adding anything beyond the lockfile"
+tm resolve root "Flat JSON stays the source of truth…"
+tm ui        # → the canvas above, live-updating as you keep editing
+```
+
+## The three properties
+
+1. **Gap-awareness — unknowns are first-class nodes, not silence.** When the judge (or
+   you) can't support a path with the information in hand, the map gets a gap marker
+   with the one unblocking question (`tm gap` / `tm resolve`). Unknown-unknowns become
+   named gaps that can't be silently skipped.
+2. **Decidability marking — every consideration shows its state.** Decided (outcome
+   recorded with a rationale), laid out and ready for a call (options with pass/fail
+   verdicts side by side), or blocked-on-unknown (a gap naming what evidence would
+   unblock it).
+3. **Typed provenance — the part notes apps don't have.** Every claim carries
+   `drafted | verified | refuted | informed-opinion | stale`. `tm verify` records a
+   check, `tm refresh-stale` downgrades verifications past their TTL, and cross-board
+   recall prints provenance per line — a borrowed conclusion is never silently trusted.
+
+## Enforced, not encouraged
+
+The honesty rules are type-system facts, not conventions. The LLM-judge's output
+contract is a discriminated union — **either** child nodes **or** a gap — so
+"confident children over missing information" is unrepresentable. Every judge proposal
+is strict-parsed (zod) before it can touch a board, and the whole board is
+schema-validated again before every write. Malformed output fails loud; it never
+commits.
+
+## Architecture
+
+The intelligence lives in the CLI: an LLM-judge (Claude Code driven by a skill)
+decomposes nodes; the React Flow canvas is a live view of the same file.
 
 ```
 board.json  ── single source of truth (nodes, edges)
@@ -24,8 +83,6 @@ board.json  ── single source of truth (nodes, edges)
                              decompose → confirm → commit method.
 ```
 
-## Packages
-
 | Path | What |
 |---|---|
 | `packages/core` | zod schema + migrations, atomic-write/lockfile store, graph ops, judge contract, cross-board recall |
@@ -33,25 +90,6 @@ board.json  ── single source of truth (nodes, edges)
 | `packages/mcp` | MCP server exposing core ops as tools |
 | `apps/web` | Express sidecar (REST + SSE) + React Flow canvas, 6 layout algorithms |
 | `skill/thinking-machine` | the decomposition method + command reference |
-
-## How thinking is kept honest
-
-- **One mechanic — decompose.** Break a node into the parts worth thinking about
-  further → child nodes. Shared dependencies are cross-edges, so a board is a DAG,
-  not a pure tree. Leaves are atoms.
-- **Commit or gap, never both.** The judge's output contract is a discriminated
-  union: either children, or a gap (`intent | structure | reality` + the one question
-  that would unblock the most). There is no representable state for "confident
-  children over missing information". `tm gap` / `tm resolve` plant and close
-  frontier flags; the canvas draws open gaps as the map's edge.
-- **Provenance is typed, not vibes.** Nodes carry
-  `drafted | verified | refuted | informed-opinion | stale`; `tm verify` records a
-  check, `tm refresh-stale` downgrades verifications past their TTL, and cross-board
-  recall prints provenance per line — borrowed conclusions are never silently
-  trusted.
-- **LLM output is untrusted input.** Every judge proposal is strict-parsed against
-  the zod contract before it can mutate a board, and the whole board is validated
-  again before every write. Malformed output fails loud; it never commits.
 
 ## Tradeoffs
 

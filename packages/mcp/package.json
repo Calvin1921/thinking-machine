@@ -1,6 +1,7 @@
 {
   "name": "@tm/mcp",
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "bin": { "tm-mcp": "./dist/index.js" },
   "scripts": { "test": "vitest run", "build": "tsc -p tsconfig.json" },

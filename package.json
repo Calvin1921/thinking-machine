@@ -1,6 +1,7 @@
 {
   "name": "thinking-machine",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "test": "pnpm -r test",

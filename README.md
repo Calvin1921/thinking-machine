@@ -56,7 +56,16 @@ node ../../packages/cli/dist/index.js --file board.json decompose root --json \
   '{"decomposition":[{"label":"Frontend","kind":"branch"},{"label":"Backend","kind":"branch"}],"edges":[{"fromLabel":"Frontend","toLabel":"Backend","type":"dependency"}]}'
 ```
 
-Design spec and implementation plan live in `docs/superpowers/`.
+## Design docs
+
+| Doc | What it answers |
+|---|---|
+| [NORTH_STAR.md](NORTH_STAR.md) | What the tool is for, the honesty rules, the test of success |
+| [BUILD_RECONCILIATION.md](BUILD_RECONCILIATION.md) | North star vs. shipped code — capability scorecard + dependency-ordered build plan |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Structure, and the deliberate infrastructure decisions (DB? RAG? daemon? — each "no" with its revisit trigger) |
+| [EVALUATION.md](EVALUATION.md) | How each capability is proven — deterministic layer in CI, behavioral layer with pass-rate bars |
+
+Original design spec and implementation plans: `docs/superpowers/`.
 
 ## Status
 

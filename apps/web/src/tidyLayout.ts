@@ -12,20 +12,23 @@ const DEFAULT_H = 120;     // assumed height when a node hasn't been measured ye
  * Stacking is height-aware: each leaf occupies a vertical slot of its own measured
  * height + GAP, so variable-height cards (with images / long text) never overlap.
  * `heights[id]` is the measured pixel height of each node; missing → DEFAULT_H.
+ * `cell` aligns the depth columns to a uniform width; its height is only the
+ * fallback for nodes with no measured height — a measured height always wins,
+ * so one tall card never inflates every slot on the board.
  * Returns the new top-left {x,y} per node id.
  */
 export function tidyLayout(
   board: Board,
   heights: Record<string, number> = {},
   collapsed: Set<string> = new Set(),
-  cell?: { w: number; h: number },   // uniform cell → every column & row aligns
+  cell?: { w: number; h: number },   // w: uniform column width · h: height fallback
 ): Record<string, { x: number; y: number }> {
   const kids: Record<string, string[]> = {};
   for (const n of board.nodes) kids[n.id] = [];
   for (const e of board.edges) if (e.type === "decomposition") kids[e.from]?.push(e.to);
 
   const dx = cell ? cell.w + 110 : DX;
-  const h = (id: string) => (cell ? cell.h : heights[id] || DEFAULT_H);
+  const h = (id: string) => heights[id] || (cell ? cell.h : DEFAULT_H);
   const pos: Record<string, { x: number; y: number }> = {};
   const seen = new Set<string>();
   let cursor = 0; // next free vertical pixel for the upcoming leaf slot

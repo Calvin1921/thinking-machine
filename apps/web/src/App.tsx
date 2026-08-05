@@ -262,15 +262,32 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     }
   }, [boardId]);
 
-  // Re-arrange a NON-sectioned board with the given layout, sizing every card to the
-  // uniform cell and aligning to it — committed atomically (one write, no race).
+  // Re-frame once a layout write lands. The new positions arrive via the SSE refresh
+  // on a later render, so fit twice — quickly, then again after cards re-measure
+  // (same two-beat pattern as the board-open fit).
+  const fitAfterLayout = useCallback(() => {
+    setTimeout(() => rfRef.current?.fitView({ padding: 0.12 }), 150);
+    setTimeout(() => rfRef.current?.fitView({ padding: 0.12 }), 600);
+  }, []);
+
+  // Re-arrange a NON-sectioned board with the given layout, committed atomically (one
+  // write, no race), then re-framed. The tree keeps each card's measured height and the
+  // live fold state — a collapsed subtree lays out as a leaf instead of reserving
+  // phantom space — with the uniform cell aligning column widths only. The geometric
+  // layouts (funnel/grid/timeline/radial/concentric) still size every card to the cell.
   const arrange = useCallback((b: Board, kind: "tree" | "funnel" | "grid" | "timeline" | "radial" | "concentric") => {
     const cell = uniformCell(flowNodes);
-    const pos = kind === "funnel" ? funnelLayout(b, {}, cell) : kind === "grid" ? gridLayout(b, {}, cell) : kind === "timeline" ? timelineLayout(b, {}, cell) : kind === "radial" ? radialLayout(b, {}, cell) : kind === "concentric" ? concentricLayout(b, {}, cell) : tidyLayout(b, {}, new Set(), cell);
+    if (kind === "tree") {
+      const heights: Record<string, number> = {};
+      for (const n of flowNodes) if (n.type === "think" && n.measured?.height) heights[n.id] = n.measured.height;
+      applyLayout(boardId, { positions: tidyLayout(b, heights, collapsed, cell) }).then(fitAfterLayout);
+      return;
+    }
+    const pos = kind === "funnel" ? funnelLayout(b, {}, cell) : kind === "grid" ? gridLayout(b, {}, cell) : kind === "timeline" ? timelineLayout(b, {}, cell) : kind === "radial" ? radialLayout(b, {}, cell) : concentricLayout(b, {}, cell);
     const sizes: Record<string, { w: number; h: number }> = {};
     for (const n of b.nodes) sizes[n.id] = cell;
-    applyLayout(boardId, { positions: pos, sizes });
-  }, [boardId, flowNodes]);
+    applyLayout(boardId, { positions: pos, sizes }).then(fitAfterLayout);
+  }, [boardId, flowNodes, collapsed, fitAfterLayout]);
 
   const tidy = useCallback(() => {
     if (!board) return;
@@ -283,11 +300,11 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
       for (const n of board.nodes) if (n.sectionId) sizes[n.id] = cell;
       const sectionPositions: Record<string, { x: number; y: number }> = {};
       for (const r of sl.sections) sectionPositions[r.id] = { x: r.x, y: r.y };
-      applyLayout(boardId, { positions, sizes, sectionPositions });
+      applyLayout(boardId, { positions, sizes, sectionPositions }).then(fitAfterLayout);
       return;
     }
     arrange(board, board.layout ?? "tree");
-  }, [board, boardId, arrange, flowNodes]);
+  }, [board, boardId, arrange, flowNodes, fitAfterLayout]);
 
   // Cycle the board layout tree → funnel → grid → timeline → radial: persist, flip handles, re-arrange.
   const switchLayout = useCallback((kind: "tree" | "funnel" | "grid" | "timeline" | "radial" | "concentric") => {

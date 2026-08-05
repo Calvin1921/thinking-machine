@@ -198,7 +198,7 @@ PRIORITIZE/status is the user's call. The machine's job is to make the subjectiv
 Existing (keep): `BoardSchema` (nodes/edges/sections), node `kind` root/branch/atom, `status`,
 `facets` record, edge `type` decomposition/dependency + `label` verb, ops `decompose`
 (commit proposal: children+edges+facets), `grow`, `promote`, `setFacet`, `linkNodes`,
-`setNodeStatus`. CLI `tm` verbs of the same names.
+`setNodeStatus`. CLI `tmind` verbs of the same names.
 
 ```
   board.json ── single source of truth (unchanged shape; additive fields only)

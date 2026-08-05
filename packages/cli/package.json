@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
-  "bin": { "tm": "./dist/index.js" },
+  "bin": { "tmind": "./dist/index.js" },
   "scripts": { "test": "vitest run", "build": "tsc -p tsconfig.json" },
   "dependencies": { "@tm/core": "workspace:*", "commander": "^12.0.0" }
 }

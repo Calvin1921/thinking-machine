@@ -14,7 +14,7 @@ How Thinking Machine is structured, and the deliberate calls on what infrastruct
     library.ts          fs-backed cache of verified subtrees
   packages/cli          thin adapter over core (commander) + claudeCliJudge
   packages/mcp          thin adapter over core (MCP SDK) — commit-only tools
-  apps/web              React Flow renderer + 6 layout algorithms + Vite sidecar
+  apps/web              React Flow renderer + 6 layout algorithms + Express sidecar
 ```
 
 This is **ports & adapters**: `core` owns logic, surfaces are 1-line triggers, `Judge` is a port with `claudeCliJudge` as its one adapter. The critical discipline already in place — **keep `schema.ts` + pure ops browser-safe; segregate everything that touches `fs`** (the `library.ts` comment says it outright: *"the browser must not pull fs in"*). Preserve this. New pure code (e.g. the diagram serializer) goes browser-safe; new IO goes in an adapter.
@@ -37,8 +37,8 @@ Recall today loads the store and TF-DF ranks it. At ~2,900 nodes that's <100ms a
 - **Design when you add it:** embed each node once into a **derived index** (`.tmind/index` or `sqlite-vec`), updated incrementally *in the board write-path* — never re-embed the whole store per query. Keep lexical as the zero-dep fallback. Put the embedder behind a port (like `Judge`), default to a cheap/local model, and isolate the dep in its own module/package (`@tm/recall-embed`) so `core` stays lean.
 - **Revisit when:** users report recall "misses obvious related boards," or the corpus is large enough that lexical precision drops. Not before — it's speculative complexity today (canon: *evolvability over speculation*).
 
-### 4. Daemon / persistent server? → **No. Keep the on-demand Vite sidecar.**
-`tm ui` spawns a Vite server for the canvas and auto-frees the port — that's a *view*, spawned on demand, not a service. A persistent daemon adds lifecycle, port, and staleness problems for a single-user tool.
+### 4. Daemon / persistent server? → **No. Keep the on-demand sidecar.**
+`tmind ui` spawns the Express sidecar serving the prebuilt canvas bundle (Vite is build-time only) and auto-frees the port — that's a *view*, spawned on demand, not a service. A persistent daemon adds lifecycle, port, and staleness problems for a single-user tool.
 - The tempting reasons — "keep the recall index warm," "watch files and reindex" — are only justified under concurrent multi-process writes. Prefer **reindex-on-write inside the write-path** over a background watcher; it's simpler and can't drift.
 - **Revisit when:** CLI + MCP + web genuinely write concurrently and need a shared warm index, or you offer a hosted/multi-user mode. That's a different product; don't pre-build it.
 

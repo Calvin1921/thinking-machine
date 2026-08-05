@@ -76,7 +76,8 @@ textarea.t-edit { color: var(--dim); min-height: 3.2em; margin-top: 6px; white-s
 .lod-far .react-flow__edge-text, .lod-far .react-flow__edge-textbg { display: none; }
 
 /* --- canvas legend --- */
-.legend { position: fixed; left: 16px; bottom: 16px; z-index: 20; display: flex; flex-direction: column; gap: 7px;
+/* left clears the React Flow zoom/fit controls in the bottom-left corner */
+.legend { position: fixed; left: 64px; bottom: 16px; z-index: 20; display: flex; flex-direction: column; gap: 7px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; font-size: 11px; color: var(--dim); }
 .legend > div { display: flex; align-items: center; gap: 9px; }
 .lg-line { width: 22px; height: 0; }

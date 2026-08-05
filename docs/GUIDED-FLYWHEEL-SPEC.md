@@ -1,9 +1,11 @@
 # Guided Flywheel + Verified Content — Design
 
-> Status: design approved in brainstorming (2026-06-24). Captures the *guided* layer on top
-> of the existing decompose/facet/DAG engine. Grounded in the current schema/verbs in
-> `packages/core` and `packages/cli`. Companion to `docs/REPRESENTATION.md` (which governs
-> *layout*); this doc governs *motion + content provenance*.
+> Status: design approved 2026-06-24. Captures the *guided* layer on top of the existing
+> decompose/facet/DAG engine. Grounded in the schema/verbs in `packages/core` and
+> `packages/cli`. Companion to [REPRESENTATION.md](REPRESENTATION.md) (which governs
+> *layout*); this doc governs *motion + content provenance*. The `provenance` /
+> `contentKind` / `guideMode` fields described here are shipped in the schema and CLI/MCP
+> (see [STATUS.md](STATUS.md) for what's built vs. still open).
 
 ## 1. Purpose
 
@@ -52,9 +54,9 @@ machine has nowhere to begin. **Locate** converts fog into a sharp center before
          → ONE sharp question becomes the center → enter FRAME
 ```
 
-Iron rule (from the `/unfog` method): converge to **one** center, never hand back a menu or
-"go reflect". If signals are too thin to select, the next move is a probe, not more reflection.
-Locate runs DRAFT-only (no verification — it's orientation, not answers).
+Iron rule: converge to **one** center, never hand back a menu or "go reflect". If signals
+are too thin to select, the next move is a probe, not more reflection. Locate runs
+DRAFT-only (no verification — it's orientation, not answers).
 
 **Locate is interactive, not auto-run** (§2.5): the machine cannot read the user's unease, so it
 *proposes* candidate signals/questions and the **user reacts** — picks which itches, owns the
@@ -138,7 +140,7 @@ let verification block flow:
 ```
    on DEEPEN(node):
      1. CLASSIFY   is this node FACTUAL (checkable) or SUBJECTIVE (taste/judgment)?
-     2. DRAFT      Claude proposes children + options + "pick this if X" rationale
+     2. DRAFT      propose children + options + "pick this if X" rationale
      3. RENDER     commit to board IMMEDIATELY as `drafted` — flow never blocks
      4. VERIFY     ASYNC, in the background:
                      FACTUAL    → retrieve sources + judge → upgrade to `verified` (+sources)
@@ -241,8 +243,7 @@ Existing (keep): `BoardSchema` (nodes/edges/sections), node `kind` root/branch/a
 
 `skill/thinking-machine/SKILL.md` teaches the **Guide** method: (fog?) LOCATE → open WIDE
 shallow → present the territory → user picks a center → DEEPEN (classify → draft → render →
-async verify) → resolve any duplicate → prioritize (status) → advance. Encodes the "vibes →
-specifiable decisions" reframe and the "pick this if X" option style from the website test.
+async verify) → resolve any duplicate → prioritize (status) → advance.
 
 ## 4. States (per quality standard — every surface gets empty/loading/error)
 
@@ -262,7 +263,7 @@ specifiable decisions" reframe and the "pick this if X" option style from the we
 
 ## 5. Scope / decomposition (this is several subsystems — build in order)
 
-This spec defines the whole model but is **too large for one implementation plan**. Sequence:
+This spec defines the whole model but is **too large for one implementation pass**. Sequence:
 
 1. **Phase 1 — LOCATE + guided motion + widen/deepen + duplicate-resolution** (on existing core;
    DRAFT-only, no verification). Ships fog-entry + holistic-map + steer + recurse + the integrity
@@ -274,7 +275,7 @@ This spec defines the whole model but is **too large for one implementation plan
 3. **Phase 3 — Provenance UI polish + "pick this if X" rationale rendering + cross-board library
    reuse.**
 
-Phase 1 is the subject of the first implementation plan.
+Phase 1 shipped first (see [STATUS.md](STATUS.md) for current build status vs. this plan).
 
 ## 6. Open questions (resolve during Phase 1 planning)
 

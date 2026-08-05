@@ -1,4 +1,4 @@
-# Build Reconciliation — North Star vs. Current Code
+# Status — North Star vs. Current Code
 
 Comparing `NORTH_STAR.md` against the running engine (`packages/core`, `cli`, `mcp`, `apps/web`) as of 2026-07-01. Verdict per capability, then a dependency-ordered build sequence.
 

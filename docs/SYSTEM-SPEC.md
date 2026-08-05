@@ -1,8 +1,12 @@
-# Thinking Machine — Design Spec (v1)
+# System Design Spec (v1)
 
 **Date:** 2026-06-08
-**Status:** Draft for review
 **Scope:** Single deep canvas + the CLI / MCP / Skill / Web visualizer loop around it.
+
+> This is the original ground-up design spec that shaped the v1 build. Current
+> architecture and status live in [ARCHITECTURE.md](ARCHITECTURE.md) and
+> [STATUS.md](STATUS.md); this doc is kept for the data model, primary flows, and
+> testing strategy reasoning that aren't fully restated elsewhere.
 
 ---
 
@@ -10,9 +14,9 @@
 
 A visual canvas for mapping thinking — research, decisions, system breakdowns — as a
 graph of nodes. Each node can be **decomposed** into parts (building a DAG) and examined
-through **facets** (analytical lenses). The decomposition intelligence is provided by
-**Claude Code acting as an LLM-judge**, driven through a CLI and MCP server and guided by
-a dedicated Skill. The web app is the **live visual surface** over a shared `board.json`.
+through **facets** (analytical lenses). The decomposition intelligence is provided by an
+**LLM-judge**, driven through a CLI and MCP server and guided by a dedicated skill. The
+web app is the **live visual surface** over a shared `board.json`.
 
 Not a generic mind-map: the differentiator is **domain-aware, LLM-judged decomposition**
 with a human-in-the-loop, surfaced visually and editable from both the terminal (agent)
@@ -50,8 +54,8 @@ board.json  ── single source of truth (nodes, edges, facets, meta)
  `tm ...`   (tools)        ├─ REST read/write (→ core)
                            └─ file-watch board.json → SSE → browser
 
- Skill `thinking-machine` ── teaches Claude Code the CLI/MCP vocabulary +
-                             the decomposition method + facet selection +
+ Skill `thinking-machine` ── teaches the command vocabulary + the
+                             decomposition method + facet selection +
                              the propose→confirm→commit discipline.
 
  Web canvas (React + React Flow) ── renders board.json, manual edit writes
@@ -88,15 +92,15 @@ Thin commander-based wrapper over `core`. Commands (initial set):
   edges[] }` shape the skill produces, validates via zod, lays out new nodes via
   `core.layout`, and returns the created ids. This is the agent's primary write path after
   the human confirms; `add`/`link`/`facet` remain for fine-grained manual edits.
-- Output is structured (JSON with `--json`) so Claude Code can read state back.
+- Output is structured (JSON with `--json`) so a driving agent can read state back.
 
 ### 4.3 `mcp` (server)
 Exposes the same `core` operations as MCP tools (`tm_show`, `tm_add_node`,
-`tm_decompose`, `tm_set_facet`, `tm_promote`, …) so Claude Code can drive a board
+`tm_decompose`, `tm_set_facet`, `tm_promote`, …) so an agent can drive a board
 in-session. Resolves the board path from an env var / tool arg.
 
 ### 4.4 `skill` (`thinking-machine`)
-Markdown skill that:
+A markdown skill that:
 - Documents every CLI command and MCP tool with examples.
 - Encodes the **decomposition method**: given a node + ancestor path + domain hint +
   siblings, propose `{ decomposition[], facets[], rationale }`.
@@ -110,8 +114,8 @@ Markdown skill that:
   (solid) and dependency (dashed).
 - **Capture modes:**
   - **Dump-first** — a quick-add input drops loose, unparented nodes to organize later.
-  - **AI-assist (via agent)** — the agent creates/edits nodes through CLI/MCP; the canvas
-    reflects changes live. (In-app prompt box that shells to the agent is a later phase.)
+  - **AI-assist** — an agent creates/edits nodes through CLI/MCP; the canvas reflects
+    changes live. (An in-app prompt box that drives the agent directly is a later phase.)
 - **Facet drawer** — click a node → side drawer with the lens-grid; edit writes back.
 - **Live reload** — subscribes to the sidecar's SSE; re-renders on external edits.
 - **Sidecar** (small Express server) owns REST read/write (through `core`) and watches
@@ -159,9 +163,9 @@ Markdown skill that:
 ## 6. Primary flows
 
 **Decompose (agent-driven):**
-1. User in Claude Code: *"decompose the Backend node for operational risk."*
-2. Skill → agent reads node via `tm show --node be --json`.
-3. Agent proposes `{ decomposition, facets, rationale }`, shows it, asks which to keep.
+1. User: *"decompose the Backend node for operational risk."*
+2. The skill guides the agent to read the node via `tm show --node be --json`.
+3. The agent proposes `{ decomposition, facets, rationale }`, shows it, asks which to keep.
 4. On confirm: `tm add ... --parent be`, `tm facet be considerations add ...` via core.
 5. Sidecar file-watch fires → SSE → canvas live-updates.
 
@@ -204,13 +208,13 @@ Integration tests against real files (no mocks, per house rule):
 | Core / CLI / MCP | TypeScript, zod, commander, `@modelcontextprotocol/sdk` |
 | Sidecar | Express + SSE, `chokidar` file-watch |
 | Persistence | `board.json` on disk (localStorage mirror optional); DB deferred |
-| LLM | Claude Code via Skill (no in-app API calls in v1) |
+| LLM | driven via a skill (no in-app API calls in v1) |
 
 ## 10. Out of scope (v1)
 
 Galaxy / multi-canvas overview · clustering · real-time multi-user collab · auth ·
-in-app prompt box that spawns the agent (agent runs in Claude Code for now) ·
-database persistence · mobile layout.
+in-app prompt box that spawns the agent directly (the agent runs in an external session
+for now) · database persistence · mobile layout.
 
 ## 11. Open questions (non-blocking)
 

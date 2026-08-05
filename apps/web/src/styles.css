@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
-/* Wayfinder ruler (see DESIGN.md): cold base · ONE electric-cyan accent · Space Grotesk + Inter */
+/* Wayfinder ruler (see docs/DESIGN.md): cold base · ONE electric-cyan accent · Space Grotesk + Inter */
 :root { --bg:#070b11; --panel:#10161f; --line:#1d2735; --line2:#263244; --ink:#e6edf3; --dim:#8499b3; --accent:#22d3ee; --accent2:#22d3ee; --root:#a78bfa; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, sans-serif; }

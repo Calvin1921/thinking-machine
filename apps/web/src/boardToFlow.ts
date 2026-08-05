@@ -61,7 +61,7 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
   //   timeline → sequence left→right within each lane · grid → none (position says it all) ·
   //   radial → hierarchy with handles picked by geometry (the side facing the other node),
   //   with band-packed children drawn from their nearest neighbor (see rewiresFor below).
-  // DESIGN.md: hierarchy lines are quiet & neutral (the cards carry attention); cyan is a
+  // docs/DESIGN.md: hierarchy lines are quiet & neutral (the cards carry attention); cyan is a
   // rationed accent reserved for selection/dive-root, so it must NOT colour every edge.
   const LINE = "#33445c", TEAL = "#5ce0c6", AMBER = "#f0a868";
   const npos = new Map(board.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
@@ -84,7 +84,7 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
     edges.push({
       id: `e${ei++}`, source: from, target: to,
       sourceHandle: handles.s, targetHandle: handles.t,
-      type: kind === "hierarchy" ? "smoothstep" : undefined,   // orthogonal elbows for the tree (DESIGN.md)
+      type: kind === "hierarchy" ? "smoothstep" : undefined,   // orthogonal elbows for the tree (docs/DESIGN.md)
       animated: kind === "dependency",
       markerEnd: kind === "sequence" ? { type: MarkerType.ArrowClosed, color: TEAL, width: 16, height: 16 } : undefined,
       style: kind === "dependency" ? { stroke: AMBER, strokeDasharray: "5 5" } : kind === "sequence" ? { stroke: TEAL } : { stroke: LINE },

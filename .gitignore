@@ -2,6 +2,12 @@ node_modules/
 dist/
 *.log
 .gstack/
+*.tsbuildinfo
+coverage/
+
+# secrets — never commit real env files
+.env*
+!.env.example
 
 # runtime board data + smoke artifacts
 apps/web/board.json
@@ -15,3 +21,7 @@ docs/smoke-*.png
 # local canvas captures
 docs/broken*.png
 docs/fixed-*.png
+
+# process scratch (implementation plans / superseded specs) — not for the tracked repo;
+# the current design record lives in docs/*.md (see docs/README.md)
+docs/superpowers/

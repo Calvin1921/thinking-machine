@@ -1,6 +1,7 @@
 {
   "name": "@tm/web",
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "node --import tsx server/sidecar.ts & vite",

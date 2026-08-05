@@ -24,22 +24,30 @@ Notes and whiteboards hold whatever you happened to write down. This map also ho
 what you *don't* know and what state every consideration is in. Same family of thinking
 as consideration-mapping approaches like the "wayfinder" pattern (destination /
 frontier / fog-of-war) — but tool-shaped instead of issue-tracker-shaped: a persistent
-visual graph (CLI + MCP server + web canvas) that you and your agents keep.
+visual graph (CLI + MCP server + web canvas) that you and your agents keep. It is
+built for one technical user (and their agents) thinking out loud, not for team
+collaboration.
 
 The board above took about a dozen commands:
 
 ```bash
-tm new "Storage for boards" --root-type decision
-tm add "Flat JSON files" --desc "One board = one file. git-diffable, portable…"
-tm add "Multi-process write frequency" --desc "Nobody has measured it."
-tm status flat-json-files passed
-tm rationale flat-json-files "pick this while single-user, single-writer"
-tm provenance concurrency-reality verified
-tm gap multi-process-write-frequency --kind reality \
+tm new "Storage for boards" --root-type decision   # → boards/storage-for-boards.json
+B=boards/storage-for-boards.json                   # node ids are slugs of the labels
+tm -f $B add "Flat JSON files" --parent root --desc "One board = one file. git-diffable, portable…"
+tm -f $B add "Concurrency reality" --parent root --desc "Single writer today — every surface funnels through one core lib."
+tm -f $B add "Multi-process write frequency" --parent root --desc "Nobody has measured it."
+tm -f $B status flat-json-files passed
+tm -f $B rationale flat-json-files "pick this while single-user, single-writer"
+tm -f $B provenance concurrency-reality verified
+tm -f $B gap multi-process-write-frequency --kind reality \
    --question "Instrument concurrent writes before adding anything beyond the lockfile"
-tm resolve root "Flat JSON stays the source of truth…"
-tm ui        # → the canvas above, live-updating as you keep editing
+tm -f $B resolve root "Flat JSON stays the source of truth…"
+tm ui --dir boards       # → the canvas above, live-updating as you keep editing
 ```
+
+(`tm` = `node packages/cli/dist/index.js` from a clone — alias it once. This board was
+placed by hand; `tm grow-auto <id> --yes` asks the embedded LLM-judge to propose the
+subtree instead — or to plant a gap.)
 
 ## The three properties
 
@@ -53,8 +61,9 @@ tm ui        # → the canvas above, live-updating as you keep editing
    unblock it).
 3. **Typed provenance — the part notes apps don't have.** Every claim carries
    `drafted | verified | refuted | informed-opinion | stale`. `tm verify` records a
-   check, `tm refresh-stale` downgrades verifications past their TTL, and cross-board
-   recall prints provenance per line — a borrowed conclusion is never silently trusted.
+   check, `tm refresh-stale` downgrades verifications past their TTL, and recalled
+   prior thinking carries its provenance with it (per line in the Claude Code recall
+   hook, typed in the MCP output) — a borrowed conclusion is never silently trusted.
 
 ## Enforced, not encouraged
 
@@ -98,10 +107,10 @@ board.json  ── single source of truth (nodes, edges)
   cost is whole-file reads and a lockfile instead of transactions. The revisit
   trigger (and why SQLite would only ever be a derived index) is in
   [ARCHITECTURE.md](ARCHITECTURE.md).
-- **Lexical recall over embeddings.** Cross-board search is TF-DF ranking: fast at
-  the current corpus size with zero model dependency. The cost is no synonym
-  matching. Embeddings stay a future derived index behind a port until recall
-  precision measurably hurts.
+- **Lexical recall over embeddings.** Cross-board search is field-weighted token
+  matching with a common-token cutoff: fast at the current corpus size with zero
+  model dependency. The cost is no synonym matching. Embeddings stay a future
+  derived index behind a port until recall precision measurably hurts.
 - **`claude -p` as the only judge adapter.** No API-key setup for the target user
   (already inside Claude Code), at the cost of a CLI dependency. The `Judge` port
   keeps another provider one adapter away.

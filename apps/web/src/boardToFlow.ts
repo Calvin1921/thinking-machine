@@ -9,6 +9,8 @@ export interface ThinkNodeData {
   rootType?: string;
   status?: BNode["status"]; // probe/work status — colors the card
   provenance?: BNode["provenance"]; // epistemic origin badge — drafted/verified/refuted/informed-opinion/stale
+  gap?: BNode["gap"];      // frontier flag: "can't map past here" + the unblocking question
+  resolution?: string;     // closure: the recorded outcome once this node is settled
   image?: string;         // optional image URL rendered atop the card
   preview: string;        // the node's body text (description) — shown on the card
   childCount: number;     // number of decomposition children (for the collapse toggle)
@@ -43,6 +45,8 @@ export function boardToFlow(board: Board): { nodes: FlowNode<ThinkNodeData>[]; e
         rootType: n.rootType,
         status: n.status,
         provenance: n.provenance,
+        gap: n.gap,
+        resolution: n.resolution,
         image: n.image,
         preview: n.description ?? "",
         childCount: childCount[n.id] ?? 0,

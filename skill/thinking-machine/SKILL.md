@@ -183,6 +183,15 @@ pipeline **options · criteria · risks · reversibility**, and the decompositio
 on a probe**: a dated, numeric test of the crux + a tripwire ("wrong if X by DATE"). Never
 leave a decision node as analysis with no next action.
 
+**H · The honesty rule (overrides all of the above)** — if you cannot support a decomposition
+— because what the user actually *wants* is unclear (**intent**), the domain's shape is
+unknown to you (**structure**), or only the real world can answer (**reality**) — do **not**
+invent children. Plant a **gap** instead (`tm_gap` / `tmind gap <id> --kind <k> --question "…"`):
+the one question that would unblock the most. A named gap is a better output than a confident
+guess — the gaps ARE the map's most valuable output. When a gap is answered or a node's
+question is settled, close it with **`tm_resolve` / `tmind resolve <id> <outcome…>`** so the
+board records the outcome (and feeds recall) instead of trailing off.
+
 ### Domain → how to break it down
 Infer the domain and pick the 4–6 parts that fit, then make them **child nodes** (what used
 to be "lenses" are now just children): decision → options/criteria/risks/reversibility;
@@ -245,7 +254,15 @@ above (`tmind show`) does not surface it directly; use `tmind show --json` and c
 ### C′ verification — what happens on DEEPEN (the trust layer)
 
 Render first, verify after; never block the flow (spec §2.4–§2.5). The machine drafts and
-classifies; you (Claude) do the source work and write results back. Steps:
+classifies; you (Claude) do the source work and write results back.
+
+**PROVENANCE FLOOR (audited 2026-07-03: 97.9% of 2,898 corpus nodes carried NO provenance; of the 11 ever verify-checked, 1 was flatly false; two `verified` nodes contradicted each other with no reconciliation):**
+- Any node that becomes a **CRUX** or **FOUNDATION** (load-bearing) MUST be verified or visibly demoted before the board's decision leans on it. Blank provenance is acceptable for leaves, never for load-bearing nodes.
+- A claim checked and found FALSE gets `refuted` provenance — a checked-false claim must never look like a never-checked one.
+- When upgrading a node to `verified`, grep existing verified nodes across boards for the same topic; if two `verified` claims conflict, surface the contradiction — never let both stand.
+- `verified` means *externally checked this session*, never "owner agreed at the time" — decisions get LOCKED status, not `verified`.
+
+Steps:
 
 1. CACHE CHECK (cross-board, context-aware): `tmind cache-entry "<topic>"`. On a HIT, read its
    `context`. If the cached context MATCHES this board's context, graft it (instant reuse via

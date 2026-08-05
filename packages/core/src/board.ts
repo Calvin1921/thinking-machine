@@ -1,6 +1,6 @@
 // packages/core/src/board.ts
 import { readFileSync, writeFileSync, renameSync, openSync, closeSync, unlinkSync, existsSync } from "node:fs";
-import { Board, migrate, CURRENT_VERSION } from "./schema.js";
+import { Board, BoardSchema, migrate, CURRENT_VERSION } from "./schema.js";
 import { tmpPath, lockPath } from "./paths.js";
 
 export function newBoard(
@@ -20,8 +20,11 @@ export function loadBoard(file: string): Board {
   return migrate(raw);
 }
 
-/** Atomic write: write temp, then rename over the target. */
+/** Atomic write: validate, write temp, then rename over the target. Validation here means
+ *  a malformed in-memory board (e.g. an unvalidated LLM proposal) fails loud instead of
+ *  bricking the file for every future loadBoard(). */
 export function saveBoard(file: string, board: Board): void {
+  BoardSchema.parse(board);
   const tmp = tmpPath(file);
   writeFileSync(tmp, JSON.stringify(board, null, 2));
   renameSync(tmp, file);

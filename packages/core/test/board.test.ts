@@ -39,6 +39,22 @@ describe("board io", () => {
   });
 });
 
+describe("validate before write (no corrupt board ever hits disk)", () => {
+  it("saveBoard throws on an invalid board and leaves the existing file intact", () => {
+    const good = newBoard("Sound", "objective");
+    saveBoard(file, good);
+    const bad = { ...good, nodes: [{ ...good.nodes[0], label: "" }] };  // violates label min(1)
+    expect(() => saveBoard(file, bad as any)).toThrow();
+    expect(loadBoard(file).title).toBe("Sound");                        // prior contents survive
+  });
+
+  it("mutate rejects a fn that returns an invalid board and leaves the file unchanged", () => {
+    saveBoard(file, newBoard("Idea", "objective"));
+    expect(() => mutate(file, (b) => ({ ...b, rootId: "" }) as any)).toThrow();
+    expect(loadBoard(file).rootId).toBe("root");
+  });
+});
+
 describe("mutate / withLock", () => {
   it("applies fn's changes and persists them to disk", () => {
     saveBoard(file, newBoard("Idea", "objective"));

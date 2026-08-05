@@ -1,7 +1,7 @@
 // packages/core/test/ops.test.ts
 import { describe, it, expect } from "vitest";
 import { newBoard } from "../src/board.js";
-import { addNode, linkNodes, setNodeDescription, decompose, setNodeImage, setNodeLabel, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale, setAltFraming, shouldSuggestAlt, subtreeIds, ancestorPath } from "../src/ops.js";
+import { addNode, linkNodes, setNodeDescription, decompose, setNodeImage, setNodeLabel, setNodeStatus, setBoardLayout, addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout, growSubtree, setNodeProvenance, setGuideMode, detectCollisions, setVerification, computeStale, markStale, TTL_DAYS, setNodeRationale, setAltFraming, shouldSuggestAlt, subtreeIds, ancestorPath, setNodeGap, resolveNode } from "../src/ops.js";
 import type { GrowNode } from "../src/ops.js";
 
 describe("ops", () => {
@@ -420,5 +420,32 @@ describe("ops", () => {
     // refuted is a terminal verdict: staleness only downgrades `verified`
     const after = markStale(b, "2026-06-24T00:00:00.000Z");
     expect(after.nodes.find((n) => n.id === "root")!.provenance).toBe("refuted");
+  });
+});
+
+describe("setNodeGap / resolveNode (frontier + closure)", () => {
+  it("setNodeGap plants a gap flag on the node, and null clears it", () => {
+    let b = newBoard("App", "objective");
+    b = setNodeGap(b, "root", { kind: "reality", question: "Do users return unprompted?" });
+    expect(b.nodes[0].gap).toEqual({ kind: "reality", question: "Do users return unprompted?" });
+    b = setNodeGap(b, "root", null);
+    expect(b.nodes[0].gap).toBeUndefined();
+  });
+
+  it("resolveNode records the outcome, defaults status to passed, and clears any gap", () => {
+    let b = newBoard("Ship it?", "decision");
+    b = setNodeGap(b, "root", { kind: "intent", question: "Which audience?" });
+    b = resolveNode(b, "root", "Chose the MCP wedge.");
+    const root = b.nodes[0];
+    expect(root.resolution).toBe("Chose the MCP wedge.");
+    expect(root.status).toBe("passed");
+    expect(root.gap).toBeUndefined();
+  });
+
+  it("resolveNode accepts an explicit failed status and rejects an empty outcome", () => {
+    let b = newBoard("Probe", "objective");
+    b = resolveNode(b, "root", "Probe missed the threshold.", "failed");
+    expect(b.nodes[0].status).toBe("failed");
+    expect(() => resolveNode(b, "root", "   ")).toThrow();
   });
 });

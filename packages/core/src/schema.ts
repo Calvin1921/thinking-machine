@@ -27,6 +27,15 @@ export const BoardLayout = z.enum(["tree", "funnel", "grid", "timeline", "radial
 // a note section is just free text. Absent sections[] → the board is a single graph (legacy).
 export const SectionKind = z.enum(["graph", "note"]);
 
+// A gap flag: the judge (or user) marking the frontier — "I can't map past here; this is
+// the question that unblocks it." intent = what you want is unclear; structure = the domain
+// shape is unknown; reality = only the real world can answer (a fact/market/user).
+export const GapKind = z.enum(["intent", "structure", "reality"]);
+export const GapSchema = z.object({
+  kind: GapKind,
+  question: z.string().min(1),
+});
+
 export const SectionSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
@@ -61,6 +70,10 @@ export const NodeSchema = z.object({
   // The node's body text — what it means / the thinking it holds. (Replaces the old
   // multi-lens `facets`; the model is now one axis: decompose into children.)
   description: z.string().optional(),
+  // Frontier flag: the honest "I can't map past here" marker + the unblocking question.
+  gap: GapSchema.optional(),
+  // Closure: the recorded outcome once this node's question/probe/decision is settled.
+  resolution: z.string().optional(),
 });
 
 export const EdgeSchema = z.object({
@@ -96,6 +109,43 @@ export const BoardSchema = z.object({
   edges: z.array(EdgeSchema),
 });
 
+// ---- The judge's output contract: commit children OR name the gap — never both, never
+// neither. LLM output is untrusted input; this schema is the boundary it must pass to
+// touch a board. The discriminated union makes the honesty rule unrepresentable to break.
+export type GrowNode = {
+  label: string;
+  kind: "branch" | "atom";
+  description?: string;
+  children?: GrowNode[];
+};
+export const GrowNodeSchema: z.ZodType<GrowNode> = z.lazy(() =>
+  z.object({
+    label: z.string().min(1),
+    kind: z.enum(["branch", "atom"]),
+    description: z.string().optional(),
+    children: z.array(GrowNodeSchema).optional(),
+  }),
+);
+export const GrowEdgeSchema = z.object({
+  fromLabel: z.string().min(1),
+  toLabel: z.string().min(1),
+  type: EdgeType,
+  label: z.string().optional(),
+});
+// Boundary schemas for raw proposal input (CLI --json, MCP tools): same guarantees everywhere.
+export const GrowInputSchema = z.object({
+  nodes: z.array(GrowNodeSchema).min(1),
+  edges: z.array(GrowEdgeSchema).optional(),
+});
+export const DecomposeInputSchema = z.object({
+  decomposition: z.array(z.object({ label: z.string().min(1), kind: z.enum(["branch", "atom"]), description: z.string().optional() })).min(1),
+  edges: z.array(GrowEdgeSchema).optional(),
+});
+export const JudgeResultSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("commit"), nodes: z.array(GrowNodeSchema).min(1), edges: z.array(GrowEdgeSchema).optional() }),
+  z.object({ kind: z.literal("gap"), gap: GapSchema }),
+]);
+
 export type Node = z.infer<typeof NodeSchema>;
 export type Edge = z.infer<typeof EdgeSchema>;
 export type Board = z.infer<typeof BoardSchema>;
@@ -110,6 +160,11 @@ export type BoardLayout = z.infer<typeof BoardLayout>;
 export type SectionKind = z.infer<typeof SectionKind>;
 export type Section = z.infer<typeof SectionSchema>;
 export type AltFraming = z.infer<typeof AltFramingSchema>;
+export type Gap = z.infer<typeof GapSchema>;
+export type GapKind = z.infer<typeof GapKind>;
+export type GrowEdge = z.infer<typeof GrowEdgeSchema>;
+export type JudgeResult = z.infer<typeof JudgeResultSchema>;
+export type GrowInput = { nodes: GrowNode[]; edges?: GrowEdge[] };
 
 /** Fold a legacy node's `facets` into a single `description` string so no content is lost
  *  when the multi-lens model is dropped: the `definition` lens leads, other lenses follow as

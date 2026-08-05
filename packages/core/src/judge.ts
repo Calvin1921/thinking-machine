@@ -2,8 +2,8 @@
 // adapter are interchangeable drivers of the SAME flow. Core stays pure — it defines the
 // port, the portable prompt, and the orchestration; concrete adapters (which do IO) live
 // in the surfaces. Validated 2026-06-29: the headless judge matched/beat in-session.
-import type { Board } from "./schema.js";
-import { ancestorPath, growSubtree, type GrowInput } from "./ops.js";
+import { JudgeResultSchema, type Board, type JudgeResult } from "./schema.js";
+import { ancestorPath, growSubtree, setNodeGap } from "./ops.js";
 
 /** Everything a judge needs to propose a decomposition for one node — gathered from the board. */
 export interface GrowContext {
@@ -14,12 +14,30 @@ export interface GrowContext {
   recall: string[];         // related prior thinking (empty until core.recall lands)
 }
 
-/** A judge's output IS a grow proposal — the same shape growSubtree commits. */
-export type GrowProposal = GrowInput;
-
-/** The port. One method: given context, propose a subtree. Sync source, async by nature (LLM). */
+/** The port. One method: given context, EITHER propose a subtree to commit OR name the gap
+ *  that blocks one (the honesty rule, enforced by the JudgeResult union — you cannot return
+ *  both, or a bare guess). Sync source, async by nature (LLM). */
 export interface Judge {
-  propose(ctx: GrowContext): Promise<GrowProposal>;
+  propose(ctx: GrowContext): Promise<JudgeResult>;
+}
+
+/** Strict-parse a judge's raw JSON into a JudgeResult. Accepts the legacy bare
+ *  {nodes:[...]} shape as a commit; everything is validated at this boundary —
+ *  a malformed or hallucinated proposal fails loud here, never on disk. */
+export function parseJudgeResult(raw: unknown): JudgeResult {
+  const normalized =
+    raw && typeof raw === "object" && !("kind" in raw) && Array.isArray((raw as { nodes?: unknown }).nodes)
+      ? { kind: "commit", ...raw }
+      : raw;
+  return JudgeResultSchema.parse(normalized);
+}
+
+/** Apply a JudgeResult to the board (pure): commit grows the subtree (and clears any open
+ *  gap — it's answered); gap plants the frontier flag instead of inventing children. */
+export function applyJudgeResult(board: Board, nodeId: string, result: JudgeResult): Board {
+  if (result.kind === "gap") return setNodeGap(board, nodeId, result.gap);
+  const grown = growSubtree(board, nodeId, { nodes: result.nodes, edges: result.edges });
+  return setNodeGap(grown, nodeId, null);
 }
 
 /** Build the GrowContext for a node from the board (pure). `recall` is injected by the
@@ -57,26 +75,31 @@ Apply these heuristics at EVERY level, in order:
 ${ctx.rootType && ctx.rootType !== "decision" ? "5. NON-DECISION discipline: name exactly ONE overall crux for the whole tree (not one per branch). Do NOT attach a fresh crux or a probe to every node — add a probe only where heuristic 0 genuinely applies. Fewer, cleaner, non-overlapping branches beat breadth; resist drifting into a list.\n" : ""}
 Give EVERY node a description that carries real signal (not a restatement of the label). Depth 2-3. 3-6 children per level. Use dependency edges only for genuine shared cross-links.
 
+HONESTY RULE (overrides everything above): if you cannot support a decomposition — because what the user actually WANTS is unclear (intent), the domain's shape is unknown to you (structure), or only the real world can answer (reality) — do NOT invent children. Output a gap instead, with the ONE question that would unblock the most. A named gap is a better output than a confident guess.
+
 ROOT: "${ctx.label}"${ctx.rootType ? `\nROOT TYPE: ${ctx.rootType}` : ""}${path ? `\nPATH (context above this node): ${path}` : ""}${ctx.domainHint ? `\nDOMAIN: ${ctx.domainHint}` : ""}${recall}
 
-Output ONLY a JSON object, no markdown fences, no prose before or after:
-{"nodes":[{"label":"...","kind":"branch","description":"...","children":[{"label":"...","kind":"atom","description":"..."}]}],"edges":[{"fromLabel":"...","toLabel":"...","type":"dependency","label":"..."}]}`;
+Output ONLY a JSON object, no markdown fences, no prose before or after — exactly ONE of these two shapes:
+{"kind":"commit","nodes":[{"label":"...","kind":"branch","description":"...","children":[{"label":"...","kind":"atom","description":"..."}]}],"edges":[{"fromLabel":"...","toLabel":"...","type":"dependency","label":"..."}]}
+{"kind":"gap","gap":{"kind":"intent|structure|reality","question":"..."}}`;
 }
 
 /**
- * Orchestrate one decompose: build context → judge proposes → commit the subtree.
- * Pure except for the injected (async) judge — so the same flow runs in-session or headless,
- * deterministically given a judge. Returns the next board AND the raw proposal (for dry-run).
- * (recall → collisions are future mechanical steps; the seam is here.)
+ * Orchestrate one decompose: build context → judge proposes → apply (commit the subtree,
+ * or record the gap). Pure except for the injected (async) judge — so the same flow runs
+ * in-session or headless, deterministically given a judge. Returns the next board AND the
+ * result (for dry-run / surfacing the question).
+ * NOTE the returned board is derived from the snapshot passed in — commit it via
+ * mutate(file, b => applyJudgeResult(b, id, result)), never by saving this board directly,
+ * or concurrent edits made during the (slow) LLM call are silently lost.
  */
 export async function runGrowFlow(
   board: Board,
   nodeId: string,
   judge: Judge,
   opts: { recall?: string[] } = {},
-): Promise<{ board: Board; proposal: GrowProposal }> {
+): Promise<{ board: Board; result: JudgeResult }> {
   const ctx = growContext(board, nodeId, opts.recall ?? []);
-  const proposal = await judge.propose(ctx);
-  const next = growSubtree(board, nodeId, proposal);
-  return { board: next, proposal };
+  const result = await judge.propose(ctx);
+  return { board: applyJudgeResult(board, nodeId, result), result };
 }

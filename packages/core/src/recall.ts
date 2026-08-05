@@ -16,6 +16,7 @@ export interface RecallHit {
   snippet: string;     // description excerpt
   score: number;
   coverage: number;    // how many DISTINCT query terms this node matched (topical overlap, not one coincidental word)
+  provenance?: string; // node trust level (verified/drafted/informed-opinion/refuted) — surfaced so consumers never present unverified recall as verified knowledge
 }
 
 const STOP = new Set(
@@ -91,6 +92,7 @@ export function recall(
         snippet: (n.description ?? "").slice(0, 140),
         score: Math.round((content + boardBonus) * 10) / 10,
         coverage,
+        provenance: n.provenance,
       });
     }
   }

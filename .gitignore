@@ -11,3 +11,7 @@ board.json
 docs/smoke-*.png
 
 .DS_Store
+
+# local canvas captures
+docs/broken*.png
+docs/fixed-*.png

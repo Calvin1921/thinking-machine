@@ -1,216 +1,121 @@
 # Thinking Machine
 
-**A decision-mapping workbench for one technical user and their AI agents.** Before — and
-while — you act, `tmind` lays out the tree of considerations and decisions that most
-affect the outcome, grounded in the information actually in hand and honest about what's
-missing.
+**Turn an open-ended decision into a visible plan: options, assumptions, unanswered questions, and a next step.**
 
-Here is a real decision this repo made — *does a single-user thinking tool need a
-database?* — mapped from the terminal:
+Thinking Machine is a local decision board for a technical user working with AI agents. When reasoning is scattered across chat messages, it is hard to see what supports a recommendation or what still needs checking. `tmind` keeps that reasoning in an editable map you can return to as evidence changes.
 
-![A decision board: two options with verdicts, evidence with typed provenance, and one open gap flagged in amber](docs/decision-board.png)
+[Try the demo](#try-it-yourself-no-ai-account-needed) · [90-second walkthrough](docs/demo/README.md) · [Engineering evidence](#engineering-evidence) · [Architecture](#architecture-and-tradeoffs)
 
-Read it straight off the board:
+## See the decision, not just the answer
 
-- The **decision is closed**: the root carries the chosen outcome (✓) and the losing
-  option stays on the map, marked FAILED, with its own "pick this if…" rationale for
-  the day the conditions change.
-- Every piece of **evidence carries its epistemic status**: VERIFIED (checked) vs
-  DRAFTED (plausible, unchecked) — what you *know* is visibly separate from what you
-  *assumed*.
-- The one thing nobody has measured is not silence — it's the amber **gap node**,
-  stating the exact question that would unblock it.
+![Actual Thinking Machine canvas with fictional support-pilot options, draft labels, and an unanswered quality question](docs/demo/support-pilot.png)
 
-Notes and whiteboards hold whatever you happened to write down. This map also holds
-what you *don't* know and what state every consideration is in. Same family of thinking
-as consideration-mapping approaches like the "wayfinder" pattern (destination /
-frontier / fog-of-war) — but tool-shaped instead of issue-tracker-shaped: a persistent
-visual graph (CLI + MCP server + web canvas) that you and your agents keep. It is
-built for one technical user (and their agents) thinking out loud, not for team
-collaboration.
+*Fictional example: should a small support team pilot an AI assistant? All content is illustrative; no customer data or measured business results.*
 
-The board above took about a dozen commands:
-
-```bash
-tmind new "Storage for boards" --root-type decision   # creates boards/storage-for-boards.json
-B=boards/storage-for-boards.json                      # node ids are slugs of the labels
-tmind -f $B add "Flat JSON files" --parent root --desc "One board = one file. git-diffable, portable…"
-tmind -f $B add "Concurrency reality" --parent root --desc "Single writer today — every surface funnels through one core lib."
-tmind -f $B add "Multi-process write frequency" --parent root --desc "Nobody has measured it."
-tmind -f $B status flat-json-files passed
-tmind -f $B rationale flat-json-files "pick this while single-user, single-writer"
-tmind -f $B provenance concurrency-reality verified
-tmind -f $B gap multi-process-write-frequency --kind reality \
-   --question "Instrument concurrent writes before adding anything beyond the lockfile"
-tmind -f $B resolve root "Flat JSON stays the source of truth…"
-tmind ui --dir boards       # → the canvas above, live-updating as you keep editing
+```mermaid
+flowchart LR
+    A[Ask a decision question] --> B[Map options and assumptions]
+    B --> C[Name the missing evidence]
+    C --> D[Record a decision and next test]
 ```
 
-(Getting `tmind` on your PATH: [Install & develop](#install--develop). This board was
-placed by hand; `tmind grow-auto <id> --yes` asks the embedded LLM-judge to propose the
-subtree instead — or to plant a gap.)
-
-## The three properties
-
-1. **Gap-awareness — unknowns are first-class nodes, not silence.** When the judge (or
-   you) can't support a path with the information in hand, the map gets a gap marker
-   with the one unblocking question (`tmind gap` / `tmind resolve`). Unknown-unknowns become
-   named gaps that can't be silently skipped.
-2. **Decidability marking — every consideration shows its state.** Decided (outcome
-   recorded with a rationale), laid out and ready for a call (options with pass/fail
-   verdicts side by side), or blocked-on-unknown (a gap naming what evidence would
-   unblock it).
-3. **Typed provenance — the part notes apps don't have.** Every claim carries
-   `drafted | verified | refuted | informed-opinion | stale`. `tmind verify` records a
-   check, `tmind refresh-stale` downgrades verifications past their TTL, and recalled
-   prior thinking carries its provenance with it (per line in the Claude Code recall
-   hook, typed in the MCP output) — a borrowed conclusion is never silently trusted.
-
-## Enforced, not encouraged
-
-The honesty rules are type-system facts, not conventions. The LLM-judge's output
-contract is a discriminated union — **either** child nodes **or** a gap — so
-"confident children over missing information" is unrepresentable. Every judge proposal
-is strict-parsed (zod) before it can touch a board, and the whole board is
-schema-validated again before every write. Malformed output fails loud; it never
-commits.
-
-## Architecture
-
-The intelligence lives in the CLI: an LLM-judge (Claude Code driven by a skill)
-decomposes nodes; the React Flow canvas is a live view of the same file.
-
-```
-board.json  ── single source of truth (nodes, edges)
-   ▲ atomic read-modify-write (+ lockfile), schema-validated before every write
- core lib ── ALL board operations; the Judge is a port (claude -p is one adapter)
-   ▲            ▲            ▲
-  CLI (tmind)  MCP server   Web sidecar (Express)
-                          ├─ REST read/write → core
-                          └─ chokidar file-watch → SSE → React Flow canvas
-
- Skill `thinking-machine` ── teaches Claude Code the command vocabulary + the
-                             decompose → confirm → commit method.
-```
-
-| Path | What |
+| Before | What you leave with |
 |---|---|
-| `packages/core` | zod schema + migrations, atomic-write/lockfile store, graph ops, judge contract, cross-board recall |
-| `packages/cli` | `tmind` — commander CLI over core, incl. the embedded judge (`grow-auto`) and `tmind ui` |
-| `packages/mcp` | MCP server exposing core ops as tools |
-| `apps/web` | Express sidecar (REST + SSE) + React Flow canvas, 6 layout algorithms |
-| `skill/thinking-machine` | the decomposition method + command reference |
+| “Should we automate support?” | Compare a human-reviewed pilot with automatic replies. |
+| A plausible recommendation with hidden assumptions | Visible `drafted` and `informed-opinion` labels, plus a question about reply quality. |
+| A decision that loses its context | A saved outcome, the alternative's rationale, and the test needed before expanding the rollout. |
 
-## Tradeoffs
+**The value is a reviewable decision record.** The example chooses a human-reviewed pilot while keeping the quality question open. It does not claim the assistant has passed that test, reduced support costs, or improved decision quality in a measured study.
 
-- **Flat JSON files over a database.** Boards are single-user and small; files are
-  git-diffable, human-inspectable, and portable — the format is the product. The
-  cost is whole-file reads and a lockfile instead of transactions. The revisit
-  trigger (and why SQLite would only ever be a derived index) is in
-  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-- **Lexical recall over embeddings.** Cross-board search is field-weighted token
-  matching with a common-token cutoff: fast at the current corpus size with zero
-  model dependency. The cost is no synonym matching. Embeddings stay a future
-  derived index behind a port until recall precision measurably hurts.
-- **`claude -p` as the only judge adapter.** No API-key setup for the target user
-  (already inside Claude Code), at the cost of a CLI dependency. The `Judge` port
-  keeps another provider one adapter away.
+## Try it yourself (no AI account needed)
 
-## Install & develop
-
-Requires Node >=22 and pnpm >=11 (matches CI). There is no npm package yet — install
-from a clone:
+Requires **Node 22+ and pnpm 11+**. Install from source; there is no published npm package or hosted demo.
 
 ```bash
 git clone https://github.com/Calvin1921/thinking-machine.git
 cd thinking-machine
-pnpm install
-pnpm -r build          # builds core → cli → mcp → web in dependency order
-pnpm -r test           # 158 tests: 83 core · 19 cli · 18 mcp · 38 web
-
-# put `tmind` on your PATH — alias the built CLI (add this line to your shell profile)
-alias tmind="node $PWD/packages/cli/dist/index.js"
-
-# create a board and open the canvas
-tmind --dir boards new "My Idea" --root-type objective
-tmind ui --dir boards        # sidecar + canvas on http://localhost:8787
+pnpm install --frozen-lockfile
+pnpm -r build
+pnpm demo
 ```
 
-`tmind ui` auto-frees a stale port before starting. Edit the board from a second
-terminal (`tmind add`, `tmind grow`, `tmind gap`, …) and the canvas live-updates over
-SSE.
+Open **http://localhost:8791**, then select **AI support pilot — fictional demo**. You should see two options and an amber question about draft quality. Click a card to select it; click its title or body again to edit. Changes persist locally.
 
-Two environment notes: `tmind grow-auto` (the embedded LLM-judge) shells out to the
-[Claude Code](https://claude.com/claude-code) CLI — it needs `claude` on your PATH and
-logged in; every other command works without it. And `TM_BOARDS_DIR` overrides the
-default boards directory for the CLI, the sidecar, and the MCP server.
-
-### Wire up an agent (MCP + skill)
-
-The MCP server (built by the steps above) exposes the same board operations as stdio
-tools. Register it with Claude Code from the clone root:
+In a second terminal, from the same clone:
 
 ```bash
-claude mcp add thinking-machine --env TM_BOARDS_DIR=$PWD/boards -- node $PWD/packages/mcp/dist/index.js
+node packages/cli/dist/index.js -f boards/demo/support-pilot.json resolve root \
+  "Run a human-reviewed pilot; keep automatic sending off until quality is measured."
 ```
 
-Any other MCP client works the same way: run `node <clone>/packages/mcp/dist/index.js`,
-boards directory via the `TM_BOARDS_DIR` env var.
+The canvas updates without reloading. The root now shows the decision; the unanswered quality question remains visible. That is the product loop: **reason → inspect → act → keep the context**.
 
-The skill in [`skill/thinking-machine`](skill/thinking-machine/SKILL.md) teaches an
-agent the command vocabulary and the decompose → confirm → commit method. The repo's
-`.claude/skills/` directory already symlinks it, so a Claude Code session started
-inside a clone picks it up automatically; for use elsewhere, symlink
-`skill/thinking-machine` into your own `.claude/skills/`.
+- Stop with Ctrl-C. `pnpm demo` preserves edits between runs.
+- `pnpm demo:reset` restores only the fictional demo board, replacing edits to that board.
+- If port 8791 is busy, stop your earlier demo or use `TM_UI_PORT=8792 pnpm demo` (POSIX shell). The demo launcher does not terminate other port listeners.
+- Build errors or missing modules: confirm Node/pnpm versions, rerun the install and build commands. [Full demo script and recording notes](docs/demo/README.md).
 
-## Local-only web boundary, accessibility, and verification
+## Where AI and MCP add value
 
-The web sidecar binds to `127.0.0.1` only. It is a single-user local interface to
-boards on your machine, not a multi-user or internet-facing service. It limits JSON
-request bodies, sets CSP and baseline browser-security headers, and validates every
-board write through the core schema.
+**AI proposes the breakdown; you inspect the reasoning.** The optional judge uses Claude Code to suggest smaller questions and options, or return a named gap when information is missing. It receives the selected node's context and can recall related notes from other boards using lexical search.
 
-The canvas supports keyboard editing, focus-dive breadcrumbs, visible focus states,
-and labelled navigation controls. CI builds every package, typechecks the web app,
-runs the full test suite, and runs an advisory-only audit that surfaces high-severity
-production dependency advisories without blocking the build.
+**MCP lets an agent work on the same board you see.** An MCP client can read and edit boards through tools backed by the same core library as the CLI and canvas. There is no second copy of the decision to reconcile. [Agent setup and commands](docs/AGENTS-AND-CLI.md).
 
-## AI-assisted development
+**Labels distinguish claims from checked evidence.** Provenance records whether content is drafted, verified, refuted, an informed opinion, or stale. A verification label records a check supplied by a caller; the application does not independently establish truth.
 
-AI tools can propose board structure through the Judge adapter and were also used during
-development. Their output is treated as untrusted: Judge responses are strict-parsed,
-all board writes are schema-validated, and accepted implementation changes are verified
-with typechecking and automated tests.
+The judge's response is validated as a subtree proposal or a gap before application, and boards are schema-validated before writing. **This checks structure, not factual correctness.** A model can still give a well-formed but unsupported answer. Human review remains necessary; a visible gap is useful only when the user or model notices it.
+
+## Engineering evidence
+
+| Signal | What is implemented / where to inspect |
+|---|---|
+| Shared domain logic | [Core operations](packages/core/src/ops.ts) are used by CLI, MCP, and web surfaces. |
+| Validated model boundary | [Judge contract](packages/core/src/judge.ts), [schemas](packages/core/src/schema.ts), and [judge tests](packages/core/test/judge.test.ts). |
+| Safer persistence | [Store](packages/core/src/board.ts) validates before temp-file rename and locks read-modify-write operations; [tests](packages/core/test/board.test.ts). |
+| Failure handling | Invalid proposals fail before mutation; failed model subprocesses report errors. [CLI tests](packages/cli/test/cli.test.ts), [MCP tests](packages/mcp/test/mcp.test.ts), [sidecar tests](apps/web/server/sidecar.test.ts). |
+| Local web boundary | Loopback binding, JSON body limit, CSP/security headers, and validated writes in the [sidecar](apps/web/server/sidecar.ts). |
+| Accessibility foundations | Keyboard navigation, focus-path navigation, visible focus styling, and text status labels alongside color. See [canvas](apps/web/src/App.tsx) and [styles](apps/web/src/styles.css). Full screen-reader/WCAG conformance has not been established. |
+| Repeatable checks | [CI](.github/workflows/ci.yml) installs locked dependencies, builds, typechecks web, and runs tests. Dependency auditing is advisory-only. |
+
+```bash
+pnpm -r build
+pnpm --filter @tm/web typecheck
+pnpm -r test
+```
+
+This demonstrates AI workflow integration, inspectable state, explicit uncertainty, and deliberate deployment boundaries. Automated tests check software behavior; they are not evidence of model reasoning quality. [Evaluation plan](docs/EVALUATION.md) describes behavioral targets, not published benchmark results.
+
+## Architecture and tradeoffs
+
+```text
+CLI / AI judge       MCP agent tools       Web canvas
+       \                   |                  | REST + live events
+        \                  |             Local Express sidecar
+         +-----------------+------------------+
+                           |
+                    Shared core library
+                 validation + graph operations
+                           |
+                  Atomic write + lockfile
+                           |
+                    Local JSON boards
+```
+
+| Choice | Benefit | Cost / boundary |
+|---|---|---|
+| One JSON file per board | Portable, inspectable, easy to diff | Whole-file reads; lockfiles, no database transactions or multi-user collaboration. |
+| Lexical recall | No embedding service or model needed | Misses synonyms and semantic matches. |
+| Claude Code judge adapter | Reuses the target user's existing CLI setup | Requires installed/authenticated Claude Code; model calls have latency and usage costs. |
+| Local sidecar + live file updates | Humans and agents see the same saved state | No authentication or hosted-service isolation; keep it local. |
+
+Details and revisit triggers: [Architecture](docs/ARCHITECTURE.md). Package map: `packages/core` (domain/store), `packages/cli` (commands/judge adapter), `packages/mcp` (agent tools), `apps/web` (canvas/sidecar).
 
 ## Known limitations
 
-- There is no hosted demo: the UI is intentionally local-only and uses boards stored on
-  the local filesystem.
-- The tool is single-user. It does not implement authentication, shared workspaces, or
-  a network-service threat model.
+- Single-user local tool; no shared workspaces, authentication, or internet-facing deployment support.
+- AI output is nondeterministic. There is no shipped behavioral evaluation harness proving gap detection or truthfulness.
+- The current judge adapter has no explicit timeout/retry budget. A dry run followed by `--yes` makes a **new model call**, not approval of the exact previous proposal.
+- Provenance and outcomes are caller-supplied. Recording a “passed” status does not enforce a real-world test threshold.
+- Automated interviews, typed probes, and board-to-Mermaid export are planned, not shipped. The diagram above is README documentation. See [capability status](docs/STATUS.md).
 
-## Contributing
-
-Issues and focused PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
-conventions, and what to include in a bug report.
-
-## Design docs
-
-| Doc | What it answers |
-|---|---|
-| [docs/NORTH_STAR.md](docs/NORTH_STAR.md) | What the tool is for, the honesty rules, the test of success |
-| [docs/STATUS.md](docs/STATUS.md) | North star vs. shipped code — capability scorecard + dependency-ordered build plan |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Structure, and the deliberate infrastructure decisions (DB? RAG? daemon? — each "no" with its revisit trigger) |
-| [docs/EVALUATION.md](docs/EVALUATION.md) | How each capability is proven — deterministic layer in CI, behavioral layer with pass-rate bars |
-
-Full index, incl. the visual design ruler, canvas representation principles, and the
-original system + feature specs: [docs/README.md](docs/README.md).
-
-## Status
-
-v1 shipped: deep canvas, full CLI + MCP + skill, live-reload loop, and the gap-aware
-judge (commit-or-gap contract,
-[PR #12](https://github.com/Calvin1921/thinking-machine/pull/12)). Open, in dependency
-order: automated
-interview loop, typed probes, Mermaid/ASCII serializer, causal why-chains — see
-[docs/STATUS.md](docs/STATUS.md).
+AI tools were used during development as well as in the optional product workflow. See [Contributing](CONTRIBUTING.md), [design document index](docs/README.md), and [MIT license](LICENSE).

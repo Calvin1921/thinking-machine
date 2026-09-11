@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "id": "support-pilot",
+  "title": "AI support pilot — fictional demo",
+  "rootId": "root",
+  "nodes": [
+    {
+      "id": "root",
+      "label": "Pilot an AI support assistant?",
+      "kind": "root",
+      "rootType": "decision",
+      "description": "FICTIONAL DEMO • Choose a safe first step for a small support team.",
+      "x": 40,
+      "y": 160,
+      "w": 300
+    },
+    {
+      "id": "reviewed-pilot",
+      "label": "Human-reviewed pilot",
+      "kind": "branch",
+      "provenance": "informed-opinion",
+      "description": "Draft replies for staff approval. Keep a human responsible for every send.",
+      "rationale": "Pick this if useful drafts can save review time without bypassing approval.",
+      "x": 420,
+      "y": 0,
+      "w": 310
+    },
+    {
+      "id": "auto-send",
+      "label": "Automatic replies",
+      "kind": "branch",
+      "provenance": "drafted",
+      "description": "Potentially faster, but reply quality has not been measured.",
+      "rationale": "Revisit only after quality and escalation behavior are demonstrated.",
+      "x": 420,
+      "y": 150,
+      "w": 310
+    },
+    {
+      "id": "quality-gap",
+      "label": "Will the drafts be useful?",
+      "kind": "branch",
+      "provenance": "drafted",
+      "description": "Proposed test: review 20 synthetic tickets; require 18 acceptable drafts and zero unsafe replies. This is a demo threshold, not a result.",
+      "gap": {
+        "kind": "reality",
+        "question": "How many drafts pass human review on the synthetic test set?"
+      },
+      "x": 420,
+      "y": 300,
+      "w": 340
+    }
+  ],
+  "edges": [
+    {
+      "from": "root",
+      "to": "reviewed-pilot",
+      "type": "decomposition"
+    },
+    {
+      "from": "root",
+      "to": "auto-send",
+      "type": "decomposition"
+    },
+    {
+      "from": "root",
+      "to": "quality-gap",
+      "type": "decomposition"
+    }
+  ]
+}

@@ -16,9 +16,11 @@ Thinking Machine is a local decision board for a technical user working with AI 
 
 ```mermaid
 flowchart LR
-    A[Ask a decision question] --> B[Map options and assumptions]
-    B --> C[Name the missing evidence]
-    C --> D[Record a decision and next test]
+    Q[Your decision or question] --> A[Map options and assumptions]
+    A --> H[Add your view and challenge a trade-off]
+    H --> E[Name the evidence still needed]
+    E --> N[Save a next step with its context]
+    N -->|Revisit as evidence changes| H
 ```
 
 | Before | What you leave with |
@@ -28,6 +30,28 @@ flowchart LR
 | A decision that loses its context | A saved outcome, the alternative's rationale, and the test needed before expanding the rollout. |
 
 **The value is a reviewable decision record.** The example chooses a human-reviewed pilot while keeping the quality question open. It does not claim the assistant has passed that test, reduced support costs, or improved decision quality in a measured study.
+
+## How it fits your workflow
+
+**The skill guides the agent; the app keeps the thinking visible.** Install the skill in a supported coding agent, connect the CLI or MCP tools, and open the canvas. You can also use the canvas on its own.
+
+```mermaid
+flowchart TB
+    S[Thinking Machine skill: instructions for the agent] -. guides .-> A[Your AI agent]
+    Y[You: question, constraints, and judgment] --> A
+    A <-->|Read and edit through MCP or CLI| B[One saved decision board]
+    B <-->|Live view and direct edits| C[Interactive canvas]
+    Y <-->|Inspect, add thoughts, and choose a next step| C
+    B --> R[Reusable context for the next conversation]
+```
+
+| In your work | Ask the agent | Contribute on the canvas | What you keep |
+|---|---|---|---|
+| Before building | “Compare three approaches, including doing nothing.” | Add constraints and explain which trade-off matters. | Options and the rationale for choosing one. |
+| When a claim is uncertain | “What evidence would change this decision?” | Record an unanswered question and a proposed check. | A visible boundary between an idea and evidence. |
+| When returning later | “Recall related thinking and explain where this context differs.” | Update your reasoning and next step. | Context you can reuse without reconstructing a chat. |
+
+These are supported usage patterns, not measured productivity claims. The skill's instructions guide model behavior; the application does not guarantee that the agent follows them or that every consideration is discovered. [Setup and example prompts](docs/USAGE.md#connect-real-ai-assistance).
 
 ## Try it yourself (no AI account needed)
 

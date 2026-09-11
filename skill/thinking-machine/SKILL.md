@@ -10,6 +10,16 @@ file: a graph of **nodes** the user expands by **decomposition** (breaking into 
 child nodes, building a DAG). A web canvas renders the same `board.json` and live-updates
 as you edit it — the user watches their thinking take shape.
 
+## Runtime prerequisites
+
+Installing this skill copies instructions only. Before editing boards, check for connected
+Thinking Machine MCP tools or a working `tmind` CLI. If neither is available, explain that
+the application must be installed from https://github.com/Calvin1921/thinking-machine
+using its README quick start. Do not pretend a board was saved or a canvas was opened.
+With an already-built clone, `node packages/cli/dist/index.js` from that clone can replace
+`tmind` in the examples below; a shell alias may not be available to an agent subprocess.
+Do not treat this skill's installation directory as an application clone.
+
 ## One axis: decompose
 
 There is ONE mechanic — **decompose**: break a node into the parts worth thinking about
@@ -119,13 +129,12 @@ divergence gate is what keeps it from nagging when there genuinely isn't a secon
 
 ## Single source of truth (central store)
 
-All boards live in ONE central store so thinking ACCUMULATES across projects instead of
-fragmenting per-directory: `~/Projects/tmind/boards/` (cache/library at
-`~/Projects/tmind/boards/library/`). The CLI and MCP both honor `TM_BOARDS_DIR` (set globally
-in the shell) — so `tmind ls`/`new`/`cache-*` resolve to the central store from ANY directory,
-and `tmind ui` should serve `--dir ~/Projects/tmind/boards`. Never create per-project
-`boards/` dirs again. Name boards `<project>__<topic>.json` and set `domainHint` to the
-project/area (e.g. `petopia/de-slop`) so the pool stays filterable, not a junk drawer.
+Use the user's configured store (`TM_BOARDS_DIR` or explicit CLI `--dir`) and the same
+directory for the canvas. For a first demo, use the repository's isolated `boards/demo`
+fixture. A shared store across projects is optional; do not assume a personal filesystem
+layout or move existing boards. Keep recall within the directory authorized for this task.
+The board file selected with `--file` and the directory selected for recall should agree.
+Cache location is configured separately through `--lib` when needed.
 
 **Recall-first (the payoff — do this as STEP 0).** Before decomposing ANY topic, FIRST call
 **`tm_recall "<topic>"`** (MCP, in-session) or **`tmind recall "<topic>"`** (CLI) to surface
@@ -256,11 +265,11 @@ above (`tmind show`) does not surface it directly; use `tmind show --json` and c
 Render first, verify after; never block the flow (spec §2.4–§2.5). The machine drafts and
 classifies; you (Claude) do the source work and write results back.
 
-**PROVENANCE FLOOR (audited 2026-07-03: 97.9% of 2,898 corpus nodes carried NO provenance; of the 11 ever verify-checked, 1 was flatly false; two `verified` nodes contradicted each other with no reconciliation):**
+**PROVENANCE FLOOR:**
 - Any node that becomes a **CRUX** or **FOUNDATION** (load-bearing) MUST be verified or visibly demoted before the board's decision leans on it. Blank provenance is acceptable for leaves, never for load-bearing nodes.
 - A claim checked and found FALSE gets `refuted` provenance — a checked-false claim must never look like a never-checked one.
 - When upgrading a node to `verified`, grep existing verified nodes across boards for the same topic; if two `verified` claims conflict, surface the contradiction — never let both stand.
-- `verified` means *externally checked this session*, never "owner agreed at the time" — decisions get LOCKED status, not `verified`.
+- `verified` means *externally checked this session*, never "owner agreed at the time" — decisions get a recorded resolution via `tmind resolve`, not `verified`.
 
 Steps:
 

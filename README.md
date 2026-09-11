@@ -55,6 +55,16 @@ The canvas updates without reloading. The root now shows the decision; the unans
 - If port 8791 is busy, stop your earlier demo or use `TM_UI_PORT=8792 pnpm demo` (POSIX shell). The demo launcher does not terminate other port listeners.
 - Build errors or missing modules: confirm Node/pnpm versions, rerun the install and build commands. [Full demo script and recording notes](docs/demo/README.md).
 
+## Install the agent skill
+
+With Node.js/npm available, install the Thinking Machine instructions into your preferred supported agent:
+
+```bash
+npx skills@latest add Calvin1921/thinking-machine --skill thinking-machine
+```
+
+The installer supports agents including Codex and Claude Code. This installs the **skill instructions**; it does not install the CLI, build the canvas, or register an MCP server. Follow the quick start above for the application, then [connect your agent](docs/AGENTS-AND-CLI.md). See the [skills installer documentation](https://github.com/vercel-labs/skills#readme) for agent selection and global installation.
+
 ## Where AI and MCP add value
 
 **AI proposes the breakdown; you inspect the reasoning.** The optional judge uses Claude Code to suggest smaller questions and options, or return a named gap when information is missing. It receives the selected node's context and can recall related notes from other boards using lexical search.

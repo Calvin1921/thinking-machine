@@ -2,6 +2,24 @@
 
 Start with the [account-free demo](../README.md#try-it-yourself-no-ai-account-needed). Run commands below from the built clone. The web canvas does not itself call a model.
 
+## Install the skill with one command
+
+```bash
+npx skills@latest add Calvin1921/thinking-machine --skill thinking-machine
+```
+
+To target Codex explicitly in the current project:
+
+```bash
+npx skills@latest add Calvin1921/thinking-machine --skill thinking-machine --agent codex
+```
+
+Use `--agent claude-code` for Claude Code, or add `--global` for installation across projects. `--list` previews available skills without installing. Use a current Node.js version supported by the installer (the version checked during this update requires Node 22.20.0 or newer).
+
+The skill teaches the agent how to use Thinking Machine. It does not bundle the application, add `tmind` to PATH, or configure MCP. Build the application using the quick start, then connect MCP below or let the agent use `node packages/cli/dist/index.js` from your built clone. An installed skill directory is not an application clone.
+
+Installer reference: [vercel-labs/skills](https://github.com/vercel-labs/skills#readme).
+
 ## Ask the AI judge for a proposal
 
 Install and authenticate Claude Code separately; `claude` must be on PATH. This uses your configured model service and may incur usage costs. Use only demo-safe boards when presenting.

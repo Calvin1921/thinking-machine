@@ -20,3 +20,6 @@ Everything below is the design/engineering record behind it.
 - [90-second demo and safe assets](demo/README.md)
 - [Optional agents and CLI setup](AGENTS-AND-CLI.md)
 - [Presentation audit and verification](PRESENTATION-AUDIT.md)
+
+- [Hands-on usage and expected results](USAGE.md)
+- [Current capabilities and recommended next steps](CAPABILITY-REVIEW.md)

@@ -21,7 +21,9 @@ export function CollectionView({ onOpen }: { onOpen: (id: string) => void }) {
   const [title, setTitle] = useState("");
   const [rootType, setRootType] = useState<RootType>("objective");
 
-  const refresh = useCallback(async () => setBoards(await listBoards()), []);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const refresh = useCallback(async () => { try { setBoards(await listBoards()); setError(''); } catch (e) { setError((e as Error).message); } }, []);
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => onBoardChange(refresh), [refresh]);
 
@@ -29,10 +31,11 @@ export function CollectionView({ onOpen }: { onOpen: (id: string) => void }) {
     e.preventDefault();
     const t = title.trim();
     if (!t) return;
-    const { id } = await createBoard(t, rootType);
-    setTitle("");
-    setCreating(false);
-    onOpen(id);
+    if (saving) return;
+    setSaving(true); setError('');
+    try { const { id } = await createBoard(t, rootType); setTitle(""); setCreating(false); onOpen(id); }
+    catch (e) { setError((e as Error).message); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -44,18 +47,21 @@ export function CollectionView({ onOpen }: { onOpen: (id: string) => void }) {
         )}
       </header>
 
+      {error && <p className="form-error" role="alert">{error} <button className="btn-ghost" onClick={refresh}>Retry</button></p>}
+      <p className="collection-intro">A place for your thinking and your agents. Map options, add your perspective, and keep track of what still needs an answer.</p>
       {creating && (
         <form className="new-form" onSubmit={submit}>
           <input
+            aria-label="Board title"
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Canvas title…"
           />
-          <select value={rootType} onChange={(e) => setRootType(e.target.value as RootType)}>
+          <select aria-label="Board purpose" value={rootType} onChange={(e) => setRootType(e.target.value as RootType)}>
             {ROOT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
-          <button className="btn-primary" type="submit">Create</button>
+          <button className="btn-primary" type="submit" disabled={saving}>{saving ? "Creating…" : "Create"}</button>
           <button className="btn-ghost" type="button" onClick={() => { setCreating(false); setTitle(""); }}>Cancel</button>
         </form>
       )}

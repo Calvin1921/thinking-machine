@@ -69,6 +69,7 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
           <input
             ref={fieldRef as React.RefObject<HTMLInputElement>}
             className="t-label t-edit"
+            aria-label="Edit concept"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onFocus={(e) => e.currentTarget.select()}
@@ -98,6 +99,7 @@ export function ThinkNode({ id, data, selected }: NodeProps & { data: ThinkNodeD
           <textarea
             ref={fieldRef as React.RefObject<HTMLTextAreaElement>}
             className="t-preview t-edit"
+            aria-label="Edit reasoning"
             value={draft}
             placeholder="What this node means — the thinking it holds…"
             onChange={(e) => setDraft(e.target.value)}

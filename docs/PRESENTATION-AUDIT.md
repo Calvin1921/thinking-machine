@@ -29,3 +29,9 @@ Scope: tracked Thinking Machine repository at `f15368b`, checked against fetched
 ## Remaining product limits
 
 The local sidecar is not an authenticated service. The model adapter has no explicit timeout/retry budget. Caller-supplied outcomes do not enforce a test threshold. Accessibility features exist but full assistive-technology conformance is unverified. The proposed behavioral eval harness and roadmap capabilities should remain framed as future work.
+
+## Interactive contribution follow-up
+
+The canvas now supports contextual additions and a multi-field thought editor, with an explicit save and same-field conflict handling. The UI uses consistent canvas controls and a responsive details panel. See [usage](USAGE.md) for commands, expected results, and limits; [capability review](CAPABILITY-REVIEW.md) separates shipped behavior from future opportunities.
+
+Validation: 169 tests passed (core 87, CLI 19, MCP 18, web 45); production build and web typecheck passed. Browser checks covered adding a child, editing reasoning and a question, persistence after reload, rejecting a concurrent same-field edit without losing the draft, resolving that conflict, subtree focus, and a 390-pixel mobile viewport. No live model response was tested. Recording remains deferred.

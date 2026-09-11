@@ -8,6 +8,7 @@
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
     "./schema": { "types": "./dist/schema.d.ts", "default": "./dist/schema.js" },
+    "./edit": { "types": "./dist/edit.d.ts", "default": "./dist/edit.js" },
     "./ops": { "types": "./dist/ops.d.ts", "default": "./dist/ops.js" }
   },
   "scripts": {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ReactFlow, Background, Controls, applyNodeChanges, type Node as FlowNode, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
+import { ReactFlow, Background, applyNodeChanges, type Node as FlowNode, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import type { Board } from "@tm/core/schema";
@@ -100,7 +100,7 @@ export default function App() {
   const backToCollection = useCallback(() => { window.location.hash = "#/"; }, []);
 
   if (!boardId) return <CollectionView onOpen={open} />;
-  return <CanvasView boardId={boardId} onBack={backToCollection} />;
+  return <CanvasView key={boardId} boardId={boardId} onBack={backToCollection} />;
 }
 
 function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }) {
@@ -110,6 +110,22 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const [focusId, setFocusId] = useState<string | null>(null);   // Focus-dive: current re-root, null = board root
   const [selected, setSelected] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [hasDraft, setHasDraft] = useState(false);
+  const [parentOverride, setParentOverride] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const selectThought = useCallback((id: string | null) => {
+    if (id === selected) return;
+    if (hasDraft && !window.confirm('Discard the unsaved changes in Thought details?')) return;
+    setHasDraft(false); setSelected(id); setParentOverride(null);
+  }, [selected, hasDraft]);
+  useEffect(() => {
+    if (!hasDraft) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasDraft]);
+  const reportSaveError = useCallback((e: unknown) => setSaveError(e instanceof Error ? e.message : 'Could not save. Try again.'), []);
   const [far, setFar] = useState(false);            // zoomed out past the LOD threshold
   const seededRef = useRef<string | null>(null);   // boardId whose sections we've already seeded
   const overviewRef = useRef<string | null>(null); // boardId whose default collapse we've applied
@@ -211,7 +227,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
       for (const id of Object.keys(sl.nodes)) positions[id] = { x: sl.nodes[id].x + SEC_PAD_X, y: sl.nodes[id].y };
       const sectionPositions: Record<string, { x: number; y: number }> = {};
       for (const r of sl.sections) sectionPositions[r.id] = { x: r.x, y: r.y };
-      applyLayout(boardId, { positions, sectionPositions });   // one atomic write, no race
+      applyLayout(boardId, { positions, sectionPositions }).catch(reportSaveError);   // one atomic write, no race
     }
   }, [boardId]);
 
@@ -219,18 +235,18 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   useEffect(() => onBoardChange(refresh), [refresh]);   // live reload on CLI/MCP edits
 
   // Inline card edits → persist, then refresh (SSE would also catch it, but explicit is instant).
-  const rename = useCallback((id: string, label: string) => { setLabel(boardId, id, label).then(refresh); }, [boardId, refresh]);
-  const describe = useCallback((id: string, description: string) => { setDescription(boardId, id, description).then(refresh); }, [boardId, refresh]);
+  const rename = useCallback((id: string, label: string) => { setLabel(boardId, id, label).then(refresh).catch(reportSaveError); }, [boardId, refresh]);
+  const describe = useCallback((id: string, description: string) => { setDescription(boardId, id, description).then(refresh).catch(reportSaveError); }, [boardId, refresh]);
 
   // Rebuild the controlled node list whenever the board or collapse state changes; inject the
   // inline-edit callbacks into each think node here (keeps buildNodes pure of the API layer).
   useEffect(() => {
     if (!board) return;
     const fn = buildNodes(board, collapsed).map((n) =>
-      n.type === "think" ? { ...n, data: { ...n.data, onRename: rename, onDescribe: describe } } : n);
+      n.type === "think" ? { ...n, selected: n.id === selected, data: { ...n.data, onRename: rename, onDescribe: describe } } : n);
     fnRef.current = fn;
     setFlowNodes(fn);
-  }, [board, collapsed, buildNodes, rename, describe]);
+  }, [board, collapsed, buildNodes, rename, describe, selected]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     // ReactFlow already corrects child positions for a top/left section resize (it emits the
@@ -244,8 +260,8 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
       const secId = isSec ? (c as { id: string }).id.slice(SEC_PREFIX.length) : "";
       if (c.type === "position" && c.dragging === false) {          // drag-end
         const n = at(c.id); if (!n) continue;
-        if (isSec) setSectionPos(boardId, secId, n.position.x, n.position.y);
-        else moveNode(boardId, c.id, n.position.x, n.position.y);
+        if (isSec) setSectionPos(boardId, secId, n.position.x, n.position.y).catch(reportSaveError);
+        else moveNode(boardId, c.id, n.position.x, n.position.y).catch(reportSaveError);
       } else if (c.type === "dimensions" && c.resizing === false && c.dimensions) { // resize-end
         const n = at(c.id); if (!n) continue;
         const w = Math.round(c.dimensions.width), h = Math.round(c.dimensions.height);
@@ -253,10 +269,10 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
           // persist the resized box AND the children's ReactFlow-corrected positions
           const positions: Record<string, { x: number; y: number }> = {};
           for (const ch of next) if (ch.parentId === c.id) positions[ch.id] = { x: ch.position.x, y: ch.position.y };
-          applyLayout(boardId, { sectionPositions: { [secId]: { x: n.position.x, y: n.position.y } }, sectionSizes: { [secId]: { w, h } }, positions });
+          applyLayout(boardId, { sectionPositions: { [secId]: { x: n.position.x, y: n.position.y } }, sectionSizes: { [secId]: { w, h } }, positions }).catch(reportSaveError);
         } else {
-          setNodeSize(boardId, c.id, w, h);
-          moveNode(boardId, c.id, n.position.x, n.position.y);
+          setNodeSize(boardId, c.id, w, h).catch(reportSaveError);
+          moveNode(boardId, c.id, n.position.x, n.position.y).catch(reportSaveError);
         }
       }
     }
@@ -280,13 +296,13 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     if (kind === "tree") {
       const heights: Record<string, number> = {};
       for (const n of flowNodes) if (n.type === "think" && n.measured?.height) heights[n.id] = n.measured.height;
-      applyLayout(boardId, { positions: tidyLayout(b, heights, collapsed, cell) }).then(fitAfterLayout);
+      applyLayout(boardId, { positions: tidyLayout(b, heights, collapsed, cell) }).then(fitAfterLayout).catch(reportSaveError);
       return;
     }
     const pos = kind === "funnel" ? funnelLayout(b, {}, cell) : kind === "grid" ? gridLayout(b, {}, cell) : kind === "timeline" ? timelineLayout(b, {}, cell) : kind === "radial" ? radialLayout(b, {}, cell) : concentricLayout(b, {}, cell);
     const sizes: Record<string, { w: number; h: number }> = {};
     for (const n of b.nodes) sizes[n.id] = cell;
-    applyLayout(boardId, { positions: pos, sizes }).then(fitAfterLayout);
+    applyLayout(boardId, { positions: pos, sizes }).then(fitAfterLayout).catch(reportSaveError);
   }, [boardId, flowNodes, collapsed, fitAfterLayout]);
 
   const tidy = useCallback(() => {
@@ -300,7 +316,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
       for (const n of board.nodes) if (n.sectionId) sizes[n.id] = cell;
       const sectionPositions: Record<string, { x: number; y: number }> = {};
       for (const r of sl.sections) sectionPositions[r.id] = { x: r.x, y: r.y };
-      applyLayout(boardId, { positions, sizes, sectionPositions }).then(fitAfterLayout);
+      applyLayout(boardId, { positions, sizes, sectionPositions }).then(fitAfterLayout).catch(reportSaveError);
       return;
     }
     arrange(board, board.layout ?? "tree");
@@ -312,7 +328,7 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
     const next = { ...board, layout: kind === "tree" ? undefined : kind };
     setBoard(next);             // re-renders edges with the right handles immediately
     arrange(next, kind);
-    setLayout(boardId, kind);   // persist (SSE refresh will reconcile)
+    setLayout(boardId, kind).catch(reportSaveError);   // persist (SSE refresh will reconcile)
   }, [board, boardId, arrange]);
 
   // Collapse all nodes that have children, except the root → overview = root + its direct children.
@@ -338,20 +354,24 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
   const edges = boardToFlow(board).edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target));
   const selectedNode = board.nodes.find((n) => n.id === selected) ?? null;
 
+  const suggestedParent = parentOverride ?? selectedNode?.id ?? focusId ?? board.rootId;
+  const parentId = board.nodes.some(n => n.id === suggestedParent) ? suggestedParent : board.rootId;
+  const addRelated = () => { setParentOverride(selectedNode?.id ?? board.rootId); document.getElementById('new-thought')?.focus(); };
+  const leave = () => { if (!hasDraft || window.confirm('Discard the unsaved changes in Thought details?')) onBack(); };
   return (
     <div className={far ? "app lod-far" : "app"}>
-      <div className="topbar">
-        <button className="back" onClick={onBack}>← Canvases</button>
+      <header className="topbar">
+        <button className="back" onClick={leave}>Boards</button>
         <span className="topbar-title">{board.title}</span>
         {board.guideMode && (
-          <span className="guide-badge" title="Guide posture is on — the assistant asks before expanding the board">◆ Guide</span>
+          <span className="guide-badge" title="Guide posture is on — the assistant asks before expanding the board">Guide</span>
         )}
         <button className="back" onClick={collapsed.size ? expandAll : collapseAll}
-          title="Toggle overview">{collapsed.size ? "⊞ Expand all" : "⊟ Collapse all"}</button>
-        <button className="back" onClick={tidy} title={sectioned ? "Reset section layout" : "Auto-arrange"}>⤢ Tidy</button>
+          title="Toggle overview">{collapsed.size ? "Expand all" : "Overview"}</button>
+        <button className="back" onClick={tidy} title={sectioned ? "Reset section layout" : "Auto-arrange"}>Arrange</button>
         {!sectioned && focusId && board.nodes.some((n) => n.id === focusId) && (
           <nav className="crumbs" aria-label="Focus path">
-            <button className="crumb" onClick={() => { setFocusId(null); setTimeout(() => rfRef.current?.fitView({ padding: 0.12 }), 120); }} title="Back to the whole board">⌂</button>
+            <button className="crumb" onClick={() => { setFocusId(null); setTimeout(() => rfRef.current?.fitView({ padding: 0.12 }), 120); }} title="Back to the whole board">Whole board</button>
             {ancestorPath(board, focusId).map((id, i, arr) => {
               const n = board.nodes.find((x) => x.id === id);
               if (!n) return null;
@@ -364,26 +384,40 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
             })}
           </nav>
         )}
-        {!sectioned && (() => {
-          const cycle = { tree: "funnel", funnel: "grid", grid: "timeline", timeline: "radial", radial: "concentric", concentric: "tree" } as const;
-          const next = cycle[board.layout ?? "tree"];
-          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline", radial: "◎ Radial", concentric: "⊚ Concentric" } as const;
-          return <button className="back" onClick={() => switchLayout(next)} title="Switch representation">{label[next]}</button>;
-        })()}
+        {!sectioned && <label className="layout-picker">Layout
+          <select value={board.layout ?? 'tree'} onChange={e => switchLayout(e.target.value as 'tree')}>
+            <option value="tree">Tree</option><option value="funnel">Funnel</option><option value="grid">Grid</option>
+            <option value="timeline">Timeline</option><option value="radial">Radial</option><option value="concentric">Concentric</option>
+          </select>
+        </label>}
         {!sectioned && shouldSuggestAlt(board) && (() => {
-          const label = { tree: "🌳 Tree", funnel: "▽ Funnel", grid: "▦ Grid", timeline: "▤ Timeline", radial: "◎ Radial", concentric: "⊚ Concentric" } as const;
+          const label = { tree: "Tree", funnel: "Funnel", grid: "Grid", timeline: "Timeline", radial: "Radial", concentric: "Concentric" } as const;
           const a = board.altFraming!;
           // Pathfinder: offer the road not taken — the framing the user might not have considered.
           return <button className="back alt-frame" onClick={() => switchLayout(a.layout as "tree" | "funnel" | "grid" | "timeline" | "radial" | "concentric")}
-            title={a.intent ? `if your point is: ${a.intent}` : "alternative framing"}>↝ See as {label[a.layout]}</button>;
+            title={a.intent ? `if your point is: ${a.intent}` : "alternative framing"}>See as {label[a.layout]}</button>;
         })()}
-      </div>
+        <button className="back help-toggle" aria-expanded={showHelp} onClick={() => setShowHelp(!showHelp)}>How to use</button>
+      </header>
+      {saveError && <div className="save-error" role="alert">{saveError} <button className="btn-ghost" onClick={() => setSaveError(null)}>Dismiss</button></div>}
+      {showHelp && <section className="canvas-help" aria-label="How to use this board">
+        <div><h2>Think wider. Go deeper. Keep your judgment.</h2><p>Add a different option under <strong>Whole board</strong>. Select a concept to add related thoughts. Click its title to edit inline, or use <strong>Thought details</strong> to record your reasoning.</p></div>
+        <div><h3>Questions worth adding</h3><p>What are we overlooking? What would change our mind? Which trade-off matters most? Record missing evidence as an <strong>Open question</strong>, and a decision as an <strong>Outcome / next step</strong>.</p></div>
+        <div><h3>Read the map</h3><p>Solid lines: part of. Dashed lines: depends on. Amber question: missing information. Evidence labels describe recorded checks, not automatic truth.</p><p>Double-click to focus. Escape moves up. Drag to rearrange; use Fit view to see the whole map. Changes are saved locally; agents can update the same board.</p></div>
+      </section>}
+      <div className="canvas-workspace">
+      <main className="canvas-stage" aria-label="Thinking canvas">
       <ReactFlow
         nodes={flowNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
-        onNodeClick={(_, n) => setSelected(n.id)}
+        onNodeClick={(_, n) => { if (!n.id.startsWith(SEC_PREFIX)) selectThought(n.id); }}
+        onPaneClick={() => selectThought(null)}
+        nodesConnectable={false}
+        deleteKeyCode={null}
+        colorMode="dark"
+        style={{ background: "var(--bg)" }}
         onNodeDoubleClick={(_, n) => { if (!n.id.startsWith(SEC_PREFIX)) dive(n.id); }}
         onViewportChange={(vp) => setFar(vp.zoom < LOD_ZOOM)}
         onInit={(inst) => { rfRef.current = inst; }}
@@ -391,15 +425,23 @@ function CanvasView({ boardId, onBack }: { boardId: string; onBack: () => void }
         minZoom={0.02}
       >
         <Background color="#152130" gap={24} />
-        <Controls />
       </ReactFlow>
-      <div className="legend">
-        <div><span className="lg-line solid" /> part of</div>
-        <div><span className="lg-line dashed" /> depends on</div>
-        <div><span className="lg-box dashed" /> leaf (won't expand)</div>
+      <nav className="canvas-controls" aria-label="Canvas view controls">
+        <button onClick={() => rfRef.current?.zoomOut()} aria-label="Zoom out"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12" /></svg></button>
+        <button onClick={() => rfRef.current?.zoomIn()} aria-label="Zoom in"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12M10 4v12" /></svg></button>
+        <button onClick={() => rfRef.current?.fitView({ padding: 0.15 })}>Fit view</button>
+      </nav>
+      </main>
+      {selectedNode && <FacetDrawer key={selectedNode.id} boardId={boardId} node={selectedNode}
+        onClose={() => selectThought(null)} onSaved={() => { refresh(); fitAfterLayout(); }} onDirtyChange={setHasDraft}
+        onAddChild={addRelated} onFocus={() => dive(selectedNode.id)} />}
       </div>
-      {!sectioned && <QuickAdd boardId={boardId} rootId={board.rootId} onAdded={refresh} />}
-      <FacetDrawer boardId={boardId} node={selectedNode} onClose={() => setSelected(null)} onSaved={refresh} />
+      <QuickAdd boardId={boardId} board={board} parentId={parentId} onParentChange={setParentOverride} onAdded={(next, _id, parent) => {
+        setBoard(next);
+        setCollapsed(old => { const expanded = new Set(old); for (const id of ancestorPath(next, parent)) expanded.delete(id); expanded.delete(parent); return expanded; });
+        if (focusId && !subtreeIds(next, focusId).has(parent)) setFocusId(null);
+        fitAfterLayout();
+      }} />
     </div>
   );
 }

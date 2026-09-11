@@ -4,7 +4,7 @@
 
 Thinking Machine is a local decision board for a technical user working with AI agents. When reasoning is scattered across chat messages, it is hard to see what supports a recommendation or what still needs checking. `tmind` keeps that reasoning in an editable map you can return to as evidence changes.
 
-[Try the demo](#try-it-yourself-no-ai-account-needed) · [90-second walkthrough](docs/demo/README.md) · [Engineering evidence](#engineering-evidence) · [Architecture](#architecture-and-tradeoffs)
+[Try the demo](#try-it-yourself-no-ai-account-needed) · [Usage guide](docs/USAGE.md) · [90-second walkthrough](docs/demo/README.md) · [Engineering evidence](#engineering-evidence) · [Architecture](#architecture-and-tradeoffs)
 
 ## See the decision, not just the answer
 
@@ -54,6 +54,12 @@ The canvas updates without reloading. The root now shows the decision; the unans
 - `pnpm demo:reset` restores only the fictional demo board, replacing edits to that board.
 - If port 8791 is busy, stop your earlier demo or use `TM_UI_PORT=8792 pnpm demo` (POSIX shell). The demo launcher does not terminate other port listeners.
 - Build errors or missing modules: confirm Node/pnpm versions, rerun the install and build commands. [Full demo script and recording notes](docs/demo/README.md).
+
+## Bring your own thinking
+
+Use **Your thought → Add thought** to add an option, concern, or idea. Choose **Whole board** to think wider; select a concept to go deeper beneath it. **Thought details** lets you edit reasoning, trade-offs, open questions, and outcomes, with an explicit save and conflict feedback if an agent changed the same field.
+
+**How to use** explains the map in the app. [The usage guide](docs/USAGE.md) walks through commands, expected results, manual editing, and agent prompts. [Capability review](docs/CAPABILITY-REVIEW.md) separates the distinctive features available now from the next useful investments.
 
 ## Install the agent skill
 

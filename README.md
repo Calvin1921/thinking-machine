@@ -4,9 +4,11 @@
 
 Thinking Machine is a local decision board for a technical user working with AI agents. When reasoning is scattered across chat messages, it is hard to see what supports a recommendation or what still needs checking. `tmind` keeps that reasoning in an editable map you can return to as evidence changes.
 
-[Try the demo](#try-it-yourself-no-ai-account-needed) · [Usage guide](docs/USAGE.md) · [90-second walkthrough](docs/demo/README.md) · [Engineering evidence](#engineering-evidence) · [Architecture](#architecture-and-tradeoffs)
+[Try the demo](#try-it-yourself-no-ai-account-needed) · [Usage guide](docs/USAGE.md) · [Watch the 80-second demo](docs/demo/walkthrough.mp4) · [Engineering evidence](#engineering-evidence) · [Architecture](#architecture-and-tradeoffs)
 
 ## See the decision, not just the answer
+
+**[Watch the captioned demo (80 seconds)](docs/demo/walkthrough.mp4)** — add a human concern, explore a branch, and see a decision update live. [Text walkthrough](docs/demo/README.md).
 
 ![Actual Thinking Machine canvas with fictional support-pilot options, draft labels, and an unanswered quality question](docs/demo/support-pilot.png)
 

@@ -1,53 +1,51 @@
-# Thinking Machine: 90-second demo
+# Thinking Machine: 80-second demo
 
-**Audience:** a hiring manager assessing AI product engineering. **Takeaway:** an AI-assisted decision can remain inspectable, editable, and explicit about missing evidence.
+**[Watch the video](walkthrough.mp4)** · [Captions](walkthrough.srt) · [Reviewer brief](REVIEWER-BRIEF.md) · [Usage guide](../USAGE.md)
 
-This walkthrough uses a handcrafted fictional board, not a recorded model response. No support tickets are included or evaluated. The suggested 20-ticket test and 18-draft threshold are illustrative. No external AI call is needed.
+A concise, silent walkthrough with visible captions, recorded from the real application using **OpenScreen**. Browser chrome is cropped out; pauses are trimmed and an editorial capability card closes the video. No application behavior is simulated in the edit. One recording covers this project.
 
-## Prepare
+**Takeaway:** keep AI-assisted reasoning inspectable and editable, with human judgment and missing evidence visible.
 
-Follow the [quick start](../../README.md#try-it-yourself-no-ai-account-needed), then run `pnpm demo:reset` to restore the starting state. Open the fictional board at http://localhost:8791. Frame all four cards using **Fit View**. Keep a second terminal at the clone root, ready with the outcome command below.
+## What you see
 
-Capture only the app window. Hide notifications and account/browser chrome; do not show terminal prompts, shell history, personal boards, or MCP account configuration. The demo launcher serves only `boards/demo`. Use the same isolated directory for any optional AI segment.
-
-## Recording status
-
-Recording is deferred at the owner’s request. Use OpenScreen and record one project at a time. Before recording, rehearse the [interactive contribution flow](../USAGE.md): add a human concern under an option, edit its reasoning, and save it. The short OpenScreen framing checks are not final demos.
-
-## Script and shot list
-
-| Time | Show / do | Say |
+| Time | Demonstration | Why it matters |
 |---|---|---|
-| 0–12s | Full board; point to the question | “When a decision is spread across an AI chat, it is easy to lose the assumptions behind the answer. Thinking Machine keeps the question, options, and missing evidence together.” |
-| 12–27s | Select Human-reviewed pilot; add “Who reviews difficult replies?” | “This fictional team is comparing a reviewed pilot with automatic replies. I can contribute my own concern: who reviews the difficult replies? My thought becomes a connected part of the decision.” |
-| 27–43s | Select the added thought; enter “Review time may erase the benefit.” in Your reasoning; save and close | “I can explain my reasoning and record trade-offs or questions. The existing amber question still marks missing quality evidence. These labels describe recorded judgments and checks, not automatic truth.” |
-| 43–60s | Run the command off-camera; keep the canvas visible as it updates | “I’ll record a bounded decision: try a human-reviewed pilot. The board updates live. The quality gap remains open, so choosing a next step does not pretend the uncertainty is solved.” |
-| 60–76s | Hold on the completed board | “An AI agent can edit this same board through MCP. The optional judge can suggest a breakdown or flag a gap. Validation protects the data structure; it cannot prove an AI answer is true.” |
-| 76–90s | Show the saved outcome and gap together | “The result is a decision record you can revisit: what we chose, what we assumed, and what to test next. It is a local, single-user tool, and this demo runs without an AI account.” |
+| 0–8s | A decision, two options, and an unanswered quality question | The recommendation retains its context and alternative. |
+| 8–26s | Add “Who reviews difficult replies?” beneath the reviewed pilot | The user can challenge and extend the reasoning. |
+| 26–44s | Enter reasoning, a trade-off, and an open question; save and arrange | Human contributions persist as part of the board. |
+| 44–52s | Focus on the reviewed-pilot branch | Explore a concern in depth without losing the larger map. |
+| 52–62s | Return to the map; a CLI update appears live | The UI and external tools share core graph operations. |
+| 62–72s | A recorded next step alongside unanswered questions | Choosing a direction does not imply the evidence is complete. |
+| 72–80s | Product, AI integration, and full-stack capability card | Connect the product demonstration to implementation evidence. |
 
-Outcome command, from the clone root:
+This handcrafted board is fictional. No support tickets are included or evaluated, and no live model call occurs. The 20-ticket test and 18-draft threshold are illustrative. `PASSED` on the root means a decision was recorded through `resolve`; it does **not** mean reply quality passed a test.
+
+## Reproduce the walkthrough
+
+Follow the [quick start](../../README.md#try-it-yourself-no-ai-account-needed). Run `pnpm demo:reset` only when ready to replace edits to the demo board. Open the fictional board at http://localhost:8791 and select **Fit view**.
+
+Select **Human-reviewed pilot** and add **Who reviews difficult replies?**. Select the new thought and enter:
+
+- **Your reasoning:** Review time may erase the benefit of faster drafts.
+- **Trade-off / choose this if:** Choose this if trained reviewers can handle escalations.
+- **Open question:** Which replies need specialist review?
+
+Save, close the details, and choose **Arrange**. Select the pilot and choose **Focus on this** to explore its branch. Return with **Whole board**. In a second terminal at the clone root, run:
 
 ```bash
 node packages/cli/dist/index.js -f boards/demo/support-pilot.json resolve root \
-  "Run a human-reviewed pilot; keep automatic sending off until quality is measured."
+  "Try a human-reviewed pilot; measure quality before automatic sending."
 ```
 
-`PASSED` on the root means the decision was recorded using `resolve`; it does **not** mean the proposed reply-quality test passed. Point out the still-open gap if asked.
+The outcome arrives without a reload. The separate quality question and human concern remain open.
 
-## Demo-safe assets
+## Assets and recording notes
 
-- [Interactive editor screenshot](interactive-thinking.png) — current UI with a human contribution.
-- [Starting board screenshot](support-pilot.png) — actual running UI.
-- [Recorded outcome screenshot](support-pilot-outcome.png) — same UI after the CLI command, received through live updates.
-- [Source fixture](../../examples/support-pilot.json) — fictional, editable JSON validated by the core on preparation.
-- [Demo launcher](../../scripts/demo.mjs) — preserves edits; `pnpm demo:reset` explicitly replaces only the demo fixture copy.
+- [Starting board](support-pilot.png) and [saved outcome](support-pilot-outcome.png): current application captures from this recording.
+- [Interactive editor](interactive-thinking.png): a separate real UI capture.
+- [Source fixture](../../examples/support-pilot.json) and [demo launcher](../../scripts/demo.mjs).
+- [Caption file](walkthrough.srt): text alternative for the silent MP4.
 
-![Recorded pilot decision with the quality question still open](support-pilot-outcome.png)
+The shareable video is 1920 × 1080, H.264 MP4, 80 seconds, with burned-in captions and no audio track. OpenScreen captured only the dedicated demo window. Raw recordings and editor projects stay outside the repository because they contain machine-specific paths. The exported video contains no account chrome, personal boards, terminal prompts, or credentials. Captions and the closing capability card were added in post-production.
 
-For a presentation without a running app, use the two screenshots as before/after slides and say they are captures. A narrated video is not included; the script above is ready to record. Do not describe this deterministic walkthrough as a live AI demonstration.
-
-## Optional technical follow-up
-
-Use [agent setup](../AGENTS-AND-CLI.md) to show an actual model proposal after the main demo. Allow for latency and variable output. The default judge call is a dry run; rerunning with `--yes` generates and commits a new proposal. Do not promise that it will reproduce a prepared answer.
-
-For accessibility, the script also serves as a text walkthrough. The screenshots have descriptive alternatives, and `show --json` exposes the full board without navigating the canvas.
+For an optional technical follow-up, use [agent setup](../AGENTS-AND-CLI.md) to demonstrate a real MCP client or model proposal separately. Model output and latency vary. The default judge call is a dry run; rerunning with `--yes` generates and commits a new proposal rather than approving the exact earlier proposal.

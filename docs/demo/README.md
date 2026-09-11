@@ -2,6 +2,8 @@
 
 **[Watch the video](walkthrough.mp4)** · [Captions](walkthrough.srt) · [Reviewer brief](REVIEWER-BRIEF.md) · [Usage guide](../USAGE.md)
 
+https://github.com/user-attachments/assets/52c2d303-1ca2-4408-be21-962b759cd5f8
+
 A concise, silent walkthrough with visible captions, recorded from the real application using **OpenScreen**. Browser chrome is cropped out; pauses are trimmed and an editorial capability card closes the video. No application behavior is simulated in the edit. One recording covers this project.
 
 **Takeaway:** keep AI-assisted reasoning inspectable and editable, with human judgment and missing evidence visible.

@@ -32,10 +32,10 @@ You should see a decision, two options, and an amber question about reply qualit
 
 A concrete addition for the demo:
 
-> **Concept:** Who reviews difficult replies?  
-> **Reasoning:** Faster drafts may not help if reviewing them takes too long.  
-> **Choose this if:** Trained reviewers can handle escalations.  
-> **Open question:** Which replies need specialist review?  
+> **Concept:** Who reviews difficult replies?<br>
+> **Reasoning:** Faster drafts may not help if reviewing them takes too long.<br>
+> **Choose this if:** Trained reviewers can handle escalations.<br>
+> **Open question:** Which replies need specialist review?<br>
 > **Next step:** Try a review exercise with synthetic tickets.
 
 All of these are fictional suggestions, not research findings.

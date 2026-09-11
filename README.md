@@ -8,9 +8,11 @@ Thinking Machine is a local decision board for a technical user working with AI 
 
 ## See the decision, not just the answer
 
-**[Watch the captioned demo (80 seconds)](docs/demo/walkthrough.mp4)** — add a human concern, explore a branch, and see a decision update live. [Text walkthrough](docs/demo/README.md).
+**Watch the captioned demo (80 seconds)** — add a human concern, explore a branch, and see a decision update live.
 
-![Actual Thinking Machine canvas with fictional support-pilot options, draft labels, and an unanswered quality question](docs/demo/support-pilot.png)
+https://github.com/user-attachments/assets/52c2d303-1ca2-4408-be21-962b759cd5f8
+
+[Download MP4](docs/demo/walkthrough.mp4) · [Text walkthrough](docs/demo/README.md) · [Static screenshot](docs/demo/support-pilot.png)
 
 *Fictional example: should a small support team pilot an AI assistant? All content is illustrative; no customer data or measured business results.*
 

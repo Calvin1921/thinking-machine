@@ -6,9 +6,10 @@ one accent.
 
 ## What the tool is (the prior that drives every choice)
 
-A **read + steer** tool over **AI-authored** structure — Claude grows the tree; you read,
-navigate, and prune. So the UI optimizes **comprehension and navigation of dense trees**, not
-drawing. You consume more than you create here.
+A **read, contribute, and steer** tool for a person and their AI agents. Both can add
+structure and reasoning to the same saved board. The canvas prioritizes comprehension
+of dense trees, with an explicit composer for the person’s own ideas and a details panel
+for reasoning, trade-offs, open questions, and outcomes.
 
 ## Signature move — Focus-dive
 
@@ -54,12 +55,12 @@ Orthogonal elbows. **Decomposition = solid**; **dependency = dashed + labeled ve
 ## Navigation & motion
 - Focus-dive with smooth re-root + breadcrumb (the signature).
 - Collapse/expand to manage density; **Tidy** to auto-arrange; pan/zoom.
-- **Keyboard-first**: `j/k` move · `o` expand/collapse · `Enter` dive · `Esc` up.
+- **Keyboard access**: labelled form controls and view controls; Escape moves up a focus level. Full keyboard-only graph exploration remains incomplete.
 - Motion is fast and structural (≤150ms), never decorative. Latency on expand/dive is a bug.
 
 ## Anti-slop gates (hold these)
 - No wall-of-boxes — density stays legible via type, spacing, collapse, focus.
-- No modal drawers that break flow — editing is inline; metadata is a light popover.
+- Keep the map usable while editing: inline editing remains available; the details panel occupies its own column. On narrow screens the panel replaces the map temporarily and Close returns to it.
 - No expand/focus latency — every structural action is instant.
 - No decoration-as-design — the signature done well beats ornament.
 
@@ -74,3 +75,11 @@ The richer Adaptive-Lens presets (network/concentric/pyramid/flow), Claude-in-ca
   anti-slop gate. Metadata still in the drawer.
 - **Orthogonal hierarchy elbows in quiet `--line`** — decomposition edges no longer use the
   cyan accent (it stays rationed for selection/dive-root).
+
+## Human contribution pass — 2026-09-11
+
+- Persistent, labelled “Add under / Your thought / Add thought” composer. The parent is explicit and can be the whole board or a selected concept; additions remain expandable.
+- Details use one explicit save, with conflict detection for changed fields and draft preservation while agent updates arrive. A saved outcome does not automatically close a question or mark a test as passed.
+- Header, canvas and composer have separate layout space. Zoom/fit controls use one neutral treatment; the relationship legend is explained in “How to use.” React Flow credit remains legible but quiet.
+- No remote font request: use available named faces with system fallbacks, consistent with the previously rendered local app (its CSP blocked Google Fonts).
+- Recordings are deferred and will be made one project at a time with OpenScreen.

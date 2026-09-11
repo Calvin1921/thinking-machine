@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { newBoard, createBoard, boardPath } from "@tm/core";
+import { newBoard, createBoard, boardPath, nodeDraft } from "@tm/core";
 import { createSidecar } from "./sidecar.js";
 
 let dir: string, server: ReturnType<typeof createSidecar>, base: string;
@@ -75,6 +75,30 @@ describe("sidecar", () => {
     await json(`/api/boards/${id}/add`, { label: "FE", parentId: "root", kind: "branch" });
     const b = await (await fetch(`${base}/api/boards/${id}`)).json();
     expect(b.nodes.map((n: any) => n.label)).toContain("FE");
+  });
+
+  it("saves thought details atomically and returns 409 for a stale same-field edit", async () => {
+    const id = createBoard(dir, "App", "decision");
+    const initial = await (await fetch(`${base}/api/boards/${id}`)).json();
+    const expected = nodeDraft(initial.nodes[0]);
+    const first = await json(`/api/boards/${id}/edit`, { nodeId: "root", changes: { description: "Agent edit" }, expected });
+    expect(first.status).toBe(200);
+    const conflict = await json(`/api/boards/${id}/edit`, { nodeId: "root", changes: { description: "Stale draft", rationale: "Must not partially save" }, expected });
+    expect(conflict.status).toBe(409);
+    const after = await (await fetch(`${base}/api/boards/${id}`)).json();
+    expect(after.nodes[0].description).toBe("Agent edit");
+    expect(after.nodes[0].rationale).toBeUndefined();
+  });
+
+  it("adds successive human concepts at distinct positions under the chosen parent", async () => {
+    const id = createBoard(dir, "App", "concept");
+    await json(`/api/boards/${id}/add`, { label: "Option", parentId: "root", kind: "branch" });
+    await json(`/api/boards/${id}/add`, { label: "Concern", parentId: "option", kind: "branch" });
+    const result = await json(`/api/boards/${id}/add`, { label: "Another concern", parentId: "option", kind: "branch" });
+    const b = await result.json();
+    expect(b.edges.filter((e: any) => e.from === "option")).toHaveLength(2);
+    expect(b.nodes[2].y).not.toBe(b.nodes[3].y);
+    expect((await json(`/api/boards/${id}/add`, { label: " ", parentId: "root", kind: "branch" })).status).toBe(400);
   });
 
   it("POST /api/boards/:id/image attaches an image url to a node", async () => {

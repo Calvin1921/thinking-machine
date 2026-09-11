@@ -1,0 +1,36 @@
+1
+00:00:00,000 --> 00:00:08,000
+Keep the decision, alternatives, and missing evidence in one place.
+
+2
+00:00:08,000 --> 00:00:18,000
+Add your own concern beneath an option. Your judgment stays in the loop.
+
+3
+00:00:18,000 --> 00:00:26,000
+Develop the thought directly on the canvas.
+
+4
+00:00:26,000 --> 00:00:36,000
+Explain your reasoning, name the trade-off, and record an open question.
+
+5
+00:00:36,000 --> 00:00:44,000
+Save the contribution and arrange the map.
+
+6
+00:00:44,000 --> 00:00:52,000
+Focus on one branch to explore the decision in depth.
+
+7
+00:00:52,000 --> 00:01:02,000
+A CLI update appears live. MCP tools use the same core graph operations.
+
+8
+00:01:02,000 --> 00:01:12,000
+“Passed” records the decision. The quality questions remain unanswered.
+
+9
+00:01:12,000 --> 00:01:20,000
+MCP integration, schema validation, live updates, and 169 passing tests.
+Local and single-user; validation checks structure, not truth.

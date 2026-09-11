@@ -1,4 +1,6 @@
-# Evaluation — Proving Each Capability Works
+# Evaluation — Capability Targets and Planned Harness
+
+> Status: this document is an evaluation plan. The proposed `tmind eval` command and labeled behavioral harness are not shipped. Pass bars below are targets, not measured results; current CI runs deterministic software tests.
 
 TM's own rule is *every step is testable — a metric, a probe, a pass/fail, not vibes.* This doc applies that rule to the build. For each capability: the **expected behavior** (observable), the **eval set** (how you check), the **metric**, and the **pass bar**.
 

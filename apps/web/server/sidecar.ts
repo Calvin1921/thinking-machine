@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   boardPath, listBoards, createBoard, loadBoard, mutate,
+  editNode, NodePatchSchema, NodeEditConflict,
   addNode, linkNodes, setNodeLabel, setNodeDescription, updateNodePosition, setNodeImage, setNodeStatus, setBoardLayout,
   addSection, setSectionNote, setSectionLayout, setSectionPos, setNodeSize, setSectionSize, applyLayout,
 } from "@tm/core";
@@ -77,8 +78,34 @@ export function createSidecar(dir: string): Sidecar {
   app.post("/api/boards/:id/add", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);
     if (!file) return;
-    const { label, parentId, kind } = req.body;
-    res.json(mutate(file, (b) => addNode(b, { label, parentId, kind })));
+    const { label, parentId, kind } = req.body ?? {};
+    if (typeof label !== "string" || !label.trim() || typeof parentId !== "string" || !["branch", "atom"].includes(kind)) {
+      res.status(400).json({ error: "A thought, parent, and valid kind are required." }); return;
+    }
+    res.json(mutate(file, (b) => {
+      const next = addNode(b, { label: label.trim(), parentId, kind });
+      const added = next.nodes.at(-1)!;
+      const parent = b.nodes.find(n => n.id === parentId)!;
+      const peers = b.nodes.filter(n => n.id !== parentId && n.sectionId === parent.sectionId);
+      // Keep manual additions separate from existing cards; Tidy can reorganize the board.
+      const bottom = Math.max(parent.y, ...peers.map(n => n.y + (n.h ?? 180)));
+      return updateNodePosition(next, added.id, parent.x + (parent.w ?? 280) + 80, bottom + 48);
+    }));
+  });
+  app.post("/api/boards/:id/edit", (req, res) => {
+    const file = resolveBoard(res, req.params.id, true);
+    if (!file) return;
+    const { nodeId, changes, expected } = req.body ?? {};
+    const patch = NodePatchSchema.safeParse(changes);
+    const original = NodePatchSchema.safeParse(expected);
+    if (typeof nodeId !== "string" || !patch.success || !original.success) {
+      res.status(400).json({ error: "Invalid thought details." }); return;
+    }
+    try {
+      res.json(mutate(file, b => editNode(b, nodeId, patch.data, original.data)));
+    } catch (error) {
+      res.status(error instanceof NodeEditConflict ? 409 : 400).json({ error: (error as Error).message });
+    }
   });
   app.post("/api/boards/:id/link", (req, res) => {
     const file = resolveBoard(res, req.params.id, true);

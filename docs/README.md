@@ -14,3 +14,12 @@ Everything below is the design/engineering record behind it.
 | [SYSTEM-SPEC.md](SYSTEM-SPEC.md) | Original v1 system design spec — data model, primary flows, error states, testing strategy |
 | [GUIDED-FLYWHEEL-SPEC.md](GUIDED-FLYWHEEL-SPEC.md) | Design for the Guide posture (Locate/Widen/Deepen) and the content-provenance/trust model |
 | decision-board.png | Screenshot referenced from the root README's opening example |
+
+## Product walkthrough
+
+- [90-second demo and safe assets](demo/README.md)
+- [Optional agents and CLI setup](AGENTS-AND-CLI.md)
+- [Presentation audit and verification](PRESENTATION-AUDIT.md)
+
+- [Hands-on usage and expected results](USAGE.md)
+- [Current capabilities and recommended next steps](CAPABILITY-REVIEW.md)

@@ -10,11 +10,18 @@ export interface BoardSummary {
   updatedAt: number;
 }
 
-const post = (path: string, body: unknown) =>
-  fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
+const post = async (path: string, body: unknown) => {
+  const response = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || `Could not save (HTTP ${response.status}). Your input has been kept; try again.`);
+  return data;
+};
+
+export const editThought = (boardId: string, nodeId: string, changes: import("@tm/core").NodePatch, expected: import("@tm/core").NodePatch): Promise<Board> =>
+  post(`/api/boards/${boardId}/edit`, { nodeId, changes, expected });
 
 // --- collection ---
-export const listBoards = (): Promise<BoardSummary[]> => fetch("/api/boards").then((r) => r.json());
+export const listBoards = (): Promise<BoardSummary[]> => fetch("/api/boards").then((r) => { if (!r.ok) throw new Error("Could not load boards. Check that the local server is running."); return r.json(); });
 export const createBoard = (title: string, rootType: RootType): Promise<{ id: string }> =>
   post("/api/boards", { title, rootType });
 
@@ -27,7 +34,7 @@ export const getBoard = async (id: string): Promise<Board> => {
   }
   return r.json();
 };
-export const addNode = (boardId: string, label: string, parentId: string, kind: "branch" | "atom") =>
+export const addNode = (boardId: string, label: string, parentId: string, kind: "branch" | "atom"): Promise<Board> =>
   post(`/api/boards/${boardId}/add`, { label, parentId, kind });
 export const moveNode = (boardId: string, nodeId: string, x: number, y: number) =>
   post(`/api/boards/${boardId}/move`, { nodeId, x, y });
